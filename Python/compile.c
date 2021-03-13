@@ -993,6 +993,13 @@ stack_effect(int opcode, int oparg, int jump)
         case INPLACE_OR:
             return -1;
 
+        /* Binary super-instructions */
+        case FAST_ADD:
+        case CONST_ADD:
+        case FAST_SUBSCR:
+        case CONST_SUBSCR:
+            return 0;
+
         case SETUP_WITH:
             /* 1 in the normal flow.
              * Restore the stack position and push 6 values before jumping to
@@ -7040,6 +7047,23 @@ optimize_basic_block(basicblock *bb, PyObject *consts)
                             bb->b_exit = 1;
                         }
                 }
+                break;
+
+#if 1
+            case LOAD_FAST:
+                switch(nextop) {
+                    case BINARY_ADD:
+                        inst->i_opcode = FAST_ADD;
+                        bb->b_instr[i+1].i_opcode = NOP;
+                        break;
+                    case BINARY_SUBSCR:
+                        inst->i_opcode = FAST_SUBSCR;
+                        bb->b_instr[i+1].i_opcode = NOP;
+                        break;
+                }
+                break;
+#endif
+
         }
     }
     return 0;

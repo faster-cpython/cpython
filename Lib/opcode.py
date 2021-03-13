@@ -212,4 +212,18 @@ def_op('SET_UPDATE', 163)
 def_op('DICT_MERGE', 164)
 def_op('DICT_UPDATE', 165)
 
+# Extra opcodes, e.g. FAST_ADD == LOAD_FAST + BINARY_ADD
+
+def_op('FAST_ADD', 170)
+haslocal.append(170)
+def_op('CONST_ADD', 171)
+hasconst.append(171)
+
+def_op('FAST_SUBSCR', 172)
+haslocal.append(172)
+def_op('CONST_SUBSCR', 173)
+hasconst.append(173)
+
+# More to come
+
 del def_op, name_op, jrel_op, jabs_op
