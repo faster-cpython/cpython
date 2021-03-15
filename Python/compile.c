@@ -6892,6 +6892,14 @@ optimize_basic_block(basicblock *bb, PyObject *consts)
                             bb->b_instr[i+1].i_opcode = NOP;
                         }
                         break;
+                    case BINARY_ADD:
+                        inst->i_opcode = CONST_ADD;
+                        bb->b_instr[i+1].i_opcode = NOP;
+                        break;
+                    case BINARY_SUBSCR:
+                        inst->i_opcode = CONST_SUBSCR;
+                        bb->b_instr[i+1].i_opcode = NOP;
+                        break;
                 }
                 break;
             }
@@ -7049,7 +7057,6 @@ optimize_basic_block(basicblock *bb, PyObject *consts)
                 }
                 break;
 
-#if 1
             case LOAD_FAST:
                 switch(nextop) {
                     case BINARY_ADD:
@@ -7062,7 +7069,6 @@ optimize_basic_block(basicblock *bb, PyObject *consts)
                         break;
                 }
                 break;
-#endif
 
         }
     }

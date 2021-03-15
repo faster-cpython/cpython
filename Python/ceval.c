@@ -2062,7 +2062,12 @@ main_loop:
             DISPATCH();
         }
 
-        // TODO: Merge tails of FAST_ADD and BINARY_ADD
+        // TODO: Merge tails of *_ADD and BINARY_ADD
+        // Alternatively, remove the INCREF/DECREF(right) pair
+        // Since the local keeps them alive and
+        // there's no way the local can be deleted by PyNumber_Add()
+        // (if there was a call to a closure with access, it would
+        // be a cell, not a fast local)
         case TARGET(FAST_ADD): {
             PyObject *right = GETLOCAL(oparg);
             if (right == NULL) {
@@ -2071,15 +2076,9 @@ main_loop:
                                      PyTuple_GetItem(co->co_varnames, oparg));
                 goto error;
             }
-            Py_INCREF(right);
+            // Py_INCREF(right);
             PyObject *left = TOP();
             PyObject *sum;
-            /* NOTE(vstinner): Please don't try to micro-optimize int+int on
-               CPython using bytecode, it is simply worthless.
-               See http://bugs.python.org/issue21955 and
-               http://bugs.python.org/issue10044 for the discussion. In short,
-               no patch shown any impact on a realistic benchmark, only a minor
-               speedup on microbenchmarks. */
             if (PyUnicode_CheckExact(left) &&
                      PyUnicode_CheckExact(right)) {
                 sum = unicode_concatenate(tstate, left, right, f, next_instr);
@@ -2089,7 +2088,29 @@ main_loop:
                 sum = PyNumber_Add(left, right);
                 Py_DECREF(left);
             }
-            Py_DECREF(right);
+            // Py_DECREF(right);
+            SET_TOP(sum);
+            if (sum == NULL)
+                goto error;
+            DISPATCH();
+        }
+
+        // See comments at FAST_ADD
+        case TARGET(CONST_ADD): {
+            PyObject *right = GETITEM(consts, oparg);
+            // Py_INCREF(right);
+            PyObject *left = TOP();
+            PyObject *sum;
+            if (PyUnicode_CheckExact(left) &&
+                     PyUnicode_CheckExact(right)) {
+                sum = unicode_concatenate(tstate, left, right, f, next_instr);
+                /* unicode_concatenate consumed the ref to left */
+            }
+            else {
+                sum = PyNumber_Add(left, right);
+                Py_DECREF(left);
+            }
+            // Py_DECREF(right);
             SET_TOP(sum);
             if (sum == NULL)
                 goto error;
@@ -2134,6 +2155,7 @@ main_loop:
             DISPATCH();
         }
 
+        // See comments at FAST_ADD
         case TARGET(FAST_SUBSCR): {
             PyObject *sub = GETLOCAL(oparg);
             if (sub == NULL) {
@@ -2147,6 +2169,26 @@ main_loop:
             PyObject *res = PyObject_GetItem(container, sub);
             Py_DECREF(container);
             Py_DECREF(sub);
+            SET_TOP(res);
+            if (res == NULL)
+                goto error;
+            DISPATCH();
+        }
+
+        // See comments at FAST_ADD
+        case TARGET(CONST_SUBSCR): {
+            PyObject *sub = GETITEM(consts, oparg);
+            if (sub == NULL) {
+                format_exc_check_arg(tstate, PyExc_UnboundLocalError,
+                                     UNBOUNDLOCAL_ERROR_MSG,
+                                     PyTuple_GetItem(co->co_varnames, oparg));
+                goto error;
+            }
+            // Py_INCREF(sub);
+            PyObject *container = TOP();
+            PyObject *res = PyObject_GetItem(container, sub);
+            Py_DECREF(container);
+            // Py_DECREF(sub);
             SET_TOP(res);
             if (res == NULL)
                 goto error;
