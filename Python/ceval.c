@@ -2117,6 +2117,22 @@ main_loop:
             DISPATCH();
         }
 
+        case TARGET(INT_ADD): {
+            PyObject *right = PyLong_FromLongLong(oparg);
+            if (right == NULL) {
+                goto error;
+            }
+            PyObject *left = TOP();
+            // Don't optimize unicode here since right is a long
+            PyObject *sum = PyNumber_Add(left, right);
+            Py_DECREF(left);
+            Py_DECREF(right);
+            SET_TOP(sum);
+            if (sum == NULL)
+                goto error;
+            DISPATCH();
+        }
+
         case TARGET(BINARY_ADD): {
             PyObject *right = POP();
             PyObject *left = TOP();
@@ -2189,6 +2205,21 @@ main_loop:
             PyObject *res = PyObject_GetItem(container, sub);
             Py_DECREF(container);
             // Py_DECREF(sub);
+            SET_TOP(res);
+            if (res == NULL)
+                goto error;
+            DISPATCH();
+        }
+
+        case TARGET(INT_SUBSCR): {
+            PyObject *sub = PyLong_FromLongLong(oparg);
+            if (sub == NULL) {
+                goto error;
+            }
+            PyObject *container = TOP();
+            PyObject *res = PyObject_GetItem(container, sub);
+            Py_DECREF(container);
+            Py_DECREF(sub);
             SET_TOP(res);
             if (res == NULL)
                 goto error;

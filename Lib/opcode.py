@@ -224,6 +224,9 @@ haslocal.append(172)
 def_op('CONST_SUBSCR', 173)
 hasconst.append(173)
 
+def_op('INT_ADD', 174)
+def_op('INT_SUBSCR', 175)
+
 # More to come
 
 del def_op, name_op, jrel_op, jabs_op

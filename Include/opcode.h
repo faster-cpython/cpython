@@ -137,6 +137,8 @@ extern "C" {
 #define CONST_ADD               171
 #define FAST_SUBSCR             172
 #define CONST_SUBSCR            173
+#define INT_ADD                 174
+#define INT_SUBSCR              175
 #ifdef NEED_OPCODE_JUMP_TABLES
 static uint32_t _PyOpcode_RelativeJump[8] = {
     0U,

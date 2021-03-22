@@ -996,8 +996,10 @@ stack_effect(int opcode, int oparg, int jump)
         /* Binary super-instructions */
         case FAST_ADD:
         case CONST_ADD:
+        case INT_ADD:
         case FAST_SUBSCR:
         case CONST_SUBSCR:
+        case INT_SUBSCR:
             return 0;
 
         case SETUP_WITH:
@@ -6893,10 +6895,32 @@ optimize_basic_block(basicblock *bb, PyObject *consts)
                         }
                         break;
                     case BINARY_ADD:
+                        cnt = PyList_GET_ITEM(consts, oparg);
+                        if (PyLong_CheckExact(cnt)) {
+                            int ovf = 0;
+                            long val = PyLong_AsLongAndOverflow(cnt, &ovf);
+                            if (ovf == 0 && val >= 0 && val < 256) {
+                                inst->i_opcode = INT_ADD;
+                                inst->i_oparg = val;
+                                bb->b_instr[i+1].i_opcode = NOP;
+                                break;
+                            }
+                        }
                         inst->i_opcode = CONST_ADD;
                         bb->b_instr[i+1].i_opcode = NOP;
                         break;
                     case BINARY_SUBSCR:
+                        cnt = PyList_GET_ITEM(consts, oparg);
+                        if (PyLong_CheckExact(cnt)) {
+                            int ovf = 0;
+                            long val = PyLong_AsLongAndOverflow(cnt, &ovf);
+                            if (ovf == 0 && val >= 0 && val < 256) {
+                                inst->i_opcode = INT_SUBSCR;
+                                inst->i_oparg = val;
+                                bb->b_instr[i+1].i_opcode = NOP;
+                                break;
+                            }
+                        }
                         inst->i_opcode = CONST_SUBSCR;
                         bb->b_instr[i+1].i_opcode = NOP;
                         break;
