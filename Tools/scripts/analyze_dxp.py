@@ -182,7 +182,7 @@ def render_common_pairs(profile=None):
     return os.linesep.join(lines)
 
 
-def _render_profile(profile, *, fmt='summary'):
+def _render_profile(profile, *, fmt='summary', descending=True):
     if fmt == 'summary' or not fmt:
         summary = _summarize(profile)
         yield '============='
@@ -225,6 +225,7 @@ def _render_profile(profile, *, fmt='summary'):
             # XXX break up into multiple lines?
             yield f'{op1:>3}: {op1profile}'
     elif fmt == 'json':
+        # XXX sort?
         # XXX indent?
         text = json.dumps(profile)
         yield from text.splitlines()
@@ -233,10 +234,12 @@ def _render_profile(profile, *, fmt='summary'):
         yield str(profile)
     else:
         pairs = [v for v in _common_pairs(profile) if v[-1] > 0]
-        pairs.sort(key=operator.itemgetter(2), reverse=True)
+        pairs.sort(key=operator.itemgetter(2), reverse=descending)
         if fmt == 'simple':
             for _, ops, count in pairs:
-                yield f'{count:>6} - {ops}'
+                op1, op2 = ops
+                yield f'  {op1:20} --> {op2:20} {count:>10,}'
+            yield f'total: {len(pairs)} pairs'
         else:
             raise ValueError(f'unsupported fmt {fmt!r}')
 
@@ -253,15 +256,18 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
     for fmt in formats:
         parser.add_argument(f'--{fmt}', dest='fmt',
                             action='store_const', const=fmt)
+    parser.add_argument('--descending', action='store_true')
+    parser.add_argument('--ascending', dest='descending', action='store_false')
+    parser.set_defaults(descending=True)
     parser.add_argument('filename', metavar='FILE')
     args = parser.parse_args()
 
     return vars(args)
 
 
-def main(filename=None, *, fmt='summary'):
+def main(filename=None, **kwargs):
     profile = load_profile(filename)
-    for line in _render_profile(profile, fmt=fmt):
+    for line in _render_profile(profile, **kwargs):
         print(line)
 
 
