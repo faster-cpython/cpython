@@ -124,6 +124,46 @@ def _common_pairs(profile):
             yield ((op1, op2), (opcode.opname[op1], opcode.opname[op2]), count)
 
 
+def _summarize(profile):
+    pairs = [(p, c) for _, p, c in _common_pairs(profile) if c > 0]
+
+    op1_pairs = {}
+    op2_pairs = {}
+    for names, count in pairs:
+        op1, op2 = names
+        if op1 not in op1_pairs:
+            op1_pairs[op1] = [0, 0]
+        if op2 not in op2_pairs:
+            op2_pairs[op2] = [0, 0]
+
+        op1_pairs[op1][0] += 1
+        op1_pairs[op1][1] += count
+        op2_pairs[op2][0] += 1
+        op2_pairs[op2][1] += count
+
+    return {
+        'totals': {
+            'pairs': len(pairs),
+            'op1_pairs': len(op1_pairs),
+            'op2_pairs': len(op2_pairs),
+            'used': sum(c for _, c in pairs)
+        },
+        # XXX mean?
+        # XXX distribution?
+        'top10': {
+            'pairs': sorted(pairs, key=lambda v: v[1], reverse=True)[:10],
+            'op1_pairs': sorted(((o[0], o[1][0]) for o in op1_pairs.items()),
+                                key=lambda v: v[1], reverse=True)[:10],
+            'op2_pairs': sorted(((o[0], o[1][0]) for o in op2_pairs.items()),
+                                key=lambda v: v[1], reverse=True)[:10],
+            'op1_count': sorted(((o[0], o[1][1]) for o in op1_pairs.items()),
+                                key=lambda v: v[1], reverse=True)[:10],
+            'op2_count': sorted(((o[0], o[1][1]) for o in op2_pairs.items()),
+                                key=lambda v: v[1], reverse=True)[:10],
+        },
+    }
+
+
 def render_common_pairs(profile=None):
     """Renders the most common opcode pairs to a string in order of
     descending frequency.
@@ -138,15 +178,67 @@ def render_common_pairs(profile=None):
         profile = snapshot_profile()
     if not has_pairs(profile):
         return ''
-    lines = _render_common_pairs(profile) + ['']
+    lines = _render_profile(profile, fmt='simple') + ['']
     return os.linesep.join(lines)
 
 
-def _render_common_pairs(profile):
-    pairs = [v for v in _common_pairs(profile) if v[-1] > 0]
-    pairs.sort(key=operator.itemgetter(2), reverse=True)
-    for _, ops, count in pairs:
-        yield f'{count:>6} - {ops}'
+def _render_profile(profile, *, fmt='summary'):
+    if fmt == 'summary' or not fmt:
+        summary = _summarize(profile)
+        yield '============='
+        yield '== Summary =='
+        yield '============='
+        yield ''
+        yield '- Usage -'
+        yield ''
+        yield f'total: {" " * 40} {summary["totals"]["used"]:10,}'
+        yield ''
+        yield 'Top 10 pairs:'
+        for pair, count in summary['top10']['pairs']:
+            op1, op2 = pair
+            yield f'  {op1:20} --> {op2:20} {count:>10,}'
+        yield ''
+        yield 'Top 10 op1:'
+        for op, count in summary['top10']['op1_count']:
+            yield f'  {op:20} {" " * 24} {count:>10,}'
+        yield ''
+        yield 'Top 10 op2:'
+        for op, count in summary['top10']['op2_count']:
+            yield f'  {op:20} {" " * 24} {count:>10,}'
+        yield ''
+        yield '- Pairs -'
+        yield ''
+        yield f'total:     {" " * 8} {summary["totals"]["pairs"]:>6,} / {256 * 256:,}'
+        yield f'total op1: {" " * 11} {summary["totals"]["op1_pairs"]:>3,} / 256'
+        yield f'total op2: {" " * 11} {summary["totals"]["op2_pairs"]:>3,} / 256'
+        yield ''
+        yield 'Top 10 op1:'
+        for op, count in summary['top10']['op1_pairs']:
+            yield f'  {op:20} {count:>3,}'
+        yield ''
+        yield 'Top 10 op2:'
+        for op, count in summary['top10']['op2_pairs']:
+            yield f'  {op:20} {count:>3,}'
+    elif fmt == 'flat':
+        # XXX sort?
+        for op1, op1profile in enumerate(profile):
+            # XXX break up into multiple lines?
+            yield f'{op1:>3}: {op1profile}'
+    elif fmt == 'json':
+        # XXX indent?
+        text = json.dumps(profile)
+        yield from text.splitlines()
+    elif fmt == 'raw':
+        # XXX pprint?
+        yield str(profile)
+    else:
+        pairs = [v for v in _common_pairs(profile) if v[-1] > 0]
+        pairs.sort(key=operator.itemgetter(2), reverse=True)
+        if fmt == 'simple':
+            for _, ops, count in pairs:
+                yield f'{count:>6} - {ops}'
+        else:
+            raise ValueError(f'unsupported fmt {fmt!r}')
 
 
 #############################
@@ -155,15 +247,21 @@ def _render_common_pairs(profile):
 def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
     import argparse
     parser = argparse.ArgumentParser()
+    formats = ['summary', 'simple', 'flat', 'json', 'raw']
+    parser.add_argument('--format', dest='fmt', choices=formats,
+                        default='summary')
+    for fmt in formats:
+        parser.add_argument(f'--{fmt}', dest='fmt',
+                            action='store_const', const=fmt)
     parser.add_argument('filename', metavar='FILE')
     args = parser.parse_args()
 
     return vars(args)
 
 
-def main(filename=None):
+def main(filename=None, *, fmt='summary'):
     profile = load_profile(filename)
-    for line in _render_common_pairs(profile):
+    for line in _render_profile(profile, fmt=fmt):
         print(line)
 
 
