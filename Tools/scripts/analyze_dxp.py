@@ -182,7 +182,7 @@ def render_common_pairs(profile=None):
     return os.linesep.join(lines)
 
 
-def _render_profile(profile, *, fmt='summary', sort='count', descending=True):
+def _render_profile(profile, *, fmt='summary', sort='count', flip=False):
     if fmt == 'summary' or not fmt:
         summary = _summarize(profile)
         yield '============='
@@ -235,13 +235,13 @@ def _render_profile(profile, *, fmt='summary', sort='count', descending=True):
     else:
         pairs = [v for v in _common_pairs(profile) if v[-1] > 0]
         if sort == 'count':
-            pairs.sort(key=operator.itemgetter(2), reverse=descending)
+            pairs.sort(key=operator.itemgetter(2), reverse=not flip)
         elif sort == 'op1':
             pairs.sort(key=(lambda v: (v[1][0], v[1][1])),
-                       reverse=not descending)
+                       reverse=flip)
         elif sort == 'op2':
             pairs.sort(key=(lambda v: (v[1][1], v[1][0])),
-                       reverse=not descending)
+                       reverse=flip)
         elif sort != 'raw':
             raise NotImplementedError(sort)
         if fmt == 'simple':
@@ -265,13 +265,13 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
     for fmt in formats:
         parser.add_argument(f'--{fmt}', dest='fmt',
                             action='store_const', const=fmt)
-    parser.add_argument('--descending', action='store_true')
-    parser.add_argument('--ascending', dest='descending', action='store_false')
-    parser.set_defaults(descending=True)
+    parser.add_argument('--flip', action='count', default=0)
     parser.add_argument('--sort', choices=['count', 'op1', 'op2', 'raw'],
                         default='count')
     parser.add_argument('filename', metavar='FILE')
     args = parser.parse_args()
+
+    args.flip = bool(args.flip % 2)
 
     return vars(args)
 
