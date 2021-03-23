@@ -2118,11 +2118,36 @@ main_loop:
         }
 
         case TARGET(INT_ADD): {
+            PyObject *left = TOP();
+            if (PyLong_CheckExact(left)) {
+                PyLongObject *ll = (PyLongObject *)left;
+                Py_ssize_t lsum;
+                switch (ll->ob_base.ob_size) {
+                    case -1: {
+                        lsum = oparg - ll->ob_digit[0];
+                        break;
+                    case 0:
+                        lsum = oparg;
+                        break;
+                    case 1:
+                        lsum = oparg + ll->ob_digit[0];
+                        break;
+                    default:
+                        goto nah;
+                    }
+                    Py_DECREF(left);
+                    PyObject *sum = PyLong_FromLongLong(lsum);
+                    if (sum == NULL) {
+                        goto error;
+                    }
+                    DISPATCH();
+                }
+            nah:;
+            }
             PyObject *right = PyLong_FromLongLong(oparg);
             if (right == NULL) {
                 goto error;
             }
-            PyObject *left = TOP();
             // Don't optimize unicode here since right is a long
             PyObject *sum = PyNumber_Add(left, right);
             Py_DECREF(left);
@@ -2212,11 +2237,29 @@ main_loop:
         }
 
         case TARGET(INT_SUBSCR): {
+            PyObject *container = TOP();
+            if (PyTuple_CheckExact(container)) {
+                if (oparg < PyTuple_GET_SIZE(container)) {
+                    PyObject *res = GETITEM(container, oparg);
+                    Py_INCREF(res);
+                    Py_DECREF(container);
+                    SET_TOP(res);
+                    DISPATCH();
+                }
+            }
+            else if (PyList_CheckExact(container)) {
+                if (oparg < PyList_GET_SIZE(container)) {
+                    PyObject *res = PyList_GET_ITEM(container, oparg);
+                    Py_INCREF(res);
+                    Py_DECREF(container);
+                    SET_TOP(res);
+                    DISPATCH();
+                }
+            }
             PyObject *sub = PyLong_FromLongLong(oparg);
             if (sub == NULL) {
                 goto error;
             }
-            PyObject *container = TOP();
             PyObject *res = PyObject_GetItem(container, sub);
             Py_DECREF(container);
             Py_DECREF(sub);

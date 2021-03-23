@@ -6899,6 +6899,9 @@ optimize_basic_block(basicblock *bb, PyObject *consts)
                         if (PyLong_CheckExact(cnt)) {
                             int ovf = 0;
                             long val = PyLong_AsLongAndOverflow(cnt, &ovf);
+                            // TODO: What about larger values?
+                            // They would cause an EXTENDED_ARG to be generated,
+                            // which may defeat any potential cost savings.
                             if (ovf == 0 && val >= 0 && val < 256) {
                                 inst->i_opcode = INT_ADD;
                                 inst->i_oparg = val;
