@@ -147,3 +147,25 @@ def _render_common_pairs(profile):
     pairs.sort(key=operator.itemgetter(2), reverse=True)
     for _, ops, count in pairs:
         yield f'{count:>6} - {ops}'
+
+
+#############################
+# the script
+
+def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filename', metavar='FILE')
+    args = parser.parse_args()
+
+    return vars(args)
+
+
+def main(filename=None):
+    profile = load_profile(filename)
+    for line in _render_common_pairs(profile):
+        print(line)
+
+
+if __name__ == '__main__':
+    main(**parse_args())
