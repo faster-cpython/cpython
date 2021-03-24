@@ -2118,7 +2118,7 @@ main_loop:
                 PyLongObject *ll = (PyLongObject *)left;
                 Py_ssize_t lsum;
                 switch (ll->ob_base.ob_size) {
-                    case -1: {
+                    case -1:
                         lsum = oparg - ll->ob_digit[0];
                         break;
                     case 0:
@@ -2128,17 +2128,17 @@ main_loop:
                         lsum = oparg + ll->ob_digit[0];
                         break;
                     default:
-                        goto nah;
-                    }
-                    Py_DECREF(left);
-                    PyObject *sum = PyLong_FromLongLong(lsum);
-                    if (sum == NULL) {
-                        goto error;
-                    }
-                    DISPATCH();
+                        goto not_a_medium_int;
                 }
-            nah:;
+                Py_DECREF(left);
+                PyObject *sum = PyLong_FromLongLong(lsum);
+                SET_TOP(sum);
+                if (sum == NULL) {
+                    goto error;
+                }
+                DISPATCH();
             }
+          not_a_medium_int:
             PyObject *right = PyLong_FromLongLong(oparg);
             if (right == NULL) {
                 goto error;
