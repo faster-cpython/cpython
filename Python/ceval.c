@@ -1855,10 +1855,7 @@ main_loop:
         case TARGET(LOAD_FAST): {
             PyObject *value = GETLOCAL(oparg);
             if (value == NULL) {
-                format_exc_check_arg(tstate, PyExc_UnboundLocalError,
-                                     UNBOUNDLOCAL_ERROR_MSG,
-                                     PyTuple_GetItem(co->co_varnames, oparg));
-                goto error;
+                goto undefined_fast_local;
             }
             Py_INCREF(value);
             PUSH(value);
@@ -2062,19 +2059,17 @@ main_loop:
             DISPATCH();
         }
 
-        // TODO: Merge tails of *_ADD and BINARY_ADD
-        // Alternatively, remove the INCREF/DECREF(right) pair
-        // Since the local keeps them alive and
-        // there's no way the local can be deleted by PyNumber_Add()
-        // (if there was a call to a closure with access, it would
-        // be a cell, not a fast local)
+        // TODO: Merge tails of *_ADD and BINARY_ADD.
+        // Alternatively, remove the INCREF/DECREF(right) pair,
+        // since the local keeps them alive and there's
+        // no way the local can be deleted by PyNumber_Add()
+        // (if there was a call to a closure with access, 
+        // it would be a cell, not a fast local).
+        // Merging is inconvenient because of scopes, though.
         case TARGET(FAST_ADD): {
             PyObject *right = GETLOCAL(oparg);
             if (right == NULL) {
-                format_exc_check_arg(tstate, PyExc_UnboundLocalError,
-                                     UNBOUNDLOCAL_ERROR_MSG,
-                                     PyTuple_GetItem(co->co_varnames, oparg));
-                goto error;
+                goto undefined_fast_local;
             }
             // Py_INCREF(right);
             PyObject *left = TOP();
@@ -2200,10 +2195,7 @@ main_loop:
         case TARGET(FAST_SUBSCR): {
             PyObject *sub = GETLOCAL(oparg);
             if (sub == NULL) {
-                format_exc_check_arg(tstate, PyExc_UnboundLocalError,
-                                     UNBOUNDLOCAL_ERROR_MSG,
-                                     PyTuple_GetItem(co->co_varnames, oparg));
-                goto error;
+                goto undefined_fast_local;
             }
             Py_INCREF(sub);
             PyObject *container = TOP();
@@ -2220,10 +2212,7 @@ main_loop:
         case TARGET(CONST_SUBSCR): {
             PyObject *sub = GETITEM(consts, oparg);
             if (sub == NULL) {
-                format_exc_check_arg(tstate, PyExc_UnboundLocalError,
-                                     UNBOUNDLOCAL_ERROR_MSG,
-                                     PyTuple_GetItem(co->co_varnames, oparg));
-                goto error;
+                goto undefined_fast_local;
             }
             // Py_INCREF(sub);
             PyObject *container = TOP();
@@ -3205,12 +3194,7 @@ main_loop:
                 SETLOCAL(oparg, NULL);
                 DISPATCH();
             }
-            format_exc_check_arg(
-                tstate, PyExc_UnboundLocalError,
-                UNBOUNDLOCAL_ERROR_MSG,
-                PyTuple_GetItem(co->co_varnames, oparg)
-                );
-            goto error;
+            goto undefined_fast_local;
         }
 
         case TARGET(DELETE_DEREF): {
@@ -4637,6 +4621,12 @@ main_loop:
         /* This should never be reached. Every opcode should end with DISPATCH()
            or goto error. */
         Py_UNREACHABLE();
+
+undefined_fast_local:
+        format_exc_check_arg(tstate, PyExc_UnboundLocalError,
+                             UNBOUNDLOCAL_ERROR_MSG,
+                             PyTuple_GetItem(co->co_varnames, oparg));
+        goto error;
 
 error:
         /* Double-check exception status. */
