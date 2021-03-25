@@ -665,11 +665,7 @@ Py_RunMain(void)
 {
     int exitcode = 0;
 
-    _PyPerf_TraceInit();
-
     pymain_run_python(&exitcode);
-
-    _PyPerf_TraceFini();
 
     if (Py_FinalizeEx() < 0) {
         /* Value unlikely to be confused with a non-error exit status or
@@ -690,16 +686,26 @@ Py_RunMain(void)
 static int
 pymain_main(_PyArgv *args)
 {
+    int res = 0;
+
+    _PyPerf_TraceInit(args);
+
     PyStatus status = pymain_init(args);
     if (_PyStatus_IS_EXIT(status)) {
         pymain_free();
-        return status.exitcode;
+        res = status.exitcode;
     }
-    if (_PyStatus_EXCEPTION(status)) {
-        pymain_exit_error(status);
+    else {
+        if (_PyStatus_EXCEPTION(status)) {
+            pymain_exit_error(status);
+        }
+
+        res = Py_RunMain();
     }
 
-    return Py_RunMain();
+    _PyPerf_TraceFini();
+
+    return res;
 }
 
 

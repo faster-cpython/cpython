@@ -1,5 +1,6 @@
 import decimal
 import opcode
+import os.path
 import sys
 
 
@@ -47,7 +48,11 @@ def _process_lines(lines):
         lines = lines.splitlines()
     for line in lines:
         line = line.strip()
-        if line:
+        if not line:
+            continue
+        if line.startswith('#'):
+            yield line
+        else:
             yield _parse_trace(line)
 
 
@@ -68,12 +73,18 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
 
 
 def main(filename):
+    if os.path.basename(filename) == filename:
+        filename = os.path.join('.', filename)
     print(f'reading from {filename}')
     print()
     with open(filename) as infile:
         traces = iter(_process_lines(infile))
 
-        start, current = next(traces)
+        first = next(traces)
+        while isinstance(first, str):
+            print(first)
+            first = next(traces)
+        start, current = first
         for end, event in _process_lines(infile):
             elapsed = format_elapsed(end - start)
             print(f'{current:30} -> {elapsed}')
