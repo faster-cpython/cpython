@@ -7,6 +7,8 @@
 #include "pycore_pylifecycle.h"   // _Py_PreInitializeFromPyArgv()
 #include "pycore_pystate.h"       // _PyInterpreterState_GET()
 
+#include "pycore_perf.h"
+
 /* Includes for exit_sigint() */
 #include <stdio.h>                // perror()
 #ifdef HAVE_SIGNAL_H
@@ -663,7 +665,11 @@ Py_RunMain(void)
 {
     int exitcode = 0;
 
+    _PyPerf_TraceInit();
+
     pymain_run_python(&exitcode);
+
+    _PyPerf_TraceFini();
 
     if (Py_FinalizeEx() < 0) {
         /* Value unlikely to be confused with a non-error exit status or

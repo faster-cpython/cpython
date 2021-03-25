@@ -34,6 +34,8 @@
 
 #include <ctype.h>
 
+#include "pycore_perf.h"
+
 typedef struct {
     PyCodeObject *code; // The code object for the bounds. May be NULL.
     int instr_prev;  // Only valid if code != NULL.
@@ -1234,6 +1236,7 @@ eval_frame_handle_pending(PyThreadState *tstate)
 PyObject* _Py_HOT_FUNCTION
 _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 {
+    _PyPerf_Trace("<enter>");
     _Py_EnsureTstateNotNULL(tstate);
 
 #ifdef DXPAIRS
@@ -1625,6 +1628,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 /* Start of code */
 
     if (_Py_EnterRecursiveCall(tstate, "")) {
+        _PyPerf_Trace("<exit>");
         return NULL;
     }
 
@@ -1656,6 +1660,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
                                      tstate, f, &trace_info,
                                      PyTrace_CALL, Py_None)) {
                 /* Trace function raised an error */
+                _PyPerf_Trace("<loop exit>");
                 goto exit_eval_frame;
             }
         }
@@ -1667,6 +1672,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
                                      tstate, f, &trace_info,
                                      PyTrace_CALL, Py_None)) {
                 /* Profile function raised an error */
+                _PyPerf_Trace("<loop exit>");
                 goto exit_eval_frame;
             }
         }
@@ -1719,6 +1725,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
         co->co_opcache_flag++;
         if (co->co_opcache_flag == opcache_min_runs) {
             if (_PyCode_InitOpcache(co) < 0) {
+                _PyPerf_Trace("<loop exit>");
                 goto exit_eval_frame;
             }
 #if OPCACHE_STATS
@@ -1734,6 +1741,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
     {
         int r = _PyDict_ContainsId(f->f_globals, &PyId___ltrace__);
         if (r < 0) {
+            _PyPerf_Trace("<loop exit>");
             goto exit_eval_frame;
         }
         lltrace = r;
@@ -1753,6 +1761,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 
 main_loop:
     for (;;) {
+        _PyPerf_Trace("<loop enter>");
         assert(stack_pointer >= f->f_valuestack); /* else underflow */
         assert(STACK_LEVEL() <= co->co_stacksize);  /* else overflow */
         assert(!_PyErr_Occurred(tstate));
@@ -1850,6 +1859,7 @@ main_loop:
         }
 #endif
 
+        _PyPerf_TraceOp(opcode);
         switch (opcode) {
 
         /* BEWARE!
@@ -2427,6 +2437,7 @@ main_loop:
                 /* fall through */
             case 0:
                 if (do_raise(tstate, exc, cause)) {
+                    _PyPerf_Trace("<loop exception>");
                     goto exception_unwind;
                 }
                 break;
@@ -2444,6 +2455,7 @@ main_loop:
             assert(EMPTY());
             f->f_state = FRAME_RETURNED;
             f->f_stackdepth = 0;
+            _PyPerf_Trace("<loop exit>");
             goto exiting;
         }
 
@@ -2632,6 +2644,7 @@ main_loop:
             f->f_lasti -= sizeof(_Py_CODEUNIT);
             f->f_state = FRAME_SUSPENDED;
             f->f_stackdepth = (int)(stack_pointer - f->f_valuestack);
+            _PyPerf_Trace("<loop exit>");
             goto exiting;
         }
 
@@ -2649,6 +2662,7 @@ main_loop:
             }
             f->f_state = FRAME_SUSPENDED;
             f->f_stackdepth = (int)(stack_pointer - f->f_valuestack);
+            _PyPerf_Trace("<loop exit>");
             goto exiting;
         }
 
@@ -2691,6 +2705,7 @@ main_loop:
             PyObject *tb = POP();
             assert(PyExceptionClass_Check(exc));
             _PyErr_Restore(tstate, exc, val, tb);
+            _PyPerf_Trace("<loop exception>");
             goto exception_unwind;
         }
 
@@ -2710,6 +2725,7 @@ main_loop:
                 PyObject *val = POP();
                 PyObject *tb = POP();
                 _PyErr_Restore(tstate, exc, val, tb);
+                _PyPerf_Trace("<loop exception>");
                 goto exception_unwind;
             }
         }
@@ -4478,6 +4494,7 @@ main_loop:
         Py_UNREACHABLE();
 
 error:
+        _PyPerf_Trace("<loop error>");
         /* Double-check exception status. */
 #ifdef NDEBUG
         if (!_PyErr_Occurred(tstate)) {
@@ -4559,6 +4576,7 @@ exception_unwind:
         /* End the loop as we still have an error */
         break;
     } /* main loop */
+    _PyPerf_Trace("<loop exit>");
 
     assert(retval == NULL);
     assert(_PyErr_Occurred(tstate));
@@ -4593,7 +4611,9 @@ exit_eval_frame:
     _Py_LeaveRecursiveCall(tstate);
     tstate->frame = f->f_back;
 
-    return _Py_CheckFunctionResult(tstate, NULL, retval, __func__);
+    PyObject *_res = _Py_CheckFunctionResult(tstate, NULL, retval, __func__);
+    _PyPerf_Trace("<exit>");
+    return _res;
 }
 
 static void
