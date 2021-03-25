@@ -12,6 +12,8 @@ extern "C" {
 
 extern void _PyPerf_Trace(const char *id);
 extern void _PyPerf_TraceOp(int op);
+extern void _PyPerf_TraceFrameEnter(PyFrameObject *);
+extern void _PyPerf_TraceFrameExit(PyFrameObject *);
 extern void _PyPerf_TraceInit(_PyArgv *args);
 extern void _PyPerf_TraceFini(void);
 

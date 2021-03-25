@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include "Python.h"
 #include "pycore_initconfig.h"  // _PyArgv
+#include "frameobject.h"        // PyFrameObject
 
 // timespec_sub is provided by <timespec.h> in C11.
 static struct timespec
@@ -55,6 +56,14 @@ _render_argv(int argc, char **argv)
     *ptr = 0;  // res[size]
 
     return res;
+}
+
+static inline const char *
+_get_frame_name(PyFrameObject *f)
+{
+    // XXX qualname?
+    // XXX identify class vs. module vs. func?
+    return PyUnicode_AsUTF8(f->f_code->co_name);
 }
 
 static const char *
@@ -149,6 +158,28 @@ _PyPerf_TraceOp(int op)
 {
     if (_trace_file) {
         _log_op(_trace_file, op);
+    }
+}
+
+void
+_PyPerf_TraceFrameEnter(PyFrameObject *f)
+{
+    if (_trace_file) {
+        const char *funcname = _get_frame_name(f);
+        _log_info(_trace_file, "func", funcname);
+        // XXX Differentiate generators?
+        _log_id(_trace_file, "enter");
+    }
+}
+
+void
+_PyPerf_TraceFrameExit(PyFrameObject *f)
+{
+    if (_trace_file) {
+        const char *funcname = _get_frame_name(f);
+        _log_info(_trace_file, "func", funcname);
+        // XXX Differentiate generators?
+        _log_id(_trace_file, "exit");
     }
 }
 

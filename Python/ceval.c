@@ -1236,7 +1236,7 @@ eval_frame_handle_pending(PyThreadState *tstate)
 PyObject* _Py_HOT_FUNCTION
 _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 {
-    _PyPerf_Trace("enter");
+    _PyPerf_TraceFrameEnter(f);
     _Py_EnsureTstateNotNULL(tstate);
 
 #ifdef DXPAIRS
@@ -1628,7 +1628,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 /* Start of code */
 
     if (_Py_EnterRecursiveCall(tstate, "")) {
-        _PyPerf_Trace("exit");
+        _PyPerf_TraceFrameExit(f);
         return NULL;
     }
 
@@ -4612,7 +4612,7 @@ exit_eval_frame:
     tstate->frame = f->f_back;
 
     PyObject *_res = _Py_CheckFunctionResult(tstate, NULL, retval, __func__);
-    _PyPerf_Trace("exit");
+    _PyPerf_TraceFrameExit(f);
     return _res;
 }
 
