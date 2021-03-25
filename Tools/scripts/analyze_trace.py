@@ -1,4 +1,5 @@
 import contextlib
+import datetime
 import decimal
 import opcode
 import os
@@ -126,7 +127,20 @@ def _parse_info(line):
     text = text.strip()
     if not sep or not label or not text:
         return None
-    return label, text
+
+    if label == 'start time':
+        ts = int(text.split()[0])
+        dt = datetime.datetime.utcfromtimestamp(ts)
+        text = dt.isoformat(' ').split('.')[0]
+        text += ' UTC'
+    elif label == 'end time':
+        ts = int(text.split()[0])
+        dt = datetime.datetime.utcfromtimestamp(ts)
+        text = dt.isoformat(' ').split('.')[0]
+        text += ' UTC'
+
+    line = f'# {label + ":":20} {text}'
+    return line, (label, text)
 
 
 def _iter_clean_lines(lines):
@@ -146,7 +160,7 @@ def _process_lines(lines):
             break
         if not line.startswith('#'):
             raise NotImplementedError(line)
-        # Show the info lines as-is.
+        line, _ = _parse_info(line)
         yield line
     yield None
 
@@ -158,7 +172,7 @@ def _process_lines(lines):
         if line.startswith('#'):
             if info:
                 raise NotImplementedError((info, line, next(lines)))
-            info = _parse_info(line)
+            line, info = _parse_info(line)
             yield line
         else:
             yield _parse_trace(line, info)

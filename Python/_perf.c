@@ -204,6 +204,8 @@ _PyPerf_TraceFrameExit(PyFrameObject *f)
     }
 }
 
+static long _endtime_pos = -1;
+
 void
 _PyPerf_TraceInit(_PyArgv *args)
 {
@@ -225,6 +227,10 @@ _PyPerf_TraceInit(_PyArgv *args)
         // XXX Use Py_EncodeLocaleRaw()?
         _log_info(_trace_file, "argv", "<unknown>");
     }
+    _log_info_amount(_trace_file, "start time", started, "s (since epoch)");
+    // We will fill in the end time (12 digits) when we are done.
+    _endtime_pos = ftell(_trace_file) + 4 + strlen("end time");
+    _log_info(_trace_file, "end time", "???????????? s (since epoch)");
     _log_info_amount(_trace_file, "per-trace", cost, "ns");
     fprintf(_trace_file, "\n");  // Add a blank line.
 
@@ -238,8 +244,17 @@ _PyPerf_TraceFini(void)
     if (_trace_file == NULL) {
         return;
     }
+
     // Log the very last event.
     _PyPerf_Trace("fini");
+
+    // Update the header.
+    if (_endtime_pos >= 0) {
+        fseek(_trace_file, _endtime_pos, SEEK_SET);
+        _endtime_pos = 0;
+        fprintf(_trace_file, "%012ld", time(NULL));
+    }
+
     fclose(_trace_file);
     _trace_file = NULL;
 }
