@@ -32,6 +32,31 @@ _now(void)
     return time;
 }
 
+static char *
+_render_argv(int argc, char **argv)
+{
+    assert(argc && argv[0]);  // There must be a program at least.
+    size_t size = 0;
+    for (int i=0; i < argc; i++) {
+        size += strlen(argv[i]);
+    }
+    char *res = (char *)PyMem_RawMalloc(size + 1);
+    if (res == NULL) {
+        return NULL;
+    }
+
+    char *ptr = res;
+    for (int i=0; i < argc; i++) {
+        const char *arg = argv[i];
+        while (*arg) {
+            *ptr++ = *arg++;
+        }
+    }
+    *ptr = 0;  // res[size]
+
+    return res;
+}
+
 static const char *
 _get_filename_default(const char *name)
 {
@@ -93,15 +118,6 @@ _get_trace_cost_ns(FILE *f)
     return elapsed.tv_nsec;
 }
 
-static void
-_print_argv(FILE *f, int argc, char **argv)
-{
-    fprintf(f, "%s", argv[0]);
-    for (int i = 1; i < argc; i++) {
-        fprintf(f, " %s", argv[i]);
-    }
-}
-
 static FILE * _trace_file = NULL;
 
 //======================
@@ -136,9 +152,9 @@ _PyPerf_TraceInit(_PyArgv *args)
     // Write a "header".
     assert(args);
     if (args->use_bytes_argv) {
-        fprintf(_trace_file, "# argv: ");
-        _print_argv(_trace_file, (int)args->argc, (char **)args->bytes_argv);
-        fprintf(_trace_file, "\n");
+        char *argv_str = _render_argv((int)args->argc, (char **)args->bytes_argv);
+        fprintf(_trace_file, "# argv: %s\n", argv_str);
+        PyMem_RawFree(argv_str);
     }
     else {
         // XXX Use Py_EncodeLocaleRaw()?
