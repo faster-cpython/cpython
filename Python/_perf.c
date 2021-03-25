@@ -74,10 +74,10 @@ _get_filename(const char *name)
 }
 
 static inline void
-_log_msg(FILE *logfile, const char *msg)
+_log_id(FILE *logfile, const char *id)
 {
     struct timespec time = _now();
-    fprintf(logfile, "%ld.%ld %s\n", time.tv_sec, time.tv_nsec, msg);
+    fprintf(logfile, "%ld.%ld <%s>\n", time.tv_sec, time.tv_nsec, id);
 }
 
 static inline void
@@ -87,6 +87,18 @@ _log_op(FILE *logfile, int op)
     fprintf(logfile, "%ld.%ld <op %d>\n", time.tv_sec, time.tv_nsec, op);
 }
 
+static inline void
+_log_info(FILE *logfile, const char *label, const char *text)
+{
+    fprintf(logfile, "# %s: %s\n", label, text);
+}
+
+static inline void
+_log_info_amount(FILE *logfile, const char *label, long value, const char *units)
+{
+    fprintf(logfile, "# %s: %ld %s\n", label, value, units);
+}
+
 static FILE *_fake_api_file = NULL;
 
 // Duplicate _PyPerf_Trace() without relying on _trace_file.
@@ -94,7 +106,7 @@ void
 _fake_api(const char *id)
 {
     if (_fake_api_file) {
-        _log_msg(_fake_api_file, id);
+        _log_id(_fake_api_file, id);
     }
 }
 
@@ -128,7 +140,7 @@ void
 _PyPerf_Trace(const char *id)
 {
     if (_trace_file) {
-        _log_msg(_trace_file, id);
+        _log_id(_trace_file, id);
     }
 }
 
@@ -153,17 +165,18 @@ _PyPerf_TraceInit(_PyArgv *args)
     assert(args);
     if (args->use_bytes_argv) {
         char *argv_str = _render_argv((int)args->argc, (char **)args->bytes_argv);
-        fprintf(_trace_file, "# argv: %s\n", argv_str);
+        _log_info(_trace_file, "argv", (const char *)argv_str);
         PyMem_RawFree(argv_str);
     }
     else {
         // XXX Use Py_EncodeLocaleRaw()?
-        fprintf(_trace_file, "# argv: <unknown>");
+        _log_info(_trace_file, "argv", "<unknown>");
     }
-    fprintf(_trace_file, "# per-trace: %ld ns\n", cost);
+    _log_info_amount(_trace_file, "per-trace", cost, "ns");
     fprintf(_trace_file, "\n");  // Add a blank line.
 
-    _PyPerf_Trace("<init>");
+    // Log the first event.
+    _PyPerf_Trace("init");
 }
 
 void
@@ -172,7 +185,8 @@ _PyPerf_TraceFini(void)
     if (_trace_file == NULL) {
         return;
     }
-    _PyPerf_Trace("<fini>");
+    // Log the very last event.
+    _PyPerf_Trace("fini");
     fclose(_trace_file);
     _trace_file = NULL;
 }
