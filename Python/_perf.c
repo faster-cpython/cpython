@@ -58,6 +58,18 @@ _render_argv(int argc, char **argv)
     return res;
 }
 
+static inline size_t
+_count_digits(long long val)
+{
+    assert(val > 0);
+    size_t count = 0;
+    while (val != 0) {
+        val /= 10;
+        count += 1;
+    }
+    return count;
+}
+
 static inline const char *
 _get_frame_name(PyFrameObject *f)
 {
@@ -66,20 +78,29 @@ _get_frame_name(PyFrameObject *f)
     return PyUnicode_AsUTF8(f->f_code->co_name);
 }
 
-static const char *
-_get_filename_default(const char *name)
+static inline const char *
+_get_filename_default(const char *name, time_t started)
 {
     const char *suffix = ".trace";
-    char *filename = (char *)PyMem_Malloc(strlen(name) + strlen(suffix) + 1);
-    sprintf(filename, "%s%s", name, suffix);
+    ssize_t time_width = _count_digits((long long)started);
+    if (time_width < 6) {
+        time_width = 6;
+    }
+    char *filename = (char *)PyMem_RawMalloc(
+            strlen(name) + time_width + strlen(suffix) + 1);
+    if (filename == NULL) {
+        return "???";
+    }
+    sprintf(filename, "%s-%06ld%s", name, started, suffix);
+    // XXX The memory will need to be freed.
     return filename;
 }
 
 static const char *
-_get_filename(const char *name)
+_get_filename(const char *name, time_t started)
 {
     // XXX Look up an optional env var?
-    return _get_filename_default(name);
+    return _get_filename_default(name, started);
 }
 
 static inline void
@@ -186,7 +207,8 @@ _PyPerf_TraceFrameExit(PyFrameObject *f)
 void
 _PyPerf_TraceInit(_PyArgv *args)
 {
-    const char *filename = _get_filename("eval_loop");
+    time_t started = time(NULL);  // This is close enough.
+    const char *filename = _get_filename("eval_loop", started);
     _trace_file = fopen(filename, "w");
     assert(_trace_file != NULL);
 
