@@ -1,3 +1,4 @@
+import contextlib
 import decimal
 import opcode
 import os.path
@@ -24,7 +25,7 @@ def format_elapsed(elapsed):
     return f'{whole:>5,}.{dec} µs'
 
 
-def _parse_trace(line):
+def _parse_trace(line, info=None):
     # 16540234.193887170 <init>
     # 16540234.193896170 <enter>
     # 16540234.193896770 <loop enter>
@@ -40,20 +41,71 @@ def _parse_trace(line):
         opname = opcode.opname[op]
         event = f'op {opname:20} ({op})'
 
+    # XXX What should we do with "info"?
+
     return ts, event
 
 
-def _process_lines(lines):
+def _parse_info(line):
+    # It starts with "#".
+    comment = line[1:].strip()
+    label, sep, text = comment.partition(':')
+    label = label.strip()
+    text = text.strip()
+    if not sep or not label or not text:
+        return None
+    return label, text
+
+
+def _iter_clean_lines(lines):
     if isinstance(lines, str):
         lines = lines.splitlines()
     for line in lines:
         line = line.strip()
+        yield line or None
+
+
+def _process_lines(lines):
+    lines = iter(_iter_clean_lines(lines))
+
+    # Handle the header first.
+    for line in lines:
         if not line:
-            continue
+            break
+        if not line.startswith('#'):
+            raise NotImplementedError(line)
+        # Show the info lines as-is.
+        yield line
+    yield None
+
+    info = None
+    for line in lines:
+        if not line:
+            # There probably shouldn't be any blank lines.
+            raise NotImplementedError
         if line.startswith('#'):
+            if info:
+                raise NotImplementedError((info, line, next(lines)))
+            info = _parse_info(line)
             yield line
         else:
-            yield _parse_trace(line)
+            yield _parse_trace(line, info)
+            info = None
+
+
+@contextlib.contextmanager
+def _printed_section(name):
+    name = name.upper()
+    div = '#' * 20
+    print(div)
+    print(f'# BEGIN {name}')
+    print(div)
+    print()
+    yield
+    print()
+    print(div)
+    print(f'# END {name}')
+    print(div)
 
 
 ##################################
@@ -72,6 +124,9 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
     return ns
 
 
+DIV = '#' * 20
+
+
 def main(filename):
     if os.path.basename(filename) == filename:
         filename = os.path.join('.', filename)
@@ -80,17 +135,28 @@ def main(filename):
     with open(filename) as infile:
         traces = iter(_process_lines(infile))
 
-        first = next(traces)
-        while isinstance(first, str):
-            print(first)
-            first = next(traces)
-        start, current = first
-        for end, event in _process_lines(infile):
-            elapsed = format_elapsed(end - start)
-            print(f'{current:30} -> {elapsed}')
-            start, current = end, event
-        assert event == 'fini'
-        print('fini!')
+        if True:
+        #with _printed_section('header'):
+            for entry in traces:
+                if entry is None:
+                    break
+                if not isinstance(entry, str):
+                    raise NotImplementedError(entry)
+                print(entry)
+        print()
+
+        with _printed_section('trace'):
+            start, current = next(traces)
+            for entry in traces:
+                if isinstance(entry, str):
+                    print(entry)
+                    continue
+                end, event = entry
+                elapsed = format_elapsed(end - start)
+                print(f'{current:30} -> {elapsed}')
+                start, current = end, event
+            assert event == 'fini'
+            print(event)
 
 
 if __name__ == '__main__':
