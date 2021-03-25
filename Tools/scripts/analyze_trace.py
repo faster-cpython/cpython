@@ -1,8 +1,80 @@
 import contextlib
 import decimal
 import opcode
+import os
 import os.path
 import sys
+
+
+def _parse_filename(filename):
+    if not filename.endswith('.trace'):
+        return None, None
+    name, _, _ = filename.rpartition('.')
+    before, sep, ts = name.rpartition('-')
+    if sep and before and ts.isdigit():
+        name = before
+        ts = int(ts)
+    else:
+        ts = None
+    return name, ts or None
+
+
+def _resolve_filename(filename=None):
+    prefix = None
+    if filename:
+        if os.path.isdir(filename):
+            dirname = filename
+        else:
+            basename = os.path.basename(filename)
+            if basename == filename:
+                filename = os.path.join('.', basename)
+                dirname = '.'
+            else:
+                dirname = os.path.dirname(filename)
+            if not os.path.exists(dirname):
+                return filename
+
+            try:
+                first = basename.index('*')
+            except ValueError:
+                if os.path.exists(filename) or filename.endswith('.trace'):
+                    return filename
+                prefix = basename
+            else:
+                if first != len(basename) - 1:
+                    raise NotImplementedError(filename)
+                prefix = basename[:-1]
+    else:
+        dirname = '.'
+
+    # Find the best match.
+    if prefix:
+        maybe = set()
+        for basename in os.listdir(dirname):
+            if not basename.endswith('.trace'):
+                continue
+            if not basename.startswith(prefix):
+                continue
+            _, ts = _parse_filename(basename)
+            maybe.add((ts or 0, os.path.join(dirname, basename)))
+    else:
+        byname = {}
+        for basename in os.listdir(dirname):
+            name, ts = _parse_filename(basename)
+            if not name:
+                continue
+            if name not in byname:
+                byname[name] = set()
+            byname[name].add((ts or 0, os.path.join(dirname, basename)))
+        if not byname:
+            maybe = set()
+        elif len(byname) > 1:
+            # XXX Print a message?
+            maybe = set()
+        else:
+            maybe, = byname.values()
+    maybe = sorted(maybe)
+    return maybe[-1][1] if maybe else None
 
 
 def format_elapsed(elapsed):
@@ -116,7 +188,7 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
     parser = argparse.ArgumentParser(
         prog=prog,
     )
-    parser.add_argument('filename', metavar='FILE')
+    parser.add_argument('filename', metavar='FILE', nargs='?')
 
     args = parser.parse_args(argv)
     ns = vars(args)
@@ -127,9 +199,10 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
 DIV = '#' * 20
 
 
-def main(filename):
-    if os.path.basename(filename) == filename:
-        filename = os.path.join('.', filename)
+def main(filename=None):
+    filename = _resolve_filename(filename)
+    if not filename:
+        raise Exception(f'no possible trace files found (match: {filename})')
     print(f'reading from {filename}')
     print()
     with open(filename) as infile:
