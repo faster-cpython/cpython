@@ -38,11 +38,11 @@ static char *
 _render_argv(int argc, char **argv)
 {
     assert(argc && argv[0]);  // There must be a program at least.
-    size_t size = 0;
+    size_t size = argc;  // One for each space and the null byte.
     for (int i=0; i < argc; i++) {
         size += strlen(argv[i]);
     }
-    char *res = (char *)PyMem_RawMalloc(size + 1);
+    char *res = (char *)PyMem_RawMalloc(size);
     if (res == NULL) {
         return NULL;
     }
@@ -53,8 +53,9 @@ _render_argv(int argc, char **argv)
         while (*arg) {
             *ptr++ = *arg++;
         }
+        *ptr++ = ' ';
     }
-    *ptr = 0;  // res[size]
+    res[size - 1] = '\0';
 
     return res;
 }
