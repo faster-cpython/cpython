@@ -78,6 +78,26 @@ def _resolve_filename(filename=None):
     return maybe[-1][1] if maybe else None
 
 
+def iter_clean_lines(lines):
+    if isinstance(lines, str):
+        lines = lines.splitlines()
+    for rawline in lines:
+        if rawline.endswith('\r\n'):
+            rawline = rawline[:-2]
+        elif rawline.endswith('\n'):
+            rawline = rawline[:-1]
+
+        line = rawline.strip()
+        line, sep, comment = line.partition('#')
+        if sep:
+            line = line.rstrip()
+            comment = comment.lstrip()
+        else:
+            comment = None
+
+        yield line or None, comment, rawline
+
+
 EVENTS = [
     # These match the _PyPerf_Event enum by index.
     'init',
@@ -113,9 +133,9 @@ def _parse_event(line, annotations):
     return ts, event, data, annotations
 
 
-def _parse_info(line):
-    # It starts with "#".
-    comment = line[1:].strip()
+def _parse_info(comment):
+    if comment.startswith('#'):
+        comment = comment[1:].lstrip()
     label, sep, text = comment.partition(':')
     label = label.strip()
     text = text.strip()
@@ -136,46 +156,51 @@ def _parse_info(line):
     return label, text
 
 
-def _iter_clean_lines(lines):
-    if isinstance(lines, str):
-        lines = lines.splitlines()
-    for line in lines:
-        line = line.strip()
-        yield line or None
+def _parse_header_lines(cleanlines):
+    for line, comment, rawline in cleanlines:
+        if not rawline:
+            # A single blank line divides the header and data.
+            return
+        if line is not None:
+            # All lines in the header are info/comments.
+            raise ValueError(f'unexpected line in header: {rawline!r}')
+        if comment is None:
+            raise NotImplementedError('should be unreachable')
 
-
-def _process_lines(lines):
-    lines = iter(_iter_clean_lines(lines))
-
-    # Handle the header first.
-    for line in lines:
-        if not line:
-            break
-        if not line.startswith('#'):
-            raise NotImplementedError(line)
-        info = _parse_info(line)
+        info = _parse_info(comment)
         if info:
-            yield 'info', info
+            yield 'info', info, f'# {comment}', rawline
         else:
-            yield 'comment', line
+            yield 'comment', comment, f'# {comment}', rawline
 
-    yield (None, None)
 
+def _parse_trace_lines(cleanlines):
     annotations = []
-    for line in lines:
-        if not line:
-            # There probably shouldn't be any blank lines.
-            raise NotImplementedError
-        if line.startswith('#'):
-            info = _parse_info(line)
+    for line, comment, rawline in cleanlines:
+        if line is None and comment is None:
+            # There should not be any blank lines among the trace lines.
+            raise ValueError('got an unexpected blank line')
+
+        if comment is not None:
+            info = _parse_info(comment)
+            commentline = f'# {comment}'
             if info:
-                yield 'info', info
+                yield 'info', info, commentline, rawline
             else:
-                yield 'comment', line
-            annotations.append(info or line)
-        else:
-            yield 'event', _parse_event(line, tuple(annotations))
+                yield 'comment', comment, commentline, rawline
+            annotations.append(info or commentline)
+
+        if line is not None:
+            event = _parse_event(line, tuple(annotations))
+            yield 'event', event, line, rawline
             annotations.clear()
+
+
+def _parse_lines(lines):
+    lines = iter(iter_clean_lines(lines))
+    yield from _parse_header_lines(lines)
+    yield (None, None, None, None)
+    yield from _parse_trace_lines(lines)
 
 
 ##################################
@@ -259,7 +284,7 @@ def _render_traces(traces, *, fmt='simple'):
 
     if fmt == 'simple':
         # Print the header first.
-        for kind, entry in traces:
+        for kind, entry, _, _ in traces:
             if kind is None:
                 break
             if kind == 'comment':
@@ -272,7 +297,7 @@ def _render_traces(traces, *, fmt='simple'):
 
         with _printed_section('trace'):
             current = None
-            for kind, entry in traces:
+            for kind, entry, _, _ in traces:
                 line = None
                 if kind == 'comment':
                     pass  # covered by annotations
