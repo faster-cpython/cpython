@@ -113,10 +113,6 @@ EVENTS = [
 
 
 def _parse_event(line, info=None):
-    # 16540234.193887170 <init>
-    # 16540234.193896170 <enter>
-    # 16540234.193896770 <loop enter>
-    # 16540234.193896970 <op 116>
     ts, _, event = line.partition(' ')
     event, _, data = event.partition(' ')
     event = EVENTS[int(event)]
