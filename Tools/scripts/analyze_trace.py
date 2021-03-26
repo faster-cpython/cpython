@@ -98,21 +98,39 @@ def format_elapsed(elapsed):
     return f'{whole:>5,}.{dec} µs'
 
 
-def _parse_trace(line, info=None):
+EVENTS = [
+    # These match the _PyPerf_Event enum by index.
+    'init',
+    'fini',
+    'enter',
+    'exit',
+    'loop enter',
+    'loop exit',
+    'loop exception',
+    'loop error',
+    'op',
+]
+
+
+def _parse_event(line, info=None):
     # 16540234.193887170 <init>
     # 16540234.193896170 <enter>
     # 16540234.193896770 <loop enter>
     # 16540234.193896970 <op 116>
     ts, _, event = line.partition(' ')
+    event, _, data = event.partition(' ')
+    event = EVENTS[int(event)]
 
     # XXX datetime.datetime.utcfromtimestamp()?
     ts = decimal.Decimal(ts)
 
-    event = event[1:-1]
-    if event.startswith('op '):
-        op = int(event[3:])
+    if event == 'op':
+        op = int(data)
         opname = opcode.opname[op]
         event = f'op {opname:20} ({op})'
+    else:
+        if data:
+            raise NotImplementedError(line)
 
     # XXX What should we do with "info"?
 
@@ -175,7 +193,7 @@ def _process_lines(lines):
             line, info = _parse_info(line)
             yield line
         else:
-            yield _parse_trace(line, info)
+            yield _parse_event(line, info)
             info = None
 
 

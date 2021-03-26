@@ -4,6 +4,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include "Python.h"
+#include "pycore_perf.h"        // _PyPerf_Event
 #include "pycore_initconfig.h"  // _PyArgv
 #include "frameobject.h"        // PyFrameObject
 
@@ -104,17 +105,17 @@ _get_filename(const char *name, time_t started)
 }
 
 static inline void
-_log_id(FILE *logfile, const char *id)
+_log_event(FILE *logfile, _PyPerf_Event event)
 {
     struct timespec time = _now();
-    fprintf(logfile, "%ld.%ld <%s>\n", time.tv_sec, time.tv_nsec, id);
+    fprintf(logfile, "%ld.%ld %d\n", time.tv_sec, time.tv_nsec, (int)event);
 }
 
 static inline void
-_log_op(FILE *logfile, int op)
+_log_event_with_data(FILE *logfile, _PyPerf_Event event, int data)
 {
     struct timespec time = _now();
-    fprintf(logfile, "%ld.%ld <op %d>\n", time.tv_sec, time.tv_nsec, op);
+    fprintf(logfile, "%ld.%ld %d %d\n", time.tv_sec, time.tv_nsec, (int)event, data);
 }
 
 static inline void
@@ -133,10 +134,10 @@ static FILE *_fake_api_file = NULL;
 
 // Duplicate _PyPerf_Trace() without relying on _trace_file.
 void
-_fake_api(const char *id)
+_fake_api(_PyPerf_Event event)
 {
     if (_fake_api_file) {
-        _log_id(_fake_api_file, id);
+        _log_event(_fake_api_file, event);
     }
 }
 
@@ -149,7 +150,7 @@ _get_trace_cost_ns(FILE *f)
 
     // XXX Repeat multiple times for a stable result?
     struct timespec before = _now();
-    _fake_api("???");
+    _fake_api(CEVAL_OP);
     struct timespec after = _now();
 
     fseek(f, pos_orig, SEEK_SET);
@@ -167,10 +168,10 @@ static FILE * _trace_file = NULL;
 //======================
 
 void
-_PyPerf_Trace(const char *id)
+_PyPerf_Trace(_PyPerf_Event event)
 {
     if (_trace_file) {
-        _log_id(_trace_file, id);
+        _log_event(_trace_file, event);
     }
 }
 
@@ -178,7 +179,7 @@ void
 _PyPerf_TraceOp(int op)
 {
     if (_trace_file) {
-        _log_op(_trace_file, op);
+        _log_event_with_data(_trace_file, CEVAL_OP, op);
     }
 }
 
@@ -189,7 +190,7 @@ _PyPerf_TraceFrameEnter(PyFrameObject *f)
         const char *funcname = _get_frame_name(f);
         _log_info(_trace_file, "func", funcname);
         // XXX Differentiate generators?
-        _log_id(_trace_file, "enter");
+        _log_event(_trace_file, CEVAL_ENTER);
     }
 }
 
@@ -200,7 +201,7 @@ _PyPerf_TraceFrameExit(PyFrameObject *f)
         const char *funcname = _get_frame_name(f);
         _log_info(_trace_file, "func", funcname);
         // XXX Differentiate generators?
-        _log_id(_trace_file, "exit");
+        _log_event(_trace_file, CEVAL_EXIT);
     }
 }
 
@@ -235,7 +236,7 @@ _PyPerf_TraceInit(_PyArgv *args)
     fprintf(_trace_file, "\n");  // Add a blank line.
 
     // Log the first event.
-    _PyPerf_Trace("init");
+    _PyPerf_Trace(MAIN_INIT);
 }
 
 void
@@ -246,7 +247,7 @@ _PyPerf_TraceFini(void)
     }
 
     // Log the very last event.
-    _PyPerf_Trace("fini");
+    _PyPerf_Trace(MAIN_FINI);
 
     // Update the header.
     if (_endtime_pos >= 0) {

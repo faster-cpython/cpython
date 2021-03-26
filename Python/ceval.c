@@ -1660,7 +1660,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
                                      tstate, f, &trace_info,
                                      PyTrace_CALL, Py_None)) {
                 /* Trace function raised an error */
-                _PyPerf_Trace("loop exit");
+                _PyPerf_Trace(CEVAL_LOOP_EXIT);
                 goto exit_eval_frame;
             }
         }
@@ -1672,7 +1672,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
                                      tstate, f, &trace_info,
                                      PyTrace_CALL, Py_None)) {
                 /* Profile function raised an error */
-                _PyPerf_Trace("loop exit");
+                _PyPerf_Trace(CEVAL_LOOP_EXIT);
                 goto exit_eval_frame;
             }
         }
@@ -1725,7 +1725,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
         co->co_opcache_flag++;
         if (co->co_opcache_flag == opcache_min_runs) {
             if (_PyCode_InitOpcache(co) < 0) {
-                _PyPerf_Trace("loop exit");
+                _PyPerf_Trace(CEVAL_LOOP_EXIT);
                 goto exit_eval_frame;
             }
 #if OPCACHE_STATS
@@ -1741,7 +1741,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
     {
         int r = _PyDict_ContainsId(f->f_globals, &PyId___ltrace__);
         if (r < 0) {
-            _PyPerf_Trace("loop exit");
+            _PyPerf_Trace(CEVAL_LOOP_EXIT);
             goto exit_eval_frame;
         }
         lltrace = r;
@@ -1761,7 +1761,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 
 main_loop:
     for (;;) {
-        _PyPerf_Trace("loop enter");
+        _PyPerf_Trace(CEVAL_LOOP_ENTER);
         assert(stack_pointer >= f->f_valuestack); /* else underflow */
         assert(STACK_LEVEL() <= co->co_stacksize);  /* else overflow */
         assert(!_PyErr_Occurred(tstate));
@@ -2437,7 +2437,7 @@ main_loop:
                 /* fall through */
             case 0:
                 if (do_raise(tstate, exc, cause)) {
-                    _PyPerf_Trace("loop exception");
+                    _PyPerf_Trace(CEVAL_LOOP_EXCEPTION);
                     goto exception_unwind;
                 }
                 break;
@@ -2455,7 +2455,7 @@ main_loop:
             assert(EMPTY());
             f->f_state = FRAME_RETURNED;
             f->f_stackdepth = 0;
-            _PyPerf_Trace("loop exit");
+            _PyPerf_Trace(CEVAL_LOOP_EXIT);
             goto exiting;
         }
 
@@ -2644,7 +2644,7 @@ main_loop:
             f->f_lasti -= sizeof(_Py_CODEUNIT);
             f->f_state = FRAME_SUSPENDED;
             f->f_stackdepth = (int)(stack_pointer - f->f_valuestack);
-            _PyPerf_Trace("loop exit");
+            _PyPerf_Trace(CEVAL_LOOP_EXIT);
             goto exiting;
         }
 
@@ -2662,7 +2662,7 @@ main_loop:
             }
             f->f_state = FRAME_SUSPENDED;
             f->f_stackdepth = (int)(stack_pointer - f->f_valuestack);
-            _PyPerf_Trace("loop exit");
+            _PyPerf_Trace(CEVAL_LOOP_EXIT);
             goto exiting;
         }
 
@@ -2705,7 +2705,7 @@ main_loop:
             PyObject *tb = POP();
             assert(PyExceptionClass_Check(exc));
             _PyErr_Restore(tstate, exc, val, tb);
-            _PyPerf_Trace("loop exception");
+            _PyPerf_Trace(CEVAL_LOOP_EXCEPTION);
             goto exception_unwind;
         }
 
@@ -2725,7 +2725,7 @@ main_loop:
                 PyObject *val = POP();
                 PyObject *tb = POP();
                 _PyErr_Restore(tstate, exc, val, tb);
-                _PyPerf_Trace("loop exception");
+                _PyPerf_Trace(CEVAL_LOOP_EXCEPTION);
                 goto exception_unwind;
             }
         }
@@ -4494,7 +4494,7 @@ main_loop:
         Py_UNREACHABLE();
 
 error:
-        _PyPerf_Trace("loop error");
+        _PyPerf_Trace(CEVAL_LOOP_ERROR);
         /* Double-check exception status. */
 #ifdef NDEBUG
         if (!_PyErr_Occurred(tstate)) {
@@ -4576,7 +4576,7 @@ exception_unwind:
         /* End the loop as we still have an error */
         break;
     } /* main loop */
-    _PyPerf_Trace("loop exit");
+    _PyPerf_Trace(CEVAL_LOOP_EXIT);
 
     assert(retval == NULL);
     assert(_PyErr_Occurred(tstate));
