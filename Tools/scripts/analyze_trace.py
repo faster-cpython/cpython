@@ -7,6 +7,10 @@ import os.path
 import sys
 
 
+def log_info(msg):
+    print(msg, file=sys.stderr)
+
+
 def _parse_filename(filename):
     if not filename.endswith('.trace'):
         return None, None
@@ -196,11 +200,20 @@ def _parse_trace_lines(cleanlines):
             annotations.clear()
 
 
-def _parse_lines(lines):
-    lines = iter(iter_clean_lines(lines))
-    yield from _parse_header_lines(lines)
+def _parse_lines(rawlines):
+    cleanlines = iter(iter_clean_lines(rawlines))
+    yield from _parse_header_lines(cleanlines)
     yield (None, None, None, None)
-    yield from _parse_trace_lines(lines)
+    yield from _parse_trace_lines(cleanlines)
+
+
+def _sanitize_raw(lines):
+    for rawline in lines:
+        if rawline.endswith('\r\n'):
+            rawline = rawline[:-2]
+        elif rawline.endswith('\n'):
+            rawline = rawline[:-1]
+        yield rawline
 
 
 ##################################
@@ -315,6 +328,7 @@ def _render_traces(traces, *, fmt='simple'):
             yield from _format_event(current)
             yield 'fini'
     elif fmt == 'raw':
+        # This is handled in main().
         raise NotImplementedError
     elif fmt == 'summary':
         raise NotImplementedError
@@ -355,13 +369,17 @@ def main(filename=None, *, fmt='simple'):
     filename = _resolve_filename(filename)
     if not filename:
         raise Exception(f'no possible trace files found (match: {filename})')
-    print(f'reading from {filename}')
-    print(f'(showing results in {fmt!r} format)')
-    print()
+    log_info(f'reading from {filename}')
+    log_info(f'(showing results in {fmt!r} format)')
+    log_info('')
     with open(filename) as infile:
-        traces = _process_lines(infile)
-        for line in _render_traces(traces, fmt=fmt):
-            print(line)
+        if fmt == 'raw':
+            for line in _sanitize_raw(infile):
+                print(line)
+        else:
+            traces = _parse_lines(infile)
+            for line in _render_traces(traces, fmt=fmt):
+                print(line)
 
 
 if __name__ == '__main__':
