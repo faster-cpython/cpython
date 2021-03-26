@@ -326,7 +326,6 @@ def _render_traces(traces, *, fmt='simple'):
 
             assert current[1] == 'fini'
             yield from _format_event(current)
-            yield 'fini'
     elif fmt == 'raw':
         # This is handled in main().
         raise NotImplementedError
