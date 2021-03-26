@@ -223,17 +223,19 @@ def _format_info(info, *, align=True):
 
 def _format_event(event, end=None):
     start, name, data, annotations = event
-    if name == 'op':
-        op, opname = data
-        entry = f'op {opname:20} ({op})'
-    else:
-        entry = name
 
     if end is not None:
         elapsed = format_elapsed(end - start)
-        line = f'{entry:30} -> {elapsed}'
     else:
-        line = entry
+        elapsed = ''
+
+    if name == 'op':
+        op, opname = data
+        data = f'{opname or "???"} ({op})'
+    else:
+        data = ''
+
+    line = f'{elapsed:15} {name:15} {data}'
 
     if annotations:
         for entry in annotations[:-1]:
