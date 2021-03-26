@@ -78,26 +78,6 @@ def _resolve_filename(filename=None):
     return maybe[-1][1] if maybe else None
 
 
-def format_elapsed(elapsed):
-    units = ['s', 'ms', 'µs', 'ns']
-    while elapsed < 1:
-        before = elapsed
-        elapsed *= 1000
-        assert before != elapsed
-        units.pop(0)
-    assert elapsed > 1
-    whole = int(elapsed)
-    dec = int((elapsed - whole) * 10)
-    return f'{whole:>3,}.{dec} {units[0]}'
-
-
-def format_elapsed(elapsed):
-    micro = elapsed * 1_000_000
-    whole = int(micro)
-    dec = int((micro - whole) * 10)
-    return f'{whole:>5,}.{dec} µs'
-
-
 EVENTS = [
     # These match the _PyPerf_Event enum by index.
     'init',
@@ -112,25 +92,25 @@ EVENTS = [
 ]
 
 
-def _parse_event(line, info=None):
+def _parse_event(line, annotations):
     ts, _, event = line.partition(' ')
     event, _, data = event.partition(' ')
+
     event = EVENTS[int(event)]
+    data = int(data) if data else None
 
     # XXX datetime.datetime.utcfromtimestamp()?
     ts = decimal.Decimal(ts)
 
     if event == 'op':
-        op = int(data)
+        op = data
         opname = opcode.opname[op]
-        event = f'op {opname:20} ({op})'
+        data = (op, opname)
     else:
-        if data:
+        if data is not None:
             raise NotImplementedError(line)
 
-    # XXX What should we do with "info"?
-
-    return ts, event
+    return ts, event, data, annotations
 
 
 def _parse_info(line):
@@ -153,8 +133,7 @@ def _parse_info(line):
         text = dt.isoformat(' ').split('.')[0]
         text += ' UTC'
 
-    line = f'# {label + ":":20} {text}'
-    return line, (label, text)
+    return label, text
 
 
 def _iter_clean_lines(lines):
@@ -174,23 +153,29 @@ def _process_lines(lines):
             break
         if not line.startswith('#'):
             raise NotImplementedError(line)
-        line, _ = _parse_info(line)
-        yield line
-    yield None
+        info = _parse_info(line)
+        if info:
+            yield 'info', info
+        else:
+            yield 'comment', line
 
-    info = None
+    yield (None, None)
+
+    annotations = []
     for line in lines:
         if not line:
             # There probably shouldn't be any blank lines.
             raise NotImplementedError
         if line.startswith('#'):
+            info = _parse_info(line)
             if info:
-                raise NotImplementedError((info, line, next(lines)))
-            line, info = _parse_info(line)
-            yield line
+                yield 'info', info
+            else:
+                yield 'comment', line
+            annotations.append(info or line)
         else:
-            yield _parse_event(line, info)
-            info = None
+            yield 'event', _parse_event(line, tuple(annotations))
+            annotations.clear()
 
 
 @contextlib.contextmanager
@@ -206,6 +191,91 @@ def _printed_section(name):
     print(div)
     print(f'# END {name}')
     print(div)
+
+
+def format_elapsed(elapsed):
+    units = ['s', 'ms', 'µs', 'ns']
+    while elapsed < 1:
+        before = elapsed
+        elapsed *= 1000
+        assert before != elapsed
+        units.pop(0)
+    assert elapsed > 1
+    whole = int(elapsed)
+    dec = int((elapsed - whole) * 10)
+    return f'{whole:>3,}.{dec} {units[0]}'
+
+
+def format_elapsed(elapsed):
+    micro = elapsed * 1_000_000
+    whole = int(micro)
+    dec = int((micro - whole) * 10)
+    return f'{whole:>5,}.{dec} µs'
+
+
+def _format_info(info):
+    label, text = info
+    return f'# {label + ":":20} {text}'
+
+
+def _format_event(event, end=None):
+    start, name, data, annotations = event
+    if name == 'op':
+        op, opname = data
+        entry = f'op {opname:20} ({op})'
+    else:
+        entry = name
+
+    if end is not None:
+        elapsed = format_elapsed(end - start)
+        line = f'{entry:30} -> {elapsed}'
+    else:
+        line = entry
+
+#    if info:
+#        line = f'{line:50} {_format_info(info)}'
+    return line
+
+
+def _render_traces(traces):
+    traces = iter(traces)
+
+    # Print the header first.
+    for kind, entry in traces:
+        if kind is None:
+            break
+        if kind == 'comment':
+            yield entry
+        elif kind == 'info':
+            yield _format_info(entry)
+        else:
+            raise NotImplementedError((kind, entry))
+    yield ''
+
+    with _printed_section('trace'):
+        current = None
+        for kind, entry in traces:
+            line = None
+            if kind == 'comment':
+                yield entry
+                pass  # covered by annotations
+            elif kind == 'info':
+                yield _format_info(entry)
+                pass  # covered by annotations
+            elif kind == 'event':
+                if current:
+                    end, _, _, _ = entry
+                    line = _format_event(current, end)
+                current = entry
+            else:
+                raise NotImplementedError((kind, entry))
+
+            if line is not None:
+                yield line
+
+        assert current[1] == 'fini'
+        yield _format_event(current, info)
+        yield 'fini'
 
 
 ##################################
@@ -224,9 +294,6 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
     return ns
 
 
-DIV = '#' * 20
-
-
 def main(filename=None):
     filename = _resolve_filename(filename)
     if not filename:
@@ -234,30 +301,9 @@ def main(filename=None):
     print(f'reading from {filename}')
     print()
     with open(filename) as infile:
-        traces = iter(_process_lines(infile))
-
-        if True:
-        #with _printed_section('header'):
-            for entry in traces:
-                if entry is None:
-                    break
-                if not isinstance(entry, str):
-                    raise NotImplementedError(entry)
-                print(entry)
-        print()
-
-        with _printed_section('trace'):
-            start, current = next(traces)
-            for entry in traces:
-                if isinstance(entry, str):
-                    print(entry)
-                    continue
-                end, event = entry
-                elapsed = format_elapsed(end - start)
-                print(f'{current:30} -> {elapsed}')
-                start, current = end, event
-            assert event == 'fini'
-            print(event)
+        traces = _process_lines(infile)
+        for line in _render_traces(traces):
+            print(line)
 
 
 if __name__ == '__main__':
