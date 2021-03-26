@@ -178,6 +178,9 @@ def _process_lines(lines):
             annotations.clear()
 
 
+##################################
+# output
+
 @contextlib.contextmanager
 def _printed_section(name):
     name = name.upper()
@@ -251,40 +254,57 @@ def _format_event(event, end=None):
     yield line
 
 
-def _render_traces(traces):
+def _render_traces(traces, *, fmt='simple'):
     traces = iter(traces)
 
-    # Print the header first.
-    for kind, entry in traces:
-        if kind is None:
-            break
-        if kind == 'comment':
-            yield entry
-        elif kind == 'info':
-            yield from _format_info(entry)
-        else:
-            raise NotImplementedError((kind, entry))
-    yield ''
-
-    with _printed_section('trace'):
-        current = None
+    if fmt == 'simple':
+        # Print the header first.
         for kind, entry in traces:
-            line = None
+            if kind is None:
+                break
             if kind == 'comment':
-                pass  # covered by annotations
+                yield entry
             elif kind == 'info':
-                pass  # covered by annotations
-            elif kind == 'event':
-                if current:
-                    end, _, _, _ = entry
-                    yield from _format_event(current, end)
-                current = entry
+                yield from _format_info(entry)
             else:
                 raise NotImplementedError((kind, entry))
+        yield ''
 
-        assert current[1] == 'fini'
-        yield from _format_event(current)
-        yield 'fini'
+        with _printed_section('trace'):
+            current = None
+            for kind, entry in traces:
+                line = None
+                if kind == 'comment':
+                    pass  # covered by annotations
+                elif kind == 'info':
+                    pass  # covered by annotations
+                elif kind == 'event':
+                    if current:
+                        end, _, _, _ = entry
+                        yield from _format_event(current, end)
+                    current = entry
+                else:
+                    raise NotImplementedError((kind, entry))
+
+            assert current[1] == 'fini'
+            yield from _format_event(current)
+            yield 'fini'
+    elif fmt == 'raw':
+        raise NotImplementedError
+    elif fmt == 'summary':
+        raise NotImplementedError
+    else:
+        raise ValueError(f'unsupported fmt {fmt!r}')
+
+
+##################################
+# formats
+
+FORMATS = [
+    'raw',
+    'simple',
+    'summary',
+]
 
 
 ##################################
@@ -295,6 +315,9 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
     parser = argparse.ArgumentParser(
         prog=prog,
     )
+    # XXX Add --verbose (-v) and --quiet (-q).
+    parser.add_argument('--format', dest='fmt',
+                        choices=list(FORMATS), default='simple')
     parser.add_argument('filename', metavar='FILE', nargs='?')
 
     args = parser.parse_args(argv)
@@ -303,15 +326,16 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
     return ns
 
 
-def main(filename=None):
+def main(filename=None, *, fmt='simple'):
     filename = _resolve_filename(filename)
     if not filename:
         raise Exception(f'no possible trace files found (match: {filename})')
     print(f'reading from {filename}')
+    print(f'(showing results in {fmt!r} format)')
     print()
     with open(filename) as infile:
         traces = _process_lines(infile)
-        for line in _render_traces(traces):
+        for line in _render_traces(traces, fmt=fmt):
             print(line)
 
 
