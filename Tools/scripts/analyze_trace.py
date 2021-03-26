@@ -215,7 +215,7 @@ def format_elapsed(elapsed):
 
 def _format_info(info):
     label, text = info
-    return f'# {label + ":":20} {text}'
+    yield f'# {label + ":":20} {text}'
 
 
 def _format_event(event, end=None):
@@ -232,9 +232,14 @@ def _format_event(event, end=None):
     else:
         line = entry
 
+    for entry in annotations:
+        if isinstance(entry, str):
+            yield entry
+        else:
+            yield from _format_info(entry)
 #    if info:
 #        line = f'{line:50} {_format_info(info)}'
-    return line
+    yield line
 
 
 def _render_traces(traces):
@@ -247,7 +252,7 @@ def _render_traces(traces):
         if kind == 'comment':
             yield entry
         elif kind == 'info':
-            yield _format_info(entry)
+            yield from _format_info(entry)
         else:
             raise NotImplementedError((kind, entry))
     yield ''
@@ -257,24 +262,19 @@ def _render_traces(traces):
         for kind, entry in traces:
             line = None
             if kind == 'comment':
-                yield entry
                 pass  # covered by annotations
             elif kind == 'info':
-                yield _format_info(entry)
                 pass  # covered by annotations
             elif kind == 'event':
                 if current:
                     end, _, _, _ = entry
-                    line = _format_event(current, end)
+                    yield from _format_event(current, end)
                 current = entry
             else:
                 raise NotImplementedError((kind, entry))
 
-            if line is not None:
-                yield line
-
         assert current[1] == 'fini'
-        yield _format_event(current, info)
+        yield from _format_event(current)
         yield 'fini'
 
 
