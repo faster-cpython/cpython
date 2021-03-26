@@ -213,9 +213,12 @@ def format_elapsed(elapsed):
     return f'{whole:>5,}.{dec} µs'
 
 
-def _format_info(info):
+def _format_info(info, *, align=True):
     label, text = info
-    yield f'# {label + ":":20} {text}'
+    if align:
+        yield f'# {label + ":":20} {text}'
+    else:
+        yield f'# {label}: {text}'
 
 
 def _format_event(event, end=None):
@@ -232,13 +235,17 @@ def _format_event(event, end=None):
     else:
         line = entry
 
-    for entry in annotations:
-        if isinstance(entry, str):
-            yield entry
+    if annotations:
+        for entry in annotations[:-1]:
+            if isinstance(entry, str):
+                yield entry
+            else:
+                yield from _format_info(entry)
+        infolines = list(_format_info(annotations[-1], align=False))
+        if len(infolines) == 1:
+            line = f'{line:50} {infolines[0]}'
         else:
-            yield from _format_info(entry)
-#    if info:
-#        line = f'{line:50} {_format_info(info)}'
+            yield from _format_info(annotations[-1])
     yield line
 
 
