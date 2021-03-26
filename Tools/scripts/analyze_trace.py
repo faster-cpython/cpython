@@ -8,7 +8,8 @@ import sys
 
 
 def log_info(msg):
-    print(msg, file=sys.stderr)
+    # XXX Log to stderr?  Ideally we would just use the logging module.
+    print(msg)
 
 
 def _parse_filename(filename):
