@@ -262,7 +262,7 @@ def _format_info(info, *, align=True):
         yield f'# {label}: {text}'
 
 
-def _format_event(event, end=None):
+def _format_event(event, end=None, depth=None):
     start, name, data, annotations = event
 
     if end is not None:
@@ -276,7 +276,11 @@ def _format_event(event, end=None):
     else:
         data = ''
 
-    line = f'{elapsed:15} {name:15} {data}'
+    if depth is None:
+        line = f'{elapsed:15} {name:15} {data}'
+    else:
+        indent = '|  ' * depth if depth else ''
+        line = f'{elapsed:15} {indent + name:25} {data}'
 
     if annotations:
         for entry in annotations[:-1]:
@@ -286,15 +290,22 @@ def _format_event(event, end=None):
                 yield from _format_info(entry)
         infolines = list(_format_info(annotations[-1], align=False))
         if len(infolines) == 1:
-            line = f'{line:50} {infolines[0]}'
+            if depth is None:
+                line = f'{line:50} {infolines[0]}'
+            else:
+                line = f'{line:65} {infolines[0]}'
         else:
             yield from _format_info(annotations[-1])
     yield line
 
 
-def _render_traces(traces, *, fmt='simple'):
+def _render_traces(traces, *, fmt='simple-indent'):
     traces = iter(traces)
 
+    depth = None
+    if fmt == 'simple-indent':
+        fmt = 'simple'
+        depth = 0
     if fmt == 'simple':
         # Print the header first.
         for kind, entry, _, _ in traces:
@@ -319,7 +330,14 @@ def _render_traces(traces, *, fmt='simple'):
                 elif kind == 'event':
                     if current:
                         end, _, _, _ = entry
-                        yield from _format_event(current, end)
+                        _, event, _, _ = current
+                        if depth is not None:
+                            if event == 'exit':
+                                depth -= 1
+                        yield from _format_event(current, end, depth=depth)
+                        if depth is not None:
+                            if event == 'enter':
+                                depth += 1
                     current = entry
                 else:
                     raise NotImplementedError((kind, entry))
@@ -341,6 +359,7 @@ def _render_traces(traces, *, fmt='simple'):
 FORMATS = [
     'raw',
     'simple',
+    'simple-indent',
     'summary',
 ]
 
@@ -355,7 +374,7 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
     )
     # XXX Add --verbose (-v) and --quiet (-q).
     parser.add_argument('--format', dest='fmt',
-                        choices=list(FORMATS), default='simple')
+                        choices=list(FORMATS), default='simple-indent')
     parser.add_argument('filename', metavar='FILE', nargs='?')
 
     args = parser.parse_args(argv)
@@ -364,7 +383,7 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
     return ns
 
 
-def main(filename=None, *, fmt='simple'):
+def main(filename=None, *, fmt='simple-indent'):
     filename = _resolve_filename(filename)
     if not filename:
         raise Exception(f'no possible trace files found (match: {filename})')
@@ -382,5 +401,8 @@ def main(filename=None, *, fmt='simple'):
 
 
 if __name__ == '__main__':
-    kwargs = parse_args()
-    main(**kwargs)
+    try:
+        kwargs = parse_args()
+        main(**kwargs)
+    except BrokenPipeError:
+        pass
