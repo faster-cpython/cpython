@@ -107,13 +107,18 @@ EVENTS = [
     # These match the _PyPerf_Event enum by index.
     'init',
     'fini',
+    'runtime other',
     'enter',
     'exit',
     'loop enter',
-    'loop exit',
+    'loop slow',
+    'loop fast',
+    'dispatch',
+    'op',
     'loop exception',
     'loop error',
-    'op',
+    'loop exiting',
+    'loop exit',
 ]
 
 

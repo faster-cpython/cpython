@@ -13,13 +13,18 @@ extern "C" {
 typedef enum _PyPerf_Event {
     MAIN_INIT,
     MAIN_FINI,
+    RUNTIME_OTHER,
     CEVAL_ENTER,
     CEVAL_EXIT,
     CEVAL_LOOP_ENTER,
-    CEVAL_LOOP_EXIT,
+    CEVAL_LOOP_SLOW,
+    CEVAL_LOOP_FAST,
+    CEVAL_DISPATCH,
+    CEVAL_OP,
     CEVAL_LOOP_EXCEPTION,
     CEVAL_LOOP_ERROR,
-    CEVAL_OP,
+    CEVAL_LOOP_EXITING,
+    CEVAL_LOOP_EXIT,
 } _PyPerf_Event;
 
 extern void _PyPerf_Trace(_PyPerf_Event);
