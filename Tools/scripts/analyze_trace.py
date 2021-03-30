@@ -83,6 +83,28 @@ def _resolve_filename(filename=None):
     return maybe[-1][1] if maybe else None
 
 
+def parse_timestamp(text):
+    ts = int(text.split()[0])
+    return datetime.datetime.utcfromtimestamp(ts)
+
+
+def parse_clock(text):
+    # We can't just use datetime.timedelta
+    # since it does not support nanonseconds.
+    if ',' in text:
+        text = text.rstrip('0')
+    return decimal.Decimal(text)
+
+
+def clock_elapsed(before, after):
+    elapsed = after - before
+    seconds = int(elapsed)
+    return datetime.timedelta(
+        seconds=seconds,
+        microseconds=int((elapsed - seconds) * 1_000_000),
+    )
+
+
 def iter_clean_lines(lines):
     if isinstance(lines, str):
         lines = lines.splitlines()
@@ -129,8 +151,7 @@ def _parse_event(line, annotations):
     event = EVENTS[int(event)]
     data = int(data) if data else None
 
-    # XXX datetime.datetime.utcfromtimestamp()?
-    ts = decimal.Decimal(ts)
+    ts = parse_clock(ts)
 
     if event == 'op':
         op = data
@@ -151,26 +172,92 @@ def _parse_info(comment):
     text = text.strip()
     if not sep or not label or not text:
         return None
-
-    if label == 'start time':
-        ts = int(text.split()[0])
-        dt = datetime.datetime.utcfromtimestamp(ts)
-        text = dt.isoformat(' ').split('.')[0]
-        text += ' UTC'
-    elif label == 'end time':
-        ts = int(text.split()[0])
-        dt = datetime.datetime.utcfromtimestamp(ts)
-        text = dt.isoformat(' ').split('.')[0]
-        text += ' UTC'
-
     return label, text
 
 
-def _parse_header_lines(cleanlines):
+class Header:
+
+    __slots__ = ('_entries', '_raw', '_start', '_end')
+
+    def __init__(self, argv, start_time, start_clock, end_clock):
+        assert isinstance(start_time, datetime.datetime), start_time
+        assert isinstance(start_clock, decimal.Decimal), start_clock
+        assert isinstance(end_clock, decimal.Decimal), end_clock
+        self._raw = (argv, start_time, start_clock, end_clock)
+
+    def __repr__(self):
+        kwargs = ', '.join(f'{k}={v!r}' for k, v in zip(self._names, self._raw))
+        return f'{type(self).__name__}({kwargs})'
+
+    @property
+    def _names(self):
+        code = type(self).__init__.__code__
+        return code.co_varnames[1: code.co_argcount]
+
+    @property
+    def argv(self):
+        return self._raw[0]
+
+    @property
+    def start_time(self):
+        return self._raw[1]
+
+    @property
+    def start_clock(self):
+        return self._raw[2]
+
+    @property
+    def end_clock(self):
+        return self._raw[3]
+
+    @property
+    def start(self):
+        try:
+            return self._start
+        except AttributeError:
+            nsec = clock_elapsed(int(self.start_clock), self.start_clock)
+            self._start = self.start_time + nsec
+            return self._start
+
+    @property
+    def end(self):
+        try:
+            return self._end
+        except AttributeError:
+            self._end = self.resolve_clock(self.end_clock)
+            return self._end
+
+    @property
+    def elapsed(self):
+        return self.end_clock - self.start_clock
+
+    @property
+    def entries(self):
+        try:
+            return self._entries
+        except AttributeError:
+            entries = []
+            for name, value in zip(self._names, self._raw):
+                label = name.replace('_', ' ')
+                if name == 'start_time':
+                    value = int(value.timestamp())
+                comment = f'# {label}: {value}'
+                entries.append(('info', (label, value), comment, comment))
+            self._entries = tuple(entries)
+            return self._entries
+
+    def resolve_clock(self, clock):
+        elapsed = clock_elapsed(self.start_clock, clock)
+        return self.start + elapsed
+
+
+def _parse_header(cleanlines):
+    kwargs = {}
+    entries = []
     for line, comment, rawline in cleanlines:
         if not rawline:
             # A single blank line divides the header and data.
-            return
+            break
         if line is not None:
             # All lines in the header are info/comments.
             raise ValueError(f'unexpected line in header: {rawline!r}')
@@ -179,9 +266,25 @@ def _parse_header_lines(cleanlines):
 
         info = _parse_info(comment)
         if info:
-            yield 'info', info, f'# {comment}', rawline
+            label, text = info
+            if label == 'argv':
+                value = text
+            elif label == 'start time':
+                value = parse_timestamp(text.split()[0])
+            elif label == 'start clock':
+                value = parse_clock(text.split()[0])
+            elif label == 'end clock':
+                value = parse_clock(text.split()[0])
+            else:
+                raise ValueError(f'unsupported header entry {comment!r}')
+            kwargs[label.replace(' ', '_')] = value
+            entry = ('info', info, f'# {comment}', rawline)
         else:
-            yield 'comment', comment, f'# {comment}', rawline
+            entry = ('comment', comment, f'# {comment}', rawline)
+        entries.append(entry)
+    header = Header(**kwargs)
+    header._entries = tuple(entries)
+    return header
 
 
 def _parse_trace_lines(cleanlines):
@@ -208,9 +311,8 @@ def _parse_trace_lines(cleanlines):
 
 def _parse_lines(rawlines):
     cleanlines = iter(iter_clean_lines(rawlines))
-    yield from _parse_header_lines(cleanlines)
-    yield (None, None, None, None)
-    yield from _parse_trace_lines(cleanlines)
+    header = _parse_header(cleanlines)
+    return header, _parse_trace_lines(cleanlines)
 
 
 def _sanitize_raw(lines):
@@ -240,7 +342,7 @@ def _printed_section(name):
     print(div)
 
 
-def format_elapsed(elapsed):
+def format_elapsed(elapsed, *, align=True):
     units = ['s', 'ms', 'µs', 'ns']
     while elapsed < 1:
         before = elapsed
@@ -250,20 +352,35 @@ def format_elapsed(elapsed):
     assert elapsed > 1
     whole = int(elapsed)
     dec = int((elapsed - whole) * 10)
-    return f'{whole:>3,}.{dec} {units[0]}'
+    if align:
+        return f'{whole:>3,}.{dec} {units[0]}'
+    else:
+        return f'{whole:,}.{dec} {units[0]}'
 
 
-def format_elapsed(elapsed):
+def format_elapsed(elapsed, *, align=True):
     micro = elapsed * 1_000_000
     whole = int(micro)
     dec = int((micro - whole) * 10)
-    return f'{whole:>5,}.{dec} µs'
+    if align:
+        return f'{whole:>5,}.{dec} µs'
+    else:
+        return f'{whole:,}.{dec} µs'
+
+
+def format_timestamp(timestamp, *, secondsonly=True):
+    offset = timestamp.utcoffset()
+    dt = timestamp - offset if offset else timestamp
+    text = dt.isoformat(' ')
+    if secondsonly:
+        text = text.split('.')[0]
+    return f'{text} UTC'
 
 
 def _format_info(info, *, align=True):
     label, text = info
     if align:
-        yield f'# {label + ":":20} {text}'
+        yield f'# {label + ":":15} {text}'
     else:
         yield f'# {label}: {text}'
 
@@ -311,7 +428,37 @@ def _format_event(event, end=None, depth=None):
     yield line
 
 
-def _render_traces(traces, *, fmt='simple-indent'):
+def _render_header(header):
+    for kind, entry, _, _ in header.entries:
+        if kind == 'comment':
+            yield entry
+        elif kind == 'info':
+            label, text = entry
+            if label == 'argv':
+                yield from _format_info(entry)
+            elif label == 'start time':
+                text = format_timestamp(header.start, secondsonly=False)
+                entry = ('start', text)
+                yield from _format_info(entry)
+
+                text = format_timestamp(header.end, secondsonly=False)
+                entry = ('end', text)
+                yield from _format_info(entry)
+
+                text = format_elapsed(header.elapsed, align=False)
+                entry = ('elapsed', text)
+                yield from _format_info(entry)
+            elif label == 'start clock':
+                continue
+            elif label == 'end clock':
+                continue
+            else:
+                raise NotImplementedError(entry)
+        else:
+            raise NotImplementedError((kind, entry))
+
+
+def _render_all(header, traces, *, fmt='simple-indent'):
     traces = iter(traces)
 
     depth = None
@@ -319,18 +466,8 @@ def _render_traces(traces, *, fmt='simple-indent'):
         fmt = 'simple'
         depth = 0
     if fmt == 'simple':
-        # Print the header first.
-        for kind, entry, _, _ in traces:
-            if kind is None:
-                break
-            if kind == 'comment':
-                yield entry
-            elif kind == 'info':
-                yield from _format_info(entry)
-            else:
-                raise NotImplementedError((kind, entry))
+        yield from _render_header(header)
         yield ''
-
         with _printed_section('trace'):
             current = None
             for kind, entry, _, _ in traces:
@@ -407,8 +544,8 @@ def main(filename=None, *, fmt='simple-indent'):
             for line in _sanitize_raw(infile):
                 print(line)
         else:
-            traces = _parse_lines(infile)
-            for line in _render_traces(traces, fmt=fmt):
+            header, traces = _parse_lines(infile)
+            for line in _render_all(header, traces, fmt=fmt):
                 print(line)
 
 

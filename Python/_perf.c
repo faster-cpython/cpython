@@ -27,7 +27,7 @@ timespec_sub(struct timespec after, struct timespec before)
 }
 
 static inline struct timespec
-_now(void)
+_clock_now(void)
 {
     struct timespec time = {0,0};
     clock_gettime(CLOCK_MONOTONIC, &time);
@@ -127,7 +127,7 @@ _get_next_logline(void)
 static inline void
 _log_event(FILE *logfile, _PyPerf_Event event)
 {
-    struct timespec time = _now();
+    struct timespec time = _clock_now();
     char *buf = _get_next_logline();
     sprintf(buf, "%ld.%ld %d\n", time.tv_sec, time.tv_nsec, (int)event);
 }
@@ -135,7 +135,7 @@ _log_event(FILE *logfile, _PyPerf_Event event)
 static inline void
 _log_event_with_data(FILE *logfile, _PyPerf_Event event, int data)
 {
-    struct timespec time = _now();
+    struct timespec time = _clock_now();
     char *buf = _get_next_logline();
     sprintf(buf, "%ld.%ld %d %d\n", time.tv_sec, time.tv_nsec, (int)event, data);
 }
@@ -152,6 +152,17 @@ _log_info_amount(FILE *logfile, const char *label, long value, const char *units
 {
     char *buf = _get_next_logline();
     sprintf(buf, "# %s: %ld %s\n", label, value, units);
+}
+
+static inline void
+_log_info_clock(FILE *logfile, const char *label, struct timespec ts)
+{
+    char *buf = _get_next_logline();
+    long nsec = ts.tv_nsec;
+    while (nsec < 10000000) {
+        nsec *= 10;
+    }
+    sprintf(buf, "# %s: %ld.%ld s (on clock)\n", label, ts.tv_sec, nsec);
 }
 
 static inline void
@@ -172,13 +183,13 @@ _merge_log(char *buf)
 static inline void
 _flush_log(FILE *logfile, int record)
 {
-    struct timespec before = _now();
+    struct timespec before = _clock_now();
     for (int i = 0; i < _numlines; i++) {
         fprintf(logfile, "%s", _loglines[i]);
     }
     _numlines = 0;
     _nextbuf = 0;
-    struct timespec after = _now();
+    struct timespec after = _clock_now();
     struct timespec elapsed = timespec_sub(after, before);
 
     if (record) {
@@ -259,7 +270,9 @@ static long _endtime_pos = -1;
 void
 _PyPerf_TraceInit(_PyArgv *args)
 {
-    time_t started = time(NULL);  // This is close enough.
+    time_t started = time(NULL);
+    struct timespec started_clock = _clock_now();
+
     const char *filename = _get_filename("eval_loop", started);
     _trace_file = fopen(filename, "w");
     assert(_trace_file != NULL);
@@ -277,9 +290,11 @@ _PyPerf_TraceInit(_PyArgv *args)
     }
     _log_info_amount(_trace_file, "start time", started, "s (since epoch)");
     _flush_log(_trace_file, 0);
+    _log_info_clock(_trace_file, "start clock", started_clock);
+    _flush_log(_trace_file, 0);
     // We will fill in the end time (12 digits) when we are done.
-    _endtime_pos = ftell(_trace_file) + strlen("# end time: ");
-    _log_info(_trace_file, "end time", "???????????? s (since epoch)");
+    _endtime_pos = ftell(_trace_file);
+    _log_info_clock(_trace_file, "end clock", started_clock);
     _flush_log(_trace_file, 0);
     fprintf(_trace_file, "\n");  // Add the end-of-header marker (a blank line).
 
@@ -303,7 +318,9 @@ _PyPerf_TraceFini(void)
     if (_endtime_pos >= 0) {
         fseek(_trace_file, _endtime_pos, SEEK_SET);
         _endtime_pos = 0;
-        fprintf(_trace_file, "%012ld", time(NULL));
+        struct timespec ended_clock = _clock_now();
+        _log_info_clock(_trace_file, "end clock", ended_clock);
+        _flush_log(_trace_file, 0);
     }
 
     fclose(_trace_file);
