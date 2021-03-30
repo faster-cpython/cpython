@@ -197,8 +197,8 @@ void
 _PyPerf_Trace(_PyPerf_Event event)
 {
     if (_trace_file) {
-        _log_event(_trace_file, event);
         _flush_log_if_full(_trace_file);
+        _log_event(_trace_file, event);
     }
 }
 
@@ -206,8 +206,8 @@ void
 _PyPerf_TraceToFile(_PyPerf_Event event)
 {
     if (_trace_file) {
-        _log_event(_trace_file, event);
         _flush_log(_trace_file, 1);
+        _log_event(_trace_file, event);
     }
 }
 
@@ -215,8 +215,8 @@ void
 _PyPerf_TraceOp(int op)
 {
     if (_trace_file) {
-        _log_event_with_data(_trace_file, CEVAL_OP, op);
         _flush_log_if_full(_trace_file);
+        _log_event_with_data(_trace_file, CEVAL_OP, op);
     }
 }
 
@@ -225,11 +225,11 @@ _PyPerf_TraceFrameEnter(PyFrameObject *f)
 {
     if (_trace_file) {
         const char *funcname = _get_frame_name(f);
+        _flush_log_if_full(_trace_file);
         _log_info(_trace_file, "func", funcname);
-        _flush_log_if_full(_trace_file);
         // XXX Differentiate generators?
-        _log_event(_trace_file, CEVAL_ENTER);
         _flush_log_if_full(_trace_file);
+        _log_event(_trace_file, CEVAL_ENTER);
     }
 }
 
@@ -238,11 +238,11 @@ _PyPerf_TraceFrameExit(PyFrameObject *f)
 {
     if (_trace_file) {
         const char *funcname = _get_frame_name(f);
+        _flush_log_if_full(_trace_file);
         _log_info(_trace_file, "func", funcname);
-        _flush_log_if_full(_trace_file);
         // XXX Differentiate generators?
-        _log_event(_trace_file, CEVAL_EXIT);
         _flush_log_if_full(_trace_file);
+        _log_event(_trace_file, CEVAL_EXIT);
     }
 }
 
