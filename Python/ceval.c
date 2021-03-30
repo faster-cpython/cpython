@@ -1629,7 +1629,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 
     if (_Py_EnterRecursiveCall(tstate, "")) {
         _PyPerf_TraceFrameExit(f);
-        _PyPerf_TraceToFile(RUNTIME_OTHER);
+        _PyPerf_Trace(RUNTIME_OTHER);
         return NULL;
     }
 
@@ -1755,7 +1755,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
        caller loses its exception */
     assert(!_PyErr_Occurred(tstate));
 #endif
-    _PyPerf_TraceToFile(CEVAL_LOOP_ENTER);
+    _PyPerf_Trace(CEVAL_LOOP_ENTER);
 
 main_loop:
     for (;;) {
@@ -4510,7 +4510,7 @@ error:
                            tstate, f, &trace_info);
         }
 exception_unwind:
-        _PyPerf_TraceToFile(CEVAL_LOOP_EXCEPTION);
+        _PyPerf_Trace(CEVAL_LOOP_EXCEPTION);
         f->f_state = FRAME_UNWINDING;
         /* Unwind stacks if an exception occurred */
         while (f->f_iblock > 0) {
@@ -4609,7 +4609,7 @@ exit_eval_frame:
     tstate->frame = f->f_back;
 
     PyObject *_res = _Py_CheckFunctionResult(tstate, NULL, retval, __func__);
-    _PyPerf_TraceToFile(RUNTIME_OTHER);
+    _PyPerf_Trace(RUNTIME_OTHER);
     return _res;
 }
 

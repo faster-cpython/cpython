@@ -203,15 +203,6 @@ _PyPerf_Trace(_PyPerf_Event event)
 }
 
 void
-_PyPerf_TraceToFile(_PyPerf_Event event)
-{
-    if (_trace_file) {
-        _flush_log(_trace_file, 1);
-        _log_event(_trace_file, event);
-    }
-}
-
-void
 _PyPerf_TraceOp(int op)
 {
     if (_trace_file) {
