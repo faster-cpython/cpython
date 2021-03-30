@@ -187,6 +187,14 @@ _flush_log_if_full(FILE *logfile)
     }
 }
 
+static inline void
+_flush_log_if_almost_full(FILE *logfile)
+{
+    if (_log_bytes_written + MAX_LOG_LINE_LEN * 2 > MAX_LOG_LEN) {
+        _flush_log(logfile, 1);
+    }
+}
+
 static FILE * _trace_file = NULL;
 
 //======================
@@ -216,10 +224,9 @@ _PyPerf_TraceFrameEnter(PyFrameObject *f)
 {
     if (_trace_file) {
         const char *funcname = _get_frame_name(f);
-        _flush_log_if_full(_trace_file);
+        _flush_log_if_almost_full(_trace_file);
         _log_info(_trace_file, "func", funcname);
         // XXX Differentiate generators?
-        _flush_log_if_full(_trace_file);
         _log_event(_trace_file, CEVAL_ENTER);
     }
 }
@@ -229,10 +236,9 @@ _PyPerf_TraceFrameExit(PyFrameObject *f)
 {
     if (_trace_file) {
         const char *funcname = _get_frame_name(f);
-        _flush_log_if_full(_trace_file);
+        _flush_log_if_almost_full(_trace_file);
         _log_info(_trace_file, "func", funcname);
         // XXX Differentiate generators?
-        _flush_log_if_full(_trace_file);
         _log_event(_trace_file, CEVAL_EXIT);
     }
 }
@@ -269,6 +275,7 @@ _PyPerf_TraceInit(_PyArgv *args)
     _log_info_clock(_trace_file, "end clock", started_clock);
     _flush_log(_trace_file, 0);
     fprintf(_trace_file, "\n");  // Add the end-of-header marker (a blank line).
+    fflush(_trace_file);
 
     // Log the first event.
     _log_event(_trace_file, MAIN_INIT);
