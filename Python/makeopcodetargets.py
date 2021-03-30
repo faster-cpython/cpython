@@ -27,29 +27,51 @@ else:
         return SourceFileLoader(modname, modpath).load_module()
 
 
-def write_contents(f):
-    """Write C code contents to the target file object.
-    """
+def write_targets(f):
     opcode = find_module('opcode')
-    targets = ['_unknown_opcode'] * 256
+    targets = [f'_unknown_opcode_{i}' for i in range(256)]
     for opname, op in opcode.opmap.items():
         targets[op] = "TARGET_%s" % opname
     f.write("static void *opcode_targets[256] = {\n")
     f.write(",\n".join(["    &&%s" % s for s in targets]))
     f.write("\n};\n")
 
+def write_unknowns(f):
+    opcode = find_module('opcode')
+    unknowns = [ True ] * 256
+    for opname, op in opcode.opmap.items():
+        unknowns[op] = False
+    for i, unknown in enumerate(unknowns):
+        if unknown:
+            f.write(f"    UNKNOWN_OPCODE({i}):\n")
+            f.write(f"        oparg = {i};\n")
+            f.write(f"        goto _unknown_opcode;\n")
+    f.write("\n")
 
 def main():
-    if len(sys.argv) >= 3:
-        sys.exit("Too many arguments")
-    if len(sys.argv) == 2:
-        target = sys.argv[1]
+    if len(sys.argv) >= 4:
+        sys.exit(f"Too many arguments: {len(sys.argv)}")
+    output = None
+    opt = None
+    for arg in sys.argv[1:]:
+        if arg.startswith("--"):
+            opt = arg
+        else:
+            output = arg
+    if opt == "--targets":
+        if output is None:
+            output = "Python/opcode_targets.h"
+        with open(output, "w") as f:
+            write_targets(f)
+        print("Jump table written into %s" % output)
+    elif opt == "--unknowns":
+        if output is None:
+            output = "Python/unknown_opcodes.h"
+        with open(output, "w") as f:
+            write_unknowns(f)
+        print("Unknown opcodes written into %s" % output)
     else:
-        target = "Python/opcode_targets.h"
-    with open(target, "w") as f:
-        write_contents(f)
-    print("Jump table written into %s" % target)
-
+        sys.exit("Unknwown option " + opt)
 
 if __name__ == "__main__":
     main()

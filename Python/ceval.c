@@ -64,9 +64,9 @@ static PyObject * do_call_core(
 #ifdef LLTRACE
 static int lltrace;
 static int prtrace(PyThreadState *, PyObject *, const char *);
-#define LLTRACE_ON 0
-#else
 #define LLTRACE_ON lltrace
+#else
+#define LLTRACE_ON 0
 #endif
 static int call_trace(Py_tracefunc, PyObject *,
                       PyThreadState *, PyFrameObject *,
@@ -4431,15 +4431,18 @@ main_loop:
             goto dispatch_opcode;
         }
 
-
 #if USE_COMPUTED_GOTOS
-        _unknown_opcode:
+#define UNKNOWN_OPCODE(i) _unknown_opcode_ ## i
+#else
+#define UNKNOWN_OPCODE(i) case i
 #endif
-        default:
+#include "unknown_opcodes.h"
+
+        _unknown_opcode:
             fprintf(stderr,
                 "XXX lineno: %d, opcode: %d\n",
                 PyFrame_GetLineNumber(f),
-                opcode);
+                oparg);
             _PyErr_SetString(tstate, PyExc_SystemError, "unknown opcode");
             goto error;
 

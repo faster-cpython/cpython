@@ -979,9 +979,12 @@ Objects/setobject.o: $(srcdir)/Objects/stringlib/eq.h
 regen-opcode-targets:
 	# Regenerate Python/opcode_targets.h from Lib/opcode.py
 	# using Python/makeopcodetargets.py
-	$(PYTHON_FOR_REGEN) $(srcdir)/Python/makeopcodetargets.py \
+	$(PYTHON_FOR_REGEN) $(srcdir)/Python/makeopcodetargets.py --targets \
 		$(srcdir)/Python/opcode_targets.h.new
 	$(UPDATE_FILE) $(srcdir)/Python/opcode_targets.h $(srcdir)/Python/opcode_targets.h.new
+	$(PYTHON_FOR_REGEN) $(srcdir)/Python/makeopcodetargets.py --unknowns \
+		$(srcdir)/Python/unknown_opcodes.h.new
+	$(UPDATE_FILE) $(srcdir)/Python/unknown_opcodes.h $(srcdir)/Python/unknown_opcodes.h.new
 
 Python/ceval.o: $(srcdir)/Python/opcode_targets.h $(srcdir)/Python/ceval_gil.h \
 		$(srcdir)/Python/condvar.h
