@@ -195,38 +195,6 @@ _flush_log_if_full(FILE *logfile)
     }
 }
 
-static FILE *_fake_api_file = NULL;
-
-// Duplicate _PyPerf_Trace() without relying on _trace_file.
-void
-_fake_api(_PyPerf_Event event)
-{
-    if (_fake_api_file) {
-        _log_event(_fake_api_file, event);
-        _flush_log(_fake_api_file, 0);
-    }
-}
-
-static long
-_get_trace_cost_ns(FILE *f)
-{
-    assert(f);
-    _fake_api_file = f;
-    long pos_orig = ftell(f);
-
-    // XXX Repeat multiple times for a stable result?
-    struct timespec before = _now();
-    _fake_api(CEVAL_OP);
-    struct timespec after = _now();
-
-    fseek(f, pos_orig, SEEK_SET);
-    _fake_api_file = NULL;
-
-    struct timespec elapsed = timespec_sub(after, before);
-    assert(elapsed.tv_sec == 0);
-    return elapsed.tv_nsec;
-}
-
 static FILE * _trace_file = NULL;
 
 //======================
@@ -296,8 +264,6 @@ _PyPerf_TraceInit(_PyArgv *args)
     _trace_file = fopen(filename, "w");
     assert(_trace_file != NULL);
 
-    long cost = _get_trace_cost_ns(_trace_file);
-
     // Write a "header".
     assert(args);
     if (args->use_bytes_argv) {
@@ -311,14 +277,11 @@ _PyPerf_TraceInit(_PyArgv *args)
     }
     _log_info_amount(_trace_file, "start time", started, "s (since epoch)");
     _flush_log(_trace_file, 0);
-    char buf[MAX_LINES * MAX_LINE_LEN];
-    _merge_log(buf);
     // We will fill in the end time (12 digits) when we are done.
-    _endtime_pos = ftell(_trace_file) + strlen(buf) + strlen("# end time: ");
+    _endtime_pos = ftell(_trace_file) + strlen("# end time: ");
     _log_info(_trace_file, "end time", "???????????? s (since epoch)");
-    _log_info_amount(_trace_file, "per-trace", cost, "ns");
     _flush_log(_trace_file, 0);
-    fprintf(_trace_file, "\n");  // Add a blank line.
+    fprintf(_trace_file, "\n");  // Add the end-of-header marker (a blank line).
 
     // Log the first event.
     _log_event(_trace_file, MAIN_INIT);
