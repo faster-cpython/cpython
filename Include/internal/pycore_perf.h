@@ -28,6 +28,7 @@ typedef enum _PyPerf_Event {
 } _PyPerf_Event;
 
 extern void _PyPerf_Trace(_PyPerf_Event);
+extern void _PyPerf_TraceToFile(_PyPerf_Event);
 extern void _PyPerf_TraceOp(int op);
 extern void _PyPerf_TraceFrameEnter(PyFrameObject *);
 extern void _PyPerf_TraceFrameExit(PyFrameObject *);

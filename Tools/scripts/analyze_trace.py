@@ -294,14 +294,20 @@ def _format_event(event, end=None, depth=None):
                 yield entry
             else:
                 yield from _format_info(entry)
-        infolines = list(_format_info(annotations[-1], align=False))
-        if len(infolines) == 1:
-            if depth is None:
-                line = f'{line:50} {infolines[0]}'
-            else:
-                line = f'{line:65} {infolines[0]}'
+        last = annotations[-1]
+        if isinstance(last, str):
+            yield last
+        elif last[0] == 'log written':
+            yield from _format_info(last)
         else:
-            yield from _format_info(annotations[-1])
+            infolines = list(_format_info(last, align=False))
+            if len(infolines) == 1:
+                if depth is None:
+                    line = f'{line:50} {infolines[0]}'
+                else:
+                    line = f'{line:65} {infolines[0]}'
+            else:
+                yield from _format_info(last)
     yield line
 
 

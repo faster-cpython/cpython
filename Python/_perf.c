@@ -105,30 +105,94 @@ _get_filename(const char *name, time_t started)
     return _get_filename_default(name, started);
 }
 
+#define MAX_LINES 40
+static char * _loglines[MAX_LINES];
+static int _numlines = 0;
+#define MAX_LINE_LEN 40
+static char _buffers[MAX_LINES][MAX_LINE_LEN];
+static int _nextbuf = 0;
+
+static inline char *
+_get_next_logline(void)
+{
+    assert(_numlines < MAX_LINES);
+    char *buf = (char *)&_buffers[_nextbuf];
+    _nextbuf++;
+    *buf = '\0';
+    _loglines[_numlines] = buf;
+    _numlines++;
+    return buf;
+}
+
 static inline void
 _log_event(FILE *logfile, _PyPerf_Event event)
 {
     struct timespec time = _now();
-    fprintf(logfile, "%ld.%ld %d\n", time.tv_sec, time.tv_nsec, (int)event);
+    char *buf = _get_next_logline();
+    sprintf(buf, "%ld.%ld %d\n", time.tv_sec, time.tv_nsec, (int)event);
 }
 
 static inline void
 _log_event_with_data(FILE *logfile, _PyPerf_Event event, int data)
 {
     struct timespec time = _now();
-    fprintf(logfile, "%ld.%ld %d %d\n", time.tv_sec, time.tv_nsec, (int)event, data);
+    char *buf = _get_next_logline();
+    sprintf(buf, "%ld.%ld %d %d\n", time.tv_sec, time.tv_nsec, (int)event, data);
 }
 
 static inline void
 _log_info(FILE *logfile, const char *label, const char *text)
 {
-    fprintf(logfile, "# %s: %s\n", label, text);
+    char *buf = _get_next_logline();
+    sprintf(buf, "# %s: %s\n", label, text);
 }
 
 static inline void
 _log_info_amount(FILE *logfile, const char *label, long value, const char *units)
 {
-    fprintf(logfile, "# %s: %ld %s\n", label, value, units);
+    char *buf = _get_next_logline();
+    sprintf(buf, "# %s: %ld %s\n", label, value, units);
+}
+
+static inline void
+_merge_log(char *buf)
+{
+    char *cur = buf;
+    for (int i = 0; i < _numlines; i++) {
+        char *line = _loglines[i];
+        while (*line) {
+            *cur = *line;
+            line++;
+            cur++;
+        }
+    }
+    *cur = '\0';
+}
+
+static inline void
+_flush_log(FILE *logfile, int record)
+{
+    struct timespec before = _now();
+    for (int i = 0; i < _numlines; i++) {
+        fprintf(logfile, "%s", _loglines[i]);
+    }
+    _numlines = 0;
+    _nextbuf = 0;
+    struct timespec after = _now();
+    struct timespec elapsed = timespec_sub(after, before);
+
+    if (record) {
+        char *buf = _get_next_logline();
+        sprintf(buf, "# log written: %ld.%ld s\n", elapsed.tv_sec, elapsed.tv_nsec);
+    }
+}
+
+static inline void
+_flush_log_if_full(FILE *logfile)
+{
+    if (_numlines == MAX_LINES) {
+        _flush_log(logfile, 1);
+    }
 }
 
 static FILE *_fake_api_file = NULL;
@@ -139,6 +203,7 @@ _fake_api(_PyPerf_Event event)
 {
     if (_fake_api_file) {
         _log_event(_fake_api_file, event);
+        _flush_log(_fake_api_file, 0);
     }
 }
 
@@ -173,6 +238,16 @@ _PyPerf_Trace(_PyPerf_Event event)
 {
     if (_trace_file) {
         _log_event(_trace_file, event);
+        _flush_log_if_full(_trace_file);
+    }
+}
+
+void
+_PyPerf_TraceToFile(_PyPerf_Event event)
+{
+    if (_trace_file) {
+        _log_event(_trace_file, event);
+        _flush_log(_trace_file, 1);
     }
 }
 
@@ -181,6 +256,7 @@ _PyPerf_TraceOp(int op)
 {
     if (_trace_file) {
         _log_event_with_data(_trace_file, CEVAL_OP, op);
+        _flush_log_if_full(_trace_file);
     }
 }
 
@@ -190,8 +266,10 @@ _PyPerf_TraceFrameEnter(PyFrameObject *f)
     if (_trace_file) {
         const char *funcname = _get_frame_name(f);
         _log_info(_trace_file, "func", funcname);
+        _flush_log_if_full(_trace_file);
         // XXX Differentiate generators?
         _log_event(_trace_file, CEVAL_ENTER);
+        _flush_log_if_full(_trace_file);
     }
 }
 
@@ -201,8 +279,10 @@ _PyPerf_TraceFrameExit(PyFrameObject *f)
     if (_trace_file) {
         const char *funcname = _get_frame_name(f);
         _log_info(_trace_file, "func", funcname);
+        _flush_log_if_full(_trace_file);
         // XXX Differentiate generators?
         _log_event(_trace_file, CEVAL_EXIT);
+        _flush_log_if_full(_trace_file);
     }
 }
 
@@ -230,14 +310,19 @@ _PyPerf_TraceInit(_PyArgv *args)
         _log_info(_trace_file, "argv", "<unknown>");
     }
     _log_info_amount(_trace_file, "start time", started, "s (since epoch)");
+    _flush_log(_trace_file, 0);
+    char buf[MAX_LINES * MAX_LINE_LEN];
+    _merge_log(buf);
     // We will fill in the end time (12 digits) when we are done.
-    _endtime_pos = ftell(_trace_file) + 4 + strlen("end time");
+    _endtime_pos = ftell(_trace_file) + strlen(buf) + strlen("# end time: ");
     _log_info(_trace_file, "end time", "???????????? s (since epoch)");
     _log_info_amount(_trace_file, "per-trace", cost, "ns");
+    _flush_log(_trace_file, 0);
     fprintf(_trace_file, "\n");  // Add a blank line.
 
     // Log the first event.
-    _PyPerf_Trace(MAIN_INIT);
+    _log_event(_trace_file, MAIN_INIT);
+    _flush_log(_trace_file, 0);
 }
 
 void
@@ -248,7 +333,8 @@ _PyPerf_TraceFini(void)
     }
 
     // Log the very last event.
-    _PyPerf_Trace(MAIN_FINI);
+    _log_event(_trace_file, MAIN_FINI);
+    _flush_log(_trace_file, 0);
 
     // Update the header.
     if (_endtime_pos >= 0) {
