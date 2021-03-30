@@ -194,7 +194,7 @@ _flush_log(FILE *logfile, int record)
 
     if (record) {
         char *buf = _get_next_logline();
-        sprintf(buf, "# log written: %ld.%ld s\n", elapsed.tv_sec, elapsed.tv_nsec);
+        sprintf(buf, "# log written: %ld.%09ld s\n", elapsed.tv_sec, elapsed.tv_nsec);
     }
 }
 

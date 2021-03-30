@@ -298,6 +298,10 @@ def _parse_trace_lines(cleanlines):
             info = _parse_info(comment)
             commentline = f'# {comment}'
             if info:
+                label, text = info
+                if label == 'log written':
+                    elapsed = parse_clock(text.split()[0])
+                    info = (label, elapsed)
                 yield 'info', info, commentline, rawline
             else:
                 yield 'comment', comment, commentline, rawline
@@ -378,7 +382,15 @@ def format_timestamp(timestamp, *, secondsonly=True):
 
 
 def _format_info(info, *, align=True):
-    label, text = info
+    label, data = info
+    if label == 'log written':
+        elapsed = data
+        if elapsed < 0.001:
+            text = format_elapsed(elapsed, align=False)
+        else:
+            text = f'{elapsed} s'
+    else:
+        text = data
     if align:
         yield f'# {label + ":":15} {text}'
     else:
