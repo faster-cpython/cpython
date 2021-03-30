@@ -105,23 +105,16 @@ _get_filename(const char *name, time_t started)
     return _get_filename_default(name, started);
 }
 
-#define MAX_LINES 40
-static char * _loglines[MAX_LINES];
-static int _numlines = 0;
-#define MAX_LINE_LEN 40
-static char _buffers[MAX_LINES][MAX_LINE_LEN];
-static int _nextbuf = 0;
+#define MAX_LOG_LINES 40
+#define MAX_LOG_LINE_LEN 40
+#define MAX_LOG_LEN (MAX_LOG_LINES * MAX_LOG_LINE_LEN)
+static char _log[MAX_LOG_LEN];
+static int _log_bytes_written = 0;
 
 static inline char *
 _get_next_logline(void)
 {
-    assert(_numlines < MAX_LINES);
-    char *buf = (char *)&_buffers[_nextbuf];
-    _nextbuf++;
-    *buf = '\0';
-    _loglines[_numlines] = buf;
-    _numlines++;
-    return buf;
+    return &_log[_log_bytes_written];
 }
 
 static inline void
@@ -130,6 +123,7 @@ _log_event(FILE *logfile, _PyPerf_Event event)
     struct timespec time = _clock_now();
     char *buf = _get_next_logline();
     sprintf(buf, "%ld.%ld %d\n", time.tv_sec, time.tv_nsec, (int)event);
+    _log_bytes_written += strlen(buf);
 }
 
 static inline void
@@ -138,6 +132,7 @@ _log_event_with_data(FILE *logfile, _PyPerf_Event event, int data)
     struct timespec time = _clock_now();
     char *buf = _get_next_logline();
     sprintf(buf, "%ld.%ld %d %d\n", time.tv_sec, time.tv_nsec, (int)event, data);
+    _log_bytes_written += strlen(buf);
 }
 
 static inline void
@@ -145,6 +140,7 @@ _log_info(FILE *logfile, const char *label, const char *text)
 {
     char *buf = _get_next_logline();
     sprintf(buf, "# %s: %s\n", label, text);
+    _log_bytes_written += strlen(buf);
 }
 
 static inline void
@@ -152,6 +148,7 @@ _log_info_amount(FILE *logfile, const char *label, long value, const char *units
 {
     char *buf = _get_next_logline();
     sprintf(buf, "# %s: %ld %s\n", label, value, units);
+    _log_bytes_written += strlen(buf);
 }
 
 static inline void
@@ -163,45 +160,29 @@ _log_info_clock(FILE *logfile, const char *label, struct timespec ts)
         nsec *= 10;
     }
     sprintf(buf, "# %s: %ld.%ld s (on clock)\n", label, ts.tv_sec, nsec);
-}
-
-static inline void
-_merge_log(char *buf)
-{
-    char *cur = buf;
-    for (int i = 0; i < _numlines; i++) {
-        char *line = _loglines[i];
-        while (*line) {
-            *cur = *line;
-            line++;
-            cur++;
-        }
-    }
-    *cur = '\0';
+    _log_bytes_written += strlen(buf);
 }
 
 static inline void
 _flush_log(FILE *logfile, int record)
 {
     struct timespec before = _clock_now();
-    for (int i = 0; i < _numlines; i++) {
-        fprintf(logfile, "%s", _loglines[i]);
-    }
-    _numlines = 0;
-    _nextbuf = 0;
+    fprintf(logfile, "%s", _log);
+    _log_bytes_written = 0;
     struct timespec after = _clock_now();
     struct timespec elapsed = timespec_sub(after, before);
 
     if (record) {
         char *buf = _get_next_logline();
         sprintf(buf, "# log written: %ld.%09ld s\n", elapsed.tv_sec, elapsed.tv_nsec);
+        _log_bytes_written += strlen(buf);
     }
 }
 
 static inline void
 _flush_log_if_full(FILE *logfile)
 {
-    if (_numlines == MAX_LINES) {
+    if (_log_bytes_written + MAX_LOG_LINE_LEN > MAX_LOG_LEN) {
         _flush_log(logfile, 1);
     }
 }
