@@ -433,6 +433,17 @@ def _summarize(header, traces):
     return summary
 
 
+def _iter_subsummary(subsummary):
+    for name, info in subsummary.items():
+        if isinstance(info, int):
+            count = info
+            elapsed = None
+        else:
+            count = info['count']
+            elapsed = info['total_elapsed_sec'] / count
+        yield name, count, elapsed
+
+
 def _sanitize_raw(lines):
     for rawline in lines:
         if rawline.endswith('\r\n'):
@@ -596,7 +607,45 @@ def _render_header(header):
             raise NotImplementedError((kind, entry))
 
 
-def _render_summary(summary, *, showfuncs=False):
+COLUMNS = [
+    'name',
+    'count',
+    'elapsed',
+    'mean elapsed',
+]
+
+
+def _get_subsummary_sort_spec(sort=None):
+    reverse = None
+    if not sort:
+        sort = 'name'
+    elif sort.startswith('+'):
+        sort = sort[1:]
+        reverse = False
+    elif sort.startswith('-'):
+        sort = sort[1:]
+        reverse = True
+
+    numeric = False
+    if sort == 'name':
+        sortkey = None
+    elif sort == 'count':
+        numeric = True
+        def sortkey(row):
+            return row[1]
+    elif sort == 'elapsed' or sort == 'mean elapsed':
+        numeric = True
+        def sortkey(row):
+            return row[2]
+    else:
+        raise NotImplementedError(sort)
+
+    if reverse is None:
+        reverse = numeric
+    return sortkey, reverse
+
+
+def _render_summary(summary, *, sort=None, showfuncs=False):
     headerkeys = ('argv', 'start', 'end', 'elapsed')
     # XXX Ensuring "summary" matches should be done in a unit test.
     _ensure_up_to_date(summary, headerkeys + ('events', 'ops', 'funcs'))
@@ -608,29 +657,36 @@ def _render_summary(summary, *, showfuncs=False):
     header = f' {"name":^20}   {"count":^10}   {"mean elapsed":^12}'
     div = ' '.join('-' * w for w in (20+2, 10+2, 12+2))
     fmt = ' {name:20}   {count:>10,}   {elapsed:>12}'
+    sortkey, reverse = _get_subsummary_sort_spec(sort)
 
     subsummary = summary['events']
+    rows = _iter_subsummary(subsummary)
     yield 'events:'
     yield ''
     yield header
     yield div
-    for name, info in sorted(subsummary.items()):
-        count = info['count']
-        elapsed = format_elapsed(info['total_elapsed_sec'] / count)
-        yield fmt.format(name=name, count=count, elapsed=elapsed)
+    for name, count, elapsed in sorted(rows, key=sortkey, reverse=reverse):
+        yield fmt.format(
+            name=name,
+            count=count,
+            elapsed=format_elapsed(elapsed),
+        )
     yield div
     yield f' total: {len(subsummary)}/{len(EVENTS)}'
     yield ''
 
     subsummary = summary['ops']
+    rows = _iter_subsummary(subsummary)
     yield 'ops:'
     yield ''
     yield header
     yield div
-    for opname, info in sorted(subsummary.items()):
-        count = info['count']
-        elapsed = format_elapsed(info['total_elapsed_sec'] / count)
-        yield fmt.format(name=opname, count=count, elapsed=elapsed)
+    for opname, count, elapsed in sorted(rows, key=sortkey, reverse=reverse):
+        yield fmt.format(
+            name=opname,
+            count=count,
+            elapsed=format_elapsed(elapsed),
+        )
     yield div
     yield f' total: {len(subsummary)}/{len(opcode.opmap)}'
     yield ''
@@ -640,13 +696,19 @@ def _render_summary(summary, *, showfuncs=False):
         header = f' {"name":^30}   {"count":^10}'
         div = ' '.join('-' * w for w in (30+2, 10+2))
         fmt = ' {name:30}   {count:>10,}'
+        if sort == 'elapsed' or sort == 'mean elapsed':
+            # Fall back to the name.
+            _sortkey, _reverse = _get_subsummary_sort_spec('name')
+        else:
+            _sortkey = sortkey
 
+        rows = _iter_subsummary(subsummary)
         yield ''
         yield 'funcs:'
         yield ''
         yield header
         yield div
-        for funcname, count in sorted(subsummary.items()):
+        for funcname, count, _ in sorted(rows, key=_sortkey, reverse=reverse):
             yield fmt.format(name=funcname, count=count)
         yield div
     else:
@@ -654,7 +716,11 @@ def _render_summary(summary, *, showfuncs=False):
     yield ''
 
 
-def _render_all(header, traces, *, fmt='simple-indent', hidelog=True):
+def _render_all(header, traces, *,
+                fmt='simple-indent',
+                sort=None,
+                hidelog=True,
+                ):
     traces = iter(traces)
 
     depth = None
@@ -672,7 +738,7 @@ def _render_all(header, traces, *, fmt='simple-indent', hidelog=True):
         raise NotImplementedError
     elif fmt == 'summary':
         summary = _summarize(header, traces)
-        yield from _render_summary(summary)
+        yield from _render_summary(summary, sort=sort)
     else:
         raise ValueError(f'unsupported fmt {fmt!r}')
 
@@ -699,6 +765,7 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
     # XXX Add --verbose (-v) and --quiet (-q).
     parser.add_argument('--format', dest='fmt',
                         choices=list(FORMATS), default='simple-indent')
+    parser.add_argument('--sort')
     parser.add_argument('filename', metavar='FILE', nargs='?')
 
     args = parser.parse_args(argv)
@@ -707,7 +774,7 @@ def parse_args(argv=sys.argv[1:], prog=sys.argv[0]):
     return ns
 
 
-def main(filename=None, *, fmt='simple-indent'):
+def main(filename=None, *, fmt='simple-indent', **kwargs):
     filename = _resolve_filename(filename)
     if not filename:
         raise Exception(f'no possible trace files found (match: {filename})')
@@ -720,7 +787,7 @@ def main(filename=None, *, fmt='simple-indent'):
                 print(line)
         else:
             header, traces = _parse_lines(infile)
-            for line in _render_all(header, traces, fmt=fmt):
+            for line in _render_all(header, traces, fmt=fmt, **kwargs):
                 print(line)
 
 
