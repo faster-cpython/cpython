@@ -691,9 +691,9 @@ def _render_summary(summary, *, sort=None, showfuncs=False):
         yield f'{key + ":":10} {text}'
     yield ''
 
-    header = f' {"name":^20}   {"count":^10}   {"mean elapsed":^12}'
-    div = ' '.join('-' * w for w in (20+2, 10+2, 12+2))
-    fmt = ' {name:20}   {count:>10,}   {elapsed:>12}'
+    header = f' {"name":^25}   {"count":^10}   {"mean elapsed":^12}'
+    div = ' '.join('-' * w for w in (25+2, 10+2, 12+2))
+    fmt = ' {name:25}   {count:>10,}   {elapsed:>12}'
     sortkey, reverse = _get_subsummary_sort_spec(sort)
 
     subsummary = summary['events']
