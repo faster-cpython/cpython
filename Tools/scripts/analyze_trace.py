@@ -1,7 +1,6 @@
 import contextlib
 import datetime
 import decimal
-import opcode
 import os
 import os.path
 import sys
@@ -19,6 +18,36 @@ def _ensure_up_to_date(actual, expected):
         raise NotImplementedError(actual - expected)
     elif expected - actual:
         raise NotImplementedError(expected - actual)
+
+
+_OPCODES = None
+
+
+def _load_opcodes(python):
+    global _OPCODES
+    if _OPCODES is None:
+        dirname = os.path.dirname(python)
+        if os.path.exists(os.path.join(dirname, '.git')):
+            with open(os.path.join(dirname, 'Lib', 'opcode.py')) as srcfile:
+                text = srcfile.read()
+            ns = {}
+            exec(text, ns, ns)
+            _OPCODES = ns['opname']
+        elif os.path.exists(python):
+            import json
+            import subprocess
+            proc = subprocess.run(
+                [python, '-c', 'import opcode; print(opcode.opname)'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+            text = proc.stdout.replace("'", '"')
+            _OPCODES = json.loads(text)
+        else:
+            import opcode
+            _OPCODES = list(opcode.opname)
+    return _OPCODES
 
 
 def _parse_filename(filename):
@@ -153,7 +182,7 @@ EVENTS = [
 ]
 
 
-def _parse_event(line, annotations):
+def _parse_event(line, annotations, opcodes):
     ts, _, event = line.partition(' ')
     event, _, data = event.partition(' ')
 
@@ -164,7 +193,7 @@ def _parse_event(line, annotations):
 
     if event == 'op':
         op = data
-        opname = opcode.opname[op]
+        opname = opcodes[op]
         data = (op, opname)
     else:
         if data is not None:
@@ -314,7 +343,9 @@ def _parse_header(cleanlines):
     return header
 
 
-def _parse_trace_lines(cleanlines):
+def _parse_trace_lines(cleanlines, header):
+    opcodes = _load_opcodes(header.python)
+
     annotations = []
     for line, comment, rawline in cleanlines:
         if line is None and comment is None:
@@ -335,7 +366,7 @@ def _parse_trace_lines(cleanlines):
             annotations.append(info or commentline)
 
         if line is not None:
-            event = _parse_event(line, tuple(annotations))
+            event = _parse_event(line, tuple(annotations), opcodes)
             yield 'event', event, line, rawline
             annotations.clear()
 
@@ -343,7 +374,7 @@ def _parse_trace_lines(cleanlines):
 def _parse_lines(rawlines):
     cleanlines = iter(iter_clean_lines(rawlines))
     header = _parse_header(cleanlines)
-    return header, _parse_trace_lines(cleanlines)
+    return header, _parse_trace_lines(cleanlines, header)
 
 
 def _iter_events(traces, depth=None, *, hidelog=True):
@@ -681,6 +712,7 @@ def _render_summary(summary, *, sort=None, showfuncs=False):
     yield f' total: {len(subsummary)}/{len(EVENTS)}'
     yield ''
 
+    opnames = [v for v in _load_opcodes(summary['python']) if '<' not in v]
     subsummary = summary['ops']
     rows = _iter_subsummary(subsummary)
     yield 'ops:'
@@ -694,7 +726,7 @@ def _render_summary(summary, *, sort=None, showfuncs=False):
             elapsed=format_elapsed(elapsed),
         )
     yield div
-    yield f' total: {len(subsummary)}/{len(opcode.opmap)}'
+    yield f' total: {len(subsummary)}/{len(opnames)}'
     yield ''
 
     subsummary = summary['funcs']
