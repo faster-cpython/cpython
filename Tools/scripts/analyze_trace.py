@@ -397,11 +397,12 @@ def _format_info(info, *, align=True):
         yield f'# {label}: {text}'
 
 
-def _format_event(event, end=None, depth=None):
+def _format_event(event, end=None, depth=None, *, hidelog=False):
     start, name, data, annotations = event
 
     if end is not None:
-        elapsed = format_elapsed(end - start)
+        elapsed = end - start
+        elapsed = format_elapsed(elapsed)
     else:
         elapsed = ''
 
@@ -422,12 +423,15 @@ def _format_event(event, end=None, depth=None):
             if isinstance(entry, str):
                 yield entry
             else:
+                if hidelog and entry[0] == 'log written':
+                    continue
                 yield from _format_info(entry)
         last = annotations[-1]
         if isinstance(last, str):
             yield last
         elif last[0] == 'log written':
-            yield from _format_info(last)
+            if not hidelog:
+                yield from _format_info(last)
         else:
             infolines = list(_format_info(last, align=False))
             if len(infolines) == 1:
@@ -470,7 +474,7 @@ def _render_header(header):
             raise NotImplementedError((kind, entry))
 
 
-def _render_all(header, traces, *, fmt='simple-indent'):
+def _render_all(header, traces, *, fmt='simple-indent', hidelog=True):
     traces = iter(traces)
 
     depth = None
@@ -490,12 +494,20 @@ def _render_all(header, traces, *, fmt='simple-indent'):
                     pass  # covered by annotations
                 elif kind == 'event':
                     if current:
-                        end, _, _, _ = entry
+                        end, _, _, annotations = entry
+                        if hidelog:
+                            for info in annotations or ():
+                                if isinstance(info, str):
+                                    continue
+                                label, info_data = info
+                                if label != 'log written':
+                                    continue
+                                end -= info_data
                         _, event, _, _ = current
                         if depth is not None:
                             if event == 'exit':
                                 depth -= 1
-                        yield from _format_event(current, end, depth=depth)
+                        yield from _format_event(current, end, depth=depth, hidelog=hidelog)
                         if depth is not None:
                             if event == 'enter':
                                 depth += 1
