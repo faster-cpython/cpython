@@ -122,7 +122,7 @@ _log_event(FILE *logfile, _PyPerf_Event event)
 {
     struct timespec time = _clock_now();
     char *buf = _get_next_logline();
-    sprintf(buf, "%ld.%ld %d\n", time.tv_sec, time.tv_nsec, (int)event);
+    sprintf(buf, "%ld.%09ld %d\n", time.tv_sec, time.tv_nsec, (int)event);
     _log_bytes_written += strlen(buf);
 }
 
@@ -131,7 +131,7 @@ _log_event_with_data(FILE *logfile, _PyPerf_Event event, int data)
 {
     struct timespec time = _clock_now();
     char *buf = _get_next_logline();
-    sprintf(buf, "%ld.%ld %d %d\n", time.tv_sec, time.tv_nsec, (int)event, data);
+    sprintf(buf, "%ld.%09ld %d %d\n", time.tv_sec, time.tv_nsec, (int)event, data);
     _log_bytes_written += strlen(buf);
 }
 
@@ -159,7 +159,7 @@ _log_info_clock(FILE *logfile, const char *label, struct timespec ts)
     while (nsec < 10000000) {
         nsec *= 10;
     }
-    sprintf(buf, "# %s: %ld.%ld s (on clock)\n", label, ts.tv_sec, nsec);
+    sprintf(buf, "# %s: %ld.%09ld s (on clock)\n", label, ts.tv_sec, nsec);
     _log_bytes_written += strlen(buf);
 }
 

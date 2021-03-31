@@ -353,6 +353,8 @@ def _iter_events(traces, depth=None, *, hidelog=True):
                 start, event, _, _ = current
                 end, _, _, annotations = entry
                 elapsed = end - start
+                if elapsed < 0:
+                    raise NotImplementedError((current, entry))
                 if hidelog:
                     for info in annotations or ():
                         if isinstance(info, str):
