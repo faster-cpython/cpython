@@ -12,6 +12,15 @@ def log_info(msg):
     print(msg)
 
 
+def _ensure_up_to_date(actual, expected):
+    actual = set(actual)
+    expected = set(expected)
+    if actual - expected:
+        raise NotImplementedError(actual - expected)
+    elif expected - actual:
+        raise NotImplementedError(expected - actual)
+
+
 def _parse_filename(filename):
     if not filename.endswith('.trace'):
         return None, None
@@ -191,8 +200,13 @@ class Header:
 
     @property
     def _names(self):
-        code = type(self).__init__.__code__
+        cls = type(self)
+        code = cls.__init__.__code__
         return code.co_varnames[1: code.co_argcount]
+
+    @property
+    def labels(self):
+        return tuple(name.replace('_', ' ') for name in self._names)
 
     @property
     def argv(self):
@@ -249,6 +263,13 @@ class Header:
     def resolve_clock(self, clock):
         elapsed = clock_elapsed(self.start_clock, clock)
         return self.start + elapsed
+
+    def summarize(self):
+        keys = ('argv', 'start', 'end', 'elapsed')
+        summary = {k: getattr(self, k) for k in keys}
+        return summary
+
+    # XXX "_names" and "labels" would be more correct as class properties.
 
 
 def _parse_header(cleanlines):
@@ -356,8 +377,8 @@ def _iter_events(traces, depth=None, *, hidelog=True):
 
 
 def _summarize(header, traces):
-    summary = {
-        'header': header,
+    summary = header.summarize()
+    summary.update({
         'events': {
             # name -> { count, total_elapsed }
         },
@@ -368,7 +389,7 @@ def _summarize(header, traces):
             # name -> count
             # XXX Track a summary per func?
         },
-    }
+    })
     events = summary['events']
     ops = summary['ops']
     funcs = summary['funcs']
@@ -533,30 +554,39 @@ def _format_event(event, elapsed=None, depth=None, *, hidelog=False):
     yield line
 
 
+def _render_header_summary(summary, keys):
+    for key in keys:
+        value = summary[key]
+        if key in ('start', 'end'):
+            text = format_timestamp(value, secondsonly=False)
+        elif key == 'elapsed':
+            text = format_elapsed(value, align=False)
+        elif isinstance(value, str):
+            text = value
+        else:
+            raise NotImplementedError((key, value))
+        yield key, text
+
+
 def _render_header(header):
+    labels = header.labels
+    keys = ('argv', 'start', 'end', 'elapsed')
+    summary = header.summarize()
+    # XXX Ensuring "keys" matches "summary" should be done in a unit test.
+    _ensure_up_to_date(summary, keys)
+
+    skipkeys = False
     for kind, entry, _, _ in header.entries:
         if kind == 'comment':
             yield entry
         elif kind == 'info':
-            label, text = entry
-            if label == 'argv':
-                yield from _format_info(entry)
-            elif label == 'start time':
-                text = format_timestamp(header.start, secondsonly=False)
-                entry = ('start', text)
-                yield from _format_info(entry)
-
-                text = format_timestamp(header.end, secondsonly=False)
-                entry = ('end', text)
-                yield from _format_info(entry)
-
-                text = format_elapsed(header.elapsed, align=False)
-                entry = ('elapsed', text)
-                yield from _format_info(entry)
-            elif label == 'start clock':
-                continue
-            elif label == 'end clock':
-                continue
+            label, _ = entry
+            if label in labels:
+                if skipkeys:
+                    continue
+                for rendered in _render_header_summary(summary, keys):
+                    yield from _format_info(rendered)
+                skipkeys = True
             else:
                 raise NotImplementedError(entry)
         else:
@@ -564,7 +594,12 @@ def _render_header(header):
 
 
 def _render_summary(summary, *, showfuncs=False):
-    yield from _render_header(summary['header'])
+    headerkeys = ('argv', 'start', 'end', 'elapsed')
+    # XXX Ensuring "summary" matches should be done in a unit test.
+    _ensure_up_to_date(summary, headerkeys + ('events', 'ops', 'funcs'))
+
+    for key, text in _render_header_summary(summary, headerkeys):
+        yield f'{key + ":":10} {text}'
 
     yield ''
     yield 'events:'
