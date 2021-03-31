@@ -258,12 +258,15 @@ _PyPerf_TraceInit(_PyArgv *args)
     // Write a "header".
     assert(args);
     if (args->use_bytes_argv) {
+        char *python = realpath(args->bytes_argv[0], NULL);
+        _log_info(_trace_file, "python", (const char *)python);
         char *argv_str = _render_argv((int)args->argc, (char **)args->bytes_argv);
         _log_info(_trace_file, "argv", (const char *)argv_str);
         PyMem_RawFree(argv_str);
     }
     else {
         // XXX Use Py_EncodeLocaleRaw()?
+        _log_info(_trace_file, "python", "<unknown>");
         _log_info(_trace_file, "argv", "<unknown>");
     }
     _log_info_amount(_trace_file, "start time", started, "s (since epoch)");

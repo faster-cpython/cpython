@@ -188,11 +188,11 @@ class Header:
 
     __slots__ = ('_entries', '_raw', '_start', '_end')
 
-    def __init__(self, argv, start_time, start_clock, end_clock):
+    def __init__(self, python, argv, start_time, start_clock, end_clock):
         assert isinstance(start_time, datetime.datetime), start_time
         assert isinstance(start_clock, decimal.Decimal), start_clock
         assert isinstance(end_clock, decimal.Decimal), end_clock
-        self._raw = (argv, start_time, start_clock, end_clock)
+        self._raw = (python, argv, start_time, start_clock, end_clock)
 
     def __repr__(self):
         kwargs = ', '.join(f'{k}={v!r}' for k, v in zip(self._names, self._raw))
@@ -209,20 +209,24 @@ class Header:
         return tuple(name.replace('_', ' ') for name in self._names)
 
     @property
-    def argv(self):
+    def python(self):
         return self._raw[0]
 
     @property
-    def start_time(self):
+    def argv(self):
         return self._raw[1]
 
     @property
-    def start_clock(self):
+    def start_time(self):
         return self._raw[2]
 
     @property
-    def end_clock(self):
+    def start_clock(self):
         return self._raw[3]
+
+    @property
+    def end_clock(self):
+        return self._raw[4]
 
     @property
     def start(self):
@@ -265,7 +269,7 @@ class Header:
         return self.start + elapsed
 
     def summarize(self):
-        keys = ('argv', 'start', 'end', 'elapsed')
+        keys = ('python', 'argv', 'start', 'end', 'elapsed')
         summary = {k: getattr(self, k) for k in keys}
         return summary
 
@@ -288,7 +292,9 @@ def _parse_header(cleanlines):
         info = _parse_info(comment)
         if info:
             label, text = info
-            if label == 'argv':
+            if label == 'python':
+                value = text
+            elif label == 'argv':
                 value = text
             elif label == 'start time':
                 value = parse_timestamp(text.split()[0])
@@ -584,7 +590,7 @@ def _render_header_summary(summary, keys):
 
 def _render_header(header):
     labels = header.labels
-    keys = ('argv', 'start', 'end', 'elapsed')
+    keys = ('python', 'argv', 'start', 'end', 'elapsed')
     summary = header.summarize()
     # XXX Ensuring "keys" matches "summary" should be done in a unit test.
     _ensure_up_to_date(summary, keys)
@@ -646,7 +652,7 @@ def _get_subsummary_sort_spec(sort=None):
 
 
 def _render_summary(summary, *, sort=None, showfuncs=False):
-    headerkeys = ('argv', 'start', 'end', 'elapsed')
+    headerkeys = ('python', 'argv', 'start', 'end', 'elapsed')
     # XXX Ensuring "summary" matches should be done in a unit test.
     _ensure_up_to_date(summary, headerkeys + ('events', 'ops', 'funcs'))
 
