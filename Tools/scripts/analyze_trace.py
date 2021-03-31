@@ -319,6 +319,96 @@ def _parse_lines(rawlines):
     return header, _parse_trace_lines(cleanlines)
 
 
+def _iter_events(traces, depth=None, *, hidelog=True):
+    current = None
+    for kind, entry, _, _ in traces:
+        line = None
+        if kind == 'comment':
+            pass
+        elif kind == 'info':
+            pass
+        elif kind == 'event':
+            if current:
+                start, event, _, _ = current
+                end, _, _, annotations = entry
+                elapsed = end - start
+                if hidelog:
+                    for info in annotations or ():
+                        if isinstance(info, str):
+                            continue
+                        label, info_data = info
+                        if label != 'log written':
+                            continue
+                        elapsed -= info_data
+                if depth is not None:
+                    if event == 'exit':
+                        depth -= 1
+                yield current, elapsed, depth
+                if depth is not None:
+                    if event == 'enter':
+                        depth += 1
+            current = entry
+        else:
+            raise NotImplementedError((kind, entry))
+
+    assert current[1] == 'fini'
+    yield current, None, None
+
+
+def _summarize(header, traces):
+    summary = {
+        'header': header,
+        'events': {
+            # name -> { count, total_elapsed }
+        },
+        'ops': {
+            # name -> { count, total_elapsed }
+        },
+        'funcs': {
+            # name -> count
+            # XXX Track a summary per func?
+        },
+    }
+    events = summary['events']
+    ops = summary['ops']
+    funcs = summary['funcs']
+    for event, elapsed, _ in _iter_events(traces, hidelog=True):
+        _, name, data, annotations = event
+        try:
+            event = events[name]
+        except KeyError:
+            event = events[name] = {
+                'count': 0,
+                'total_elapsed': 0,
+            }
+        event['count'] += 1
+        if elapsed:
+            event['total_elapsed'] += elapsed
+        if name == 'enter':
+            for info in annotations or ():
+                if isinstance(info, str):
+                    continue
+                label, funcname = info
+                if label == 'func':
+                    if funcname in funcs:
+                        funcs[funcname] += 1
+                    else:
+                        funcs[funcname] = 1
+        if name == 'op':
+            _, opname = data
+            try:
+                op = ops[opname]
+            except KeyError:
+                op = ops[opname] = {
+                    'count': 0,
+                    'total_elapsed': 0,
+                }
+            op['count'] += 1
+            if elapsed:
+                op['total_elapsed'] += elapsed
+    return summary
+
+
 def _sanitize_raw(lines):
     for rawline in lines:
         if rawline.endswith('\r\n'):
@@ -397,11 +487,10 @@ def _format_info(info, *, align=True):
         yield f'# {label}: {text}'
 
 
-def _format_event(event, end=None, depth=None, *, hidelog=False):
-    start, name, data, annotations = event
+def _format_event(event, elapsed=None, depth=None, *, hidelog=False):
+    _, name, data, annotations = event
 
-    if end is not None:
-        elapsed = end - start
+    if elapsed is not None:
         elapsed = format_elapsed(elapsed)
     else:
         elapsed = ''
@@ -474,6 +563,32 @@ def _render_header(header):
             raise NotImplementedError((kind, entry))
 
 
+def _render_summary(summary, *, showfuncs=False):
+    yield from _render_header(summary['header'])
+
+    yield ''
+    yield 'events:'
+    yield ''
+    for name in sorted(summary['events']):
+        yield f'  {name}'
+        ...
+
+    yield ''
+    yield 'ops:'
+    yield ''
+    for opname in sorted(summary['ops']):
+        yield f'  {opname}'
+        ...
+
+    if showfuncs:
+        yield ''
+        yield 'funcs:'
+        yield ''
+        for funcname in sorted(summary['funcs']):
+            yield f'  {funcname}'
+            ...
+
+
 def _render_all(header, traces, *, fmt='simple-indent', hidelog=True):
     traces = iter(traces)
 
@@ -485,43 +600,14 @@ def _render_all(header, traces, *, fmt='simple-indent', hidelog=True):
         yield from _render_header(header)
         yield ''
         with _printed_section('trace'):
-            current = None
-            for kind, entry, _, _ in traces:
-                line = None
-                if kind == 'comment':
-                    pass  # covered by annotations
-                elif kind == 'info':
-                    pass  # covered by annotations
-                elif kind == 'event':
-                    if current:
-                        end, _, _, annotations = entry
-                        if hidelog:
-                            for info in annotations or ():
-                                if isinstance(info, str):
-                                    continue
-                                label, info_data = info
-                                if label != 'log written':
-                                    continue
-                                end -= info_data
-                        _, event, _, _ = current
-                        if depth is not None:
-                            if event == 'exit':
-                                depth -= 1
-                        yield from _format_event(current, end, depth=depth, hidelog=hidelog)
-                        if depth is not None:
-                            if event == 'enter':
-                                depth += 1
-                    current = entry
-                else:
-                    raise NotImplementedError((kind, entry))
-
-            assert current[1] == 'fini'
-            yield from _format_event(current)
+            for current, elapsed, depth in _iter_events(traces, depth, hidelog=hidelog):
+                yield from _format_event(current, elapsed, depth=depth, hidelog=hidelog)
     elif fmt == 'raw':
         # This is handled in main().
         raise NotImplementedError
     elif fmt == 'summary':
-        raise NotImplementedError
+        summary = _summarize(header, traces)
+        yield from _render_summary(summary)
     else:
         raise ValueError(f'unsupported fmt {fmt!r}')
 
