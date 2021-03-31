@@ -402,11 +402,12 @@ def _summarize(header, traces):
         except KeyError:
             event = events[name] = {
                 'count': 0,
-                'total_elapsed': 0,
+                'total_elapsed_sec': 0,
             }
         event['count'] += 1
         if elapsed:
-            event['total_elapsed'] += elapsed
+            event['total_elapsed_sec'] += elapsed
+
         if name == 'enter':
             for info in annotations or ():
                 if isinstance(info, str):
@@ -417,18 +418,18 @@ def _summarize(header, traces):
                         funcs[funcname] += 1
                     else:
                         funcs[funcname] = 1
-        if name == 'op':
+        elif name == 'op':
             _, opname = data
             try:
                 op = ops[opname]
             except KeyError:
                 op = ops[opname] = {
                     'count': 0,
-                    'total_elapsed': 0,
+                    'total_elapsed_sec': 0,
                 }
             op['count'] += 1
             if elapsed:
-                op['total_elapsed'] += elapsed
+                op['total_elapsed_sec'] += elapsed
     return summary
 
 
@@ -602,28 +603,55 @@ def _render_summary(summary, *, showfuncs=False):
 
     for key, text in _render_header_summary(summary, headerkeys):
         yield f'{key + ":":10} {text}'
-
     yield ''
+
+    header = f' {"name":^20}   {"count":^10}   {"mean elapsed":^12}'
+    div = ' '.join('-' * w for w in (20+2, 10+2, 12+2))
+    fmt = ' {name:20}   {count:>10,}   {elapsed:>12}'
+
+    subsummary = summary['events']
     yield 'events:'
     yield ''
-    for name in sorted(summary['events']):
-        yield f'  {name}'
-        ...
-
+    yield header
+    yield div
+    for name, info in sorted(subsummary.items()):
+        count = info['count']
+        elapsed = format_elapsed(info['total_elapsed_sec'] / count)
+        yield fmt.format(name=name, count=count, elapsed=elapsed)
+    yield div
+    yield f' total: {len(subsummary)}/{len(EVENTS)}'
     yield ''
+
+    subsummary = summary['ops']
     yield 'ops:'
     yield ''
-    for opname in sorted(summary['ops']):
-        yield f'  {opname}'
-        ...
+    yield header
+    yield div
+    for opname, info in sorted(subsummary.items()):
+        count = info['count']
+        elapsed = format_elapsed(info['total_elapsed_sec'] / count)
+        yield fmt.format(name=opname, count=count, elapsed=elapsed)
+    yield div
+    yield f' total: {len(subsummary)}/{len(opcode.opmap)}'
+    yield ''
 
+    subsummary = summary['funcs']
     if showfuncs:
+        header = f' {"name":^30}   {"count":^10}'
+        div = ' '.join('-' * w for w in (30+2, 10+2))
+        fmt = ' {name:30}   {count:>10,}'
+
         yield ''
         yield 'funcs:'
         yield ''
-        for funcname in sorted(summary['funcs']):
-            yield f'  {funcname}'
-            ...
+        yield header
+        yield div
+        for funcname, count in sorted(subsummary.items()):
+            yield fmt.format(name=funcname, count=count)
+        yield div
+    else:
+        yield f'funcs: {len(subsummary):,} called (by "simple" name)'
+    yield ''
 
 
 def _render_all(header, traces, *, fmt='simple-indent', hidelog=True):
