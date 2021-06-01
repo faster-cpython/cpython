@@ -1317,6 +1317,13 @@ eval_frame_handle_pending(PyThreadState *tstate)
         DISPATCH_GOTO(); \
     }
 
+#define NOTRACE_DISPATCH() \
+    { \
+        f->f_lasti = INSTR_OFFSET(); \
+        NEXTOPARG(); \
+        DISPATCH_GOTO(); \
+    }
+
 #define CHECK_EVAL_BREAKER() \
     if (_Py_atomic_load_relaxed(eval_breaker)) { \
         continue; \
@@ -1838,7 +1845,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 
         /* BEWARE!
            It is essential that any operation that fails must goto error
-           and that all operation that succeed call DISPATCH() ! */
+           and that all operation that succeed call [NOTRACE_]DISPATCH() ! */
 
         case TARGET(NOP): {
             DISPATCH();
@@ -1847,14 +1854,52 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
         case TARGET(LOAD_FAST): {
             PyObject *value = GETLOCAL(oparg);
             if (value == NULL) {
-                format_exc_check_arg(tstate, PyExc_UnboundLocalError,
-                                     UNBOUNDLOCAL_ERROR_MSG,
-                                     PyTuple_GetItem(co->co_varnames, oparg));
-                goto error;
+                goto unbound_local_error;
             }
             Py_INCREF(value);
             PUSH(value);
             DISPATCH();
+        }
+
+        case TARGET(LOAD_FAST_QUICK): {
+            PyObject *value = GETLOCAL(oparg);
+            if (value == NULL) {
+                goto unbound_local_error;
+            }
+            Py_INCREF(value);
+            PUSH(value);
+            NOTRACE_DISPATCH();
+        }
+
+        case TARGET(LOAD_FAST__LOAD_FAST): {
+            PyObject *value = GETLOCAL(oparg);
+            if (value == NULL) {
+                goto unbound_local_error;
+            }
+            Py_INCREF(value);
+            PUSH(value);
+            NEXTOPARG();
+            value = GETLOCAL(oparg);
+            if (value == NULL) {
+                goto unbound_local_error;
+            }
+            Py_INCREF(value);
+            PUSH(value);
+            NOTRACE_DISPATCH();
+        }
+
+        case TARGET(LOAD_FAST__LOAD_CONST): {
+            PyObject *value = GETLOCAL(oparg);
+            if (value == NULL) {
+                goto unbound_local_error;
+            }
+            Py_INCREF(value);
+            PUSH(value);
+            NEXTOPARG();
+            value = GETITEM(consts, oparg);
+            Py_INCREF(value);
+            PUSH(value);
+            NOTRACE_DISPATCH();
         }
 
         case TARGET(LOAD_CONST): {
@@ -1863,6 +1908,38 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
             Py_INCREF(value);
             PUSH(value);
             DISPATCH();
+        }
+
+        case TARGET(LOAD_CONST__LOAD_CONST): {
+            PyObject *value = GETITEM(consts, oparg);
+            Py_INCREF(value);
+            PUSH(value);
+            NEXTOPARG();
+            value = GETITEM(consts, oparg);
+            Py_INCREF(value);
+            PUSH(value);
+            NOTRACE_DISPATCH();
+        }
+
+        case TARGET(LOAD_CONST__LOAD_FAST): {
+            PyObject *value = GETITEM(consts, oparg);
+            Py_INCREF(value);
+            PUSH(value);
+            NEXTOPARG();
+            value = GETLOCAL(oparg);
+            if (value == NULL) {
+                goto unbound_local_error;
+            }
+            Py_INCREF(value);
+            PUSH(value);
+            NOTRACE_DISPATCH();
+        }
+
+        case TARGET(LOAD_CONST_QUICK): {
+            PyObject *value = GETITEM(consts, oparg);
+            Py_INCREF(value);
+            PUSH(value);
+            NOTRACE_DISPATCH();
         }
 
         case TARGET(STORE_FAST): {
@@ -4374,6 +4451,12 @@ LOAD_ATTR_miss:
         oparg = cache->original_oparg;
         JUMP_TO_INSTRUCTION(LOAD_ATTR);
     }
+
+unbound_local_error:
+    f->f_lasti = INSTR_OFFSET()-1;
+    format_exc_check_arg(tstate, PyExc_UnboundLocalError,
+                            UNBOUNDLOCAL_ERROR_MSG,
+                            PyTuple_GetItem(co->co_varnames, oparg));
 
 error:
         /* Double-check exception status. */

@@ -218,6 +218,12 @@ def_op('CALL_METHOD_KW', 166)
 del def_op, name_op, jrel_op, jabs_op
 
 _specialized_instructions = [
+    "LOAD_FAST_QUICK",
+    "LOAD_CONST_QUICK",
+    "LOAD_FAST__LOAD_FAST",
+    "LOAD_CONST__LOAD_FAST",
+    "LOAD_FAST__LOAD_CONST",
+    "LOAD_CONST__LOAD_CONST",
     "LOAD_ATTR_ADAPTIVE",
     "LOAD_ATTR_SPLIT_KEYS",
     "LOAD_ATTR_SLOT",

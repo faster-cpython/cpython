@@ -132,6 +132,7 @@ optimize(SpecializedCacheOrInstruction *quickened, int len)
     _Py_CODEUNIT *instructions = first_instruction(quickened);
     int cache_offset = 0;
     int previous_opcode = -1;
+    uint8_t prev_oparg = 0;
     for(int i = 0; i < len; i++) {
         int opcode = _Py_OPCODE(instructions[i]);
         int oparg = _Py_OPARG(instructions[i]);
@@ -160,15 +161,38 @@ optimize(SpecializedCacheOrInstruction *quickened, int len)
         else {
             /* Super instructions don't use the cache,
              * so no need to update the offset. */
+            uint8_t replacement = 0;
             switch (opcode) {
-                /* Insert superinstructions here
-                 E.g.
                 case LOAD_FAST:
-                    if (previous_opcode == LOAD_FAST)
-                        instructions[i-1] = _Py_MAKECODEUNIT(LOAD_FAST__LOAD_FAST, oparg);
-                 */
+                    switch (previous_opcode) {
+                        case LOAD_FAST:
+                            replacement = LOAD_FAST__LOAD_FAST;
+                            break;
+                        case LOAD_CONST:
+                            replacement = LOAD_CONST__LOAD_FAST;
+                            break;
+                    }
+                    /* May be overwritten if following instruction forms a superinstruction */
+                    instructions[i] = _Py_MAKECODEUNIT(LOAD_FAST_QUICK, oparg);
+                    break;
+                case LOAD_CONST:
+                    switch (previous_opcode) {
+                        case LOAD_FAST:
+                            replacement = LOAD_FAST__LOAD_CONST;
+                            break;
+                        case LOAD_CONST:
+                            replacement = LOAD_CONST__LOAD_CONST;
+                            break;
+                    }
+                    /* May be overwritten if following instruction forms a superinstruction */
+                    instructions[i] = _Py_MAKECODEUNIT(LOAD_CONST_QUICK, oparg);
+                    break;
+            }
+            if (replacement) {
+                instructions[i-1] = _Py_MAKECODEUNIT(replacement, prev_oparg);
             }
             previous_opcode = opcode;
+            prev_oparg = oparg;
         }
     }
     assert(cache_offset+1 == get_cache_count(quickened));
