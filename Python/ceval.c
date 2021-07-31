@@ -4173,12 +4173,81 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, InterpreterFrame *frame, int thr
         }
         case TARGET(CALL_FUNCTION): {
             PREDICTED(CALL_FUNCTION);
+            STAT_INC(CALL_FUNCTION, unquickened);
             PyObject **sp, *res;
             sp = stack_pointer;
             res = call_function(tstate, &sp, oparg, NULL, cframe.use_tracing);
             stack_pointer = sp;
             PUSH(res);
             if (res == NULL) {
+                goto error;
+            }
+            CHECK_EVAL_BREAKER();
+            DISPATCH();
+        }
+
+        case TARGET(CALL_FUNCTION_ADAPTIVE): {
+            assert(cframe.use_tracing == 0);
+            SpecializedCacheEntry *cache = GET_CACHE();
+            if (cache->adaptive.counter == 0) {
+                int nargs = cache->adaptive.original_oparg;
+                PyObject *callable = PEEK(nargs+1);
+                next_instr--;
+                if (_Py_Specialize_CallFunction(tstate, callable, nargs, next_instr, cache) < 0) {
+                    goto error;
+                }
+                DISPATCH();
+            }
+            else {
+                STAT_INC(CALL_FUNCTION, deferred);
+                cache->adaptive.counter--;
+                oparg = cache->adaptive.original_oparg;
+                STAT_DEC(CALL_FUNCTION, unquickened);
+                JUMP_TO_INSTRUCTION(CALL_FUNCTION);
+            }
+        }
+
+        case TARGET(CALL_FUNCTION_PY_SIMPLE): {
+            SpecializedCacheEntry *caches = GET_CACHE();
+            _PyAdaptiveEntry *cache0 = &caches[0].adaptive;
+            int argcount = cache0->original_oparg;
+            PyObject *callable = PEEK(argcount+1);
+            DEOPT_IF(!PyFunction_Check(callable), CALL_FUNCTION);
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            PyCodeObject *code = (PyCodeObject *)func->func_code;
+            DEOPT_IF(code->co_argcount != argcount, CALL_FUNCTION);
+            const int all_flags = CO_GENERATOR | CO_COROUTINE | CO_ASYNC_GENERATOR | CO_VARKEYWORDS | CO_VARARGS | CO_OPTIMIZED;
+            DEOPT_IF((code->co_flags & all_flags) != CO_OPTIMIZED, CALL_FUNCTION);
+            DEOPT_IF(code->co_kwonlyargcount, CALL_FUNCTION);
+            int nlocalsplus = code->co_nlocalsplus;
+            size_t size = nlocalsplus + code->co_stacksize + FRAME_SPECIALS_SIZE;
+            PyObject **new_top = stack_pointer + size - argcount;
+            DEOPT_IF(new_top >= tstate->datastack_limit, CALL_FUNCTION);
+            record_cache_hit(cache0);
+            STAT_INC(CALL_FUNCTION, hit);
+            PyObject **old_top = tstate->datastack_top;
+            tstate->datastack_top = new_top;
+            stack_pointer -= argcount;
+            InterpreterFrame *callee_frame = (InterpreterFrame *)(stack_pointer + nlocalsplus);
+            _PyFrame_InitializeSpecials(callee_frame, PyFunction_AS_FRAME_CONSTRUCTOR(callable), NULL, nlocalsplus);
+            /* Clear locals */
+            for (int i = argcount; i < nlocalsplus - code->co_nfreevars; i++) {
+                stack_pointer[i] = NULL;
+            }
+            /* Copy closure variables to free variables */
+            for (int i = 0; i < code->co_nfreevars; ++i) {
+                PyObject *o = PyTuple_GET_ITEM(func->func_closure, i);
+                Py_INCREF(o);
+                stack_pointer[nlocalsplus - code->co_nfreevars + i] = o;
+            }
+            callee_frame->previous = frame;
+            PyObject *res = _PyEval_EvalFrame(tstate, callee_frame, 0);
+            assert(callee_frame->stackdepth == 0);
+            SET_TOP(res);
+            Py_DECREF(callable);
+            int err = _PyFrame_Clear(callee_frame, 0);
+            tstate->datastack_top = old_top;
+            if (err || res == NULL) {
                 goto error;
             }
             CHECK_EVAL_BREAKER();
@@ -4426,6 +4495,7 @@ opname ## _miss: \
         JUMP_TO_INSTRUCTION(opname); \
     }
 
+MISS_WITH_CACHE(CALL_FUNCTION)
 MISS_WITH_CACHE(LOAD_ATTR)
 MISS_WITH_CACHE(LOAD_GLOBAL)
 MISS_WITH_OPARG_COUNTER(BINARY_SUBSCR)

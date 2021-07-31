@@ -1,6 +1,7 @@
 
 #include "Python.h"
 #include "pycore_code.h"
+#include "pycore_frame.h"
 #include "pycore_dict.h"
 #include "pycore_long.h"
 #include "pycore_moduleobject.h"
@@ -140,11 +141,11 @@ print_stats(SpecializationStats *stats, const char *name)
         PyObject *type = PyTuple_GetItem(key, 0);
         PyObject *name = PyTuple_GetItem(key, 1);
         PyObject *kind = PyTuple_GetItem(key, 2);
-        fprintf(stderr, "        %s.", ((PyTypeObject *)type)->tp_name);
+        fprintf(stderr, "  % 8ld %s.", PyLong_AsLong(count), ((PyTypeObject *)type)->tp_name);
         PyObject_Print(name, stderr, Py_PRINT_RAW);
         fprintf(stderr, " (");
         PyObject_Print(kind, stderr, Py_PRINT_RAW);
-        fprintf(stderr, "): %ld\n", PyLong_AsLong(count));
+        fprintf(stderr, ")\n");
     }
 #endif
 }
@@ -154,6 +155,7 @@ void
 _Py_PrintSpecializationStats(void)
 {
     printf("Specialization stats:\n");
+    print_stats(&_specialization_stats[CALL_FUNCTION], "call_function");
     print_stats(&_specialization_stats[LOAD_ATTR], "load_attr");
     print_stats(&_specialization_stats[LOAD_GLOBAL], "load_global");
     print_stats(&_specialization_stats[BINARY_SUBSCR], "binary_subscr");
@@ -243,6 +245,7 @@ static uint8_t adaptive_opcodes[256] = {
     [LOAD_ATTR] = LOAD_ATTR_ADAPTIVE,
     [LOAD_GLOBAL] = LOAD_GLOBAL_ADAPTIVE,
     [BINARY_SUBSCR] = BINARY_SUBSCR_ADAPTIVE,
+    [CALL_FUNCTION] = CALL_FUNCTION_ADAPTIVE,
 };
 
 /* The number of cache entries required for a "family" of instructions. */
@@ -250,6 +253,7 @@ static uint8_t cache_requirements[256] = {
     [LOAD_ATTR] = 2, /* _PyAdaptiveEntry and _PyLoadAttrCache */
     [LOAD_GLOBAL] = 2, /* _PyAdaptiveEntry and _PyLoadGlobalCache */
     [BINARY_SUBSCR] = 0,
+    [CALL_FUNCTION] = 1,
 };
 
 /* Return the oparg for the cache_offset and instruction index.
@@ -764,3 +768,94 @@ success:
     return 0;
 }
 
+static int specialize_c_call(
+    PyObject *callable, int nargs, _Py_CODEUNIT *instr, SpecializedCacheEntry *cache)
+{
+#if SPECIALIZATION_STATS
+    PyObject *name = PyObject_GetAttrString(callable, "__name__");
+    if (name != NULL) {
+        SPECIALIZATION_FAIL(CALL_FUNCTION, Py_TYPE(callable), name, "builtin function");
+        Py_DECREF(name);
+    }
+#endif
+    return -1;
+}
+
+static int specialize_type_call(
+    PyObject *callable, int nargs, _Py_CODEUNIT *instr, SpecializedCacheEntry *cache)
+{
+#if SPECIALIZATION_STATS
+    PyObject *name = PyObject_GetAttrString(callable, "__name__");
+    if (name != NULL) {
+        SPECIALIZATION_FAIL(CALL_FUNCTION, Py_TYPE(callable), name, "class");
+        Py_DECREF(name);
+    }
+#endif
+    return -1;
+}
+
+static int specialize_py_call(PyThreadState *tstate,
+    PyObject *callable, int nargs, _Py_CODEUNIT *instr, SpecializedCacheEntry *cache)
+{
+    /* We want to make fast calls by using a contiguous stack,
+     * so we exclude generator or coroutines callers */
+    if (tstate->frame->f_code->co_flags & (CO_GENERATOR | CO_COROUTINE | CO_ASYNC_GENERATOR)) {
+        SPECIALIZATION_FAIL(CALL_FUNCTION, Py_TYPE(callable), tstate->frame->f_code->co_qualname, "caller is generator or coroutine");
+        return -1;
+    }
+    PyCodeObject *co = (PyCodeObject *)PyFunction_GET_CODE(callable);
+    if (co->co_flags & (CO_GENERATOR | CO_COROUTINE | CO_ASYNC_GENERATOR)) {
+        SPECIALIZATION_FAIL(CALL_FUNCTION, Py_TYPE(callable), co->co_qualname, "generator or coroutine");
+        return -1;
+    }
+    if ((co->co_flags & (CO_VARKEYWORDS | CO_VARARGS)) || co->co_kwonlyargcount) {
+        SPECIALIZATION_FAIL(CALL_FUNCTION, Py_TYPE(callable), co->co_qualname, "extra args");
+        return -1;
+    }
+    if (co->co_argcount != nargs) {
+        SPECIALIZATION_FAIL(CALL_FUNCTION, Py_TYPE(callable), co->co_qualname, "wrong number of arguments");
+        return -1;
+    }
+    if ((co->co_flags & CO_OPTIMIZED) == 0) {
+        SPECIALIZATION_FAIL(CALL_FUNCTION, Py_TYPE(callable), co->co_qualname, "non-optimized");
+        return -1;
+    }
+    *instr = _Py_MAKECODEUNIT(CALL_FUNCTION_PY_SIMPLE, _Py_OPARG(*instr));
+    return 0;
+}
+
+int
+_Py_Specialize_CallFunction(
+    PyThreadState *tstate, PyObject *callable, int nargs,
+    _Py_CODEUNIT *instr, SpecializedCacheEntry *cache)
+{
+    _PyAdaptiveEntry *cache0 = &cache->adaptive;
+#if SPECIALIZATION_STATS
+    PyTypeObject *type = Py_TYPE(callable);
+#endif
+    int fail;
+    if (PyCFunction_CheckExact(callable)) {
+        fail = specialize_c_call(callable, nargs, instr, cache);
+    }
+    else if (PyFunction_Check(callable)) {
+        fail = specialize_py_call(tstate, callable, nargs, instr, cache);
+    }
+    else if (PyType_Check(callable)) {
+        fail = specialize_type_call(callable, nargs, instr, cache);
+    }
+    else {
+        SPECIALIZATION_FAIL(CALL_FUNCTION, type, Py_None, "other");
+        fail = -1;
+    }
+    if (fail) {
+        STAT_INC(CALL_FUNCTION, specialization_failure);
+        assert(!PyErr_Occurred());
+        cache_backoff(cache0);
+    }
+    else {
+        STAT_INC(CALL_FUNCTION, specialization_success);
+        assert(!PyErr_Occurred());
+        cache0->counter = saturating_start();
+    }
+    return 0;
+}

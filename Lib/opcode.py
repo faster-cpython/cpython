@@ -233,6 +233,8 @@ _specialized_instructions = [
     "LOAD_GLOBAL_ADAPTIVE",
     "LOAD_GLOBAL_MODULE",
     "LOAD_GLOBAL_BUILTIN",
+    "CALL_FUNCTION_ADAPTIVE",
+    "CALL_FUNCTION_PY_SIMPLE",
 ]
 
 _specialization_stats = [
