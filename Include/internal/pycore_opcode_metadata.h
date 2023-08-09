@@ -52,9 +52,13 @@
 #define _ITER_CHECK_RANGE 328
 #define _IS_ITER_EXHAUSTED_RANGE 329
 #define _ITER_NEXT_RANGE 330
-#define _POP_JUMP_IF_FALSE 331
-#define _POP_JUMP_IF_TRUE 332
-#define JUMP_TO_TOP 333
+#define _CHECK_PEP523 331
+#define _CHECK_FUNCTION 332
+#define _MAKE_FRAME 333
+#define _PUSH_FRAME 334
+#define _POP_JUMP_IF_FALSE 335
+#define _POP_JUMP_IF_TRUE 336
+#define JUMP_TO_TOP 337
 
 #ifndef NEED_OPCODE_METADATA
 extern int _PyOpcode_num_popped(int opcode, int oparg, bool jump);
@@ -947,6 +951,7 @@ _PyOpcode_num_pushed(int opcode, int oparg, bool jump) {
 enum InstructionFormat {
     INSTR_FMT_IB,
     INSTR_FMT_IBC,
+    INSTR_FMT_IBC0,
     INSTR_FMT_IBC00,
     INSTR_FMT_IBC000,
     INSTR_FMT_IBC00000000,
@@ -1330,6 +1335,7 @@ const struct opcode_macro_expansion _PyOpcode_macro_expansion[OPCODE_MACRO_EXPAN
     [GET_YIELD_FROM_ITER] = { .nuops = 1, .uops = { { GET_YIELD_FROM_ITER, 0, 0 } } },
     [WITH_EXCEPT_START] = { .nuops = 1, .uops = { { WITH_EXCEPT_START, 0, 0 } } },
     [PUSH_EXC_INFO] = { .nuops = 1, .uops = { { PUSH_EXC_INFO, 0, 0 } } },
+    [CALL_PY_EXACT_ARGS] = { .nuops = 4, .uops = { { _CHECK_PEP523, 0, 0 }, { _CHECK_FUNCTION, 2, 1 }, { _MAKE_FRAME, 0, 0 }, { _PUSH_FRAME, 0, 0 } } },
     [CALL_NO_KW_TYPE_1] = { .nuops = 1, .uops = { { CALL_NO_KW_TYPE_1, 0, 0 } } },
     [CALL_NO_KW_STR_1] = { .nuops = 1, .uops = { { CALL_NO_KW_STR_1, 0, 0 } } },
     [CALL_NO_KW_TUPLE_1] = { .nuops = 1, .uops = { { CALL_NO_KW_TUPLE_1, 0, 0 } } },
@@ -1383,6 +1389,10 @@ const char * const _PyOpcode_uop_name[OPCODE_UOP_NAME_SIZE] = {
     [_ITER_CHECK_RANGE] = "_ITER_CHECK_RANGE",
     [_IS_ITER_EXHAUSTED_RANGE] = "_IS_ITER_EXHAUSTED_RANGE",
     [_ITER_NEXT_RANGE] = "_ITER_NEXT_RANGE",
+    [_CHECK_PEP523] = "_CHECK_PEP523",
+    [_CHECK_FUNCTION] = "_CHECK_FUNCTION",
+    [_MAKE_FRAME] = "_MAKE_FRAME",
+    [_PUSH_FRAME] = "_PUSH_FRAME",
     [_POP_JUMP_IF_FALSE] = "_POP_JUMP_IF_FALSE",
     [_POP_JUMP_IF_TRUE] = "_POP_JUMP_IF_TRUE",
     [JUMP_TO_TOP] = "JUMP_TO_TOP",

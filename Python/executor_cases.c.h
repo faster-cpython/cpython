@@ -2131,6 +2131,68 @@
             break;
         }
 
+        case _CHECK_PEP523: {
+            DEOPT_IF(tstate->interp->eval_frame, CALL);
+            break;
+        }
+
+        case _CHECK_FUNCTION: {
+            PyObject *self_or_null;
+            PyObject *callable;
+            self_or_null = stack_pointer[-1 - oparg];
+            callable = stack_pointer[-2 - oparg];
+            uint32_t func_version = (uint32_t)operand;
+            DEOPT_IF(!PyFunction_Check(callable), CALL);
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            DEOPT_IF(func->func_version != func_version, CALL);
+            PyCodeObject *code = (PyCodeObject *)func->func_code;
+            int argcount = oparg + (self_or_null != NULL);
+            DEOPT_IF(code->co_argcount != argcount, CALL);
+            DEOPT_IF(!_PyThreadState_HasStackSpace(tstate, code->co_framesize), CALL);
+            STAT_INC(CALL, hit);
+            break;
+        }
+
+        case _MAKE_FRAME: {
+            PyObject **args;
+            PyObject *self_or_null;
+            PyObject *callable;
+            _PyInterpreterFrame *new_frame;
+            args = stack_pointer - oparg;
+            self_or_null = stack_pointer[-1 - oparg];
+            callable = stack_pointer[-2 - oparg];
+            int argcount = oparg;
+            if (self_or_null) {
+                args--;
+                argcount++;
+            }
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            new_frame = _PyFrame_PushUnchecked(tstate, func, argcount);
+            for (int i = 0; i < argcount; i++) {
+                new_frame->localsplus[i] = args[i];
+            }
+            SAVE_FRAME_STATE(); /* Special macro */
+            STACK_SHRINK(oparg);
+            STACK_SHRINK(1);
+            stack_pointer[-1] = (PyObject *)new_frame;
+            break;
+        }
+
+        case _PUSH_FRAME: {
+            _PyInterpreterFrame *new_frame;
+            new_frame = (_PyInterpreterFrame *)stack_pointer[-1];
+            frame->return_offset = 0;
+            /* Link in new frame */
+            new_frame->previous = frame;
+            frame = cframe.current_frame = new_frame;
+            CALL_STAT_INC(inlined_py_calls);
+            if (_Py_EnterRecursivePy(tstate)) {
+                goto exit_unwind;
+            }
+            START_FRAME(); /* Special macro */
+            break;
+        }
+
         case CALL_NO_KW_TYPE_1: {
             PyObject **args;
             PyObject *null;

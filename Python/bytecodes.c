@@ -2928,31 +2928,54 @@ dummy_func(
             GO_TO_INSTRUCTION(CALL_PY_EXACT_ARGS);
         }
 
-        inst(CALL_PY_EXACT_ARGS, (unused/1, func_version/2, callable, self_or_null, args[oparg] -- unused)) {
-            ASSERT_KWNAMES_IS_NULL();
+
+        op(_CHECK_PEP523, (--)) {
             DEOPT_IF(tstate->interp->eval_frame, CALL);
+        }
+
+        op(_CHECK_FUNCTION, (func_version/2, callable, self_or_null, unused[oparg] -- callable, self_or_null, unused[oparg])) {
+            DEOPT_IF(!PyFunction_Check(callable), CALL);
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            DEOPT_IF(func->func_version != func_version, CALL);
+            PyCodeObject *code = (PyCodeObject *)func->func_code;
+            int argcount = oparg + (self_or_null != NULL);
+            DEOPT_IF(code->co_argcount != argcount, CALL);
+            DEOPT_IF(!_PyThreadState_HasStackSpace(tstate, code->co_framesize), CALL);
+            STAT_INC(CALL, hit);
+        }
+
+        op(_MAKE_FRAME, (callable, self_or_null, args[oparg] -- new_frame: _PyInterpreterFrame*)) {
             int argcount = oparg;
             if (self_or_null) {
                 args--;
                 argcount++;
             }
-            DEOPT_IF(!PyFunction_Check(callable), CALL);
             PyFunctionObject *func = (PyFunctionObject *)callable;
-            DEOPT_IF(func->func_version != func_version, CALL);
-            PyCodeObject *code = (PyCodeObject *)func->func_code;
-            DEOPT_IF(code->co_argcount != argcount, CALL);
-            DEOPT_IF(!_PyThreadState_HasStackSpace(tstate, code->co_framesize), CALL);
-            STAT_INC(CALL, hit);
-            _PyInterpreterFrame *new_frame = _PyFrame_PushUnchecked(tstate, func, argcount);
+            new_frame = _PyFrame_PushUnchecked(tstate, func, argcount);
             for (int i = 0; i < argcount; i++) {
                 new_frame->localsplus[i] = args[i];
             }
-            // Manipulate stack directly since we leave using DISPATCH_INLINED().
-            STACK_SHRINK(oparg + 2);
-            SKIP_OVER(INLINE_CACHE_ENTRIES_CALL);
-            frame->return_offset = 0;
-            DISPATCH_INLINED(new_frame);
+            SAVE_FRAME_STATE(); /* Special macro */
         }
+
+        op(_PUSH_FRAME, (new_frame: _PyInterpreterFrame* -- unused)) {
+            frame->return_offset = 0;
+            /* Link in new frame */
+            new_frame->previous = frame;
+            frame = cframe.current_frame = new_frame;
+            CALL_STAT_INC(inlined_py_calls);
+            if (_Py_EnterRecursivePy(tstate)) {
+                goto exit_unwind;
+            }
+            START_FRAME(); /* Special macro */
+        }
+
+        macro(CALL_PY_EXACT_ARGS) =
+            unused/1 + // Skip over the counter
+            _CHECK_PEP523 +
+            _CHECK_FUNCTION +
+            _MAKE_FRAME +
+            _PUSH_FRAME;
 
         inst(CALL_PY_WITH_DEFAULTS, (unused/1, func_version/2, callable, self_or_null, args[oparg] -- unused)) {
             ASSERT_KWNAMES_IS_NULL();

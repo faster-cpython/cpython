@@ -3737,38 +3737,65 @@
 
         TARGET(CALL_PY_EXACT_ARGS) {
             PREDICTED(CALL_PY_EXACT_ARGS);
-            PyObject **args;
             PyObject *self_or_null;
             PyObject *callable;
+            PyObject **args;
+            _PyInterpreterFrame *new_frame;
+            // _CHECK_PEP523
+            {
+                DEOPT_IF(tstate->interp->eval_frame, CALL);
+            }
+            // _CHECK_FUNCTION
+            self_or_null = stack_pointer[-1 - oparg];
+            callable = stack_pointer[-2 - oparg];
+            {
+                uint32_t func_version = read_u32(&next_instr[1].cache);
+                DEOPT_IF(!PyFunction_Check(callable), CALL);
+                PyFunctionObject *func = (PyFunctionObject *)callable;
+                DEOPT_IF(func->func_version != func_version, CALL);
+                PyCodeObject *code = (PyCodeObject *)func->func_code;
+                int argcount = oparg + (self_or_null != NULL);
+                DEOPT_IF(code->co_argcount != argcount, CALL);
+                DEOPT_IF(!_PyThreadState_HasStackSpace(tstate, code->co_framesize), CALL);
+                STAT_INC(CALL, hit);
+            }
+            // _MAKE_FRAME
             args = stack_pointer - oparg;
             self_or_null = stack_pointer[-1 - oparg];
             callable = stack_pointer[-2 - oparg];
-            uint32_t func_version = read_u32(&next_instr[1].cache);
-            ASSERT_KWNAMES_IS_NULL();
-            DEOPT_IF(tstate->interp->eval_frame, CALL);
-            int argcount = oparg;
-            if (self_or_null) {
-                args--;
-                argcount++;
+            {
+                int argcount = oparg;
+                if (self_or_null) {
+                    args--;
+                    argcount++;
+                }
+                PyFunctionObject *func = (PyFunctionObject *)callable;
+                new_frame = _PyFrame_PushUnchecked(tstate, func, argcount);
+                for (int i = 0; i < argcount; i++) {
+                    new_frame->localsplus[i] = args[i];
+                }
+                STACK_SHRINK(oparg);
+                STACK_SHRINK(2);
+                next_instr += 3;
+                /* SAVE_FRAME_STATE */
+                frame->prev_instr = next_instr - 1;
+                _PyFrame_SetStackPointer(frame, stack_pointer);
             }
-            DEOPT_IF(!PyFunction_Check(callable), CALL);
-            PyFunctionObject *func = (PyFunctionObject *)callable;
-            DEOPT_IF(func->func_version != func_version, CALL);
-            PyCodeObject *code = (PyCodeObject *)func->func_code;
-            DEOPT_IF(code->co_argcount != argcount, CALL);
-            DEOPT_IF(!_PyThreadState_HasStackSpace(tstate, code->co_framesize), CALL);
-            STAT_INC(CALL, hit);
-            _PyInterpreterFrame *new_frame = _PyFrame_PushUnchecked(tstate, func, argcount);
-            for (int i = 0; i < argcount; i++) {
-                new_frame->localsplus[i] = args[i];
+            // _PUSH_FRAME
+            {
+                frame->return_offset = 0;
+                /* Link in new frame */
+                new_frame->previous = frame;
+                frame = cframe.current_frame = new_frame;
+                CALL_STAT_INC(inlined_py_calls);
+                if (_Py_EnterRecursivePy(tstate)) {
+                    goto exit_unwind;
+                }
+                /* START_FRAME */
+                next_instr = frame->prev_instr  + 1; stack_pointer =
+                stack_pointer = _PyFrame_GetStackPointer(frame);
             }
-            // Manipulate stack directly since we leave using DISPATCH_INLINED().
-            STACK_SHRINK(oparg + 2);
-            SKIP_OVER(INLINE_CACHE_ENTRIES_CALL);
-            frame->return_offset = 0;
-            DISPATCH_INLINED(new_frame);
-            STACK_SHRINK(oparg);
-            STACK_SHRINK(1);
+            DISPATCH();
         }
 
         TARGET(CALL_PY_WITH_DEFAULTS) {
