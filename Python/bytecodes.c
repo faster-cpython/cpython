@@ -775,22 +775,30 @@ dummy_func(
             #endif
             frame = tstate->current_frame = dying->previous;
             _PyEval_FrameClearAndPop(tstate, dying);
-            frame->prev_instr += frame->return_offset;
             _PyFrame_StackPush(frame, retval);
+        }
+
+        op(LOAD_IP_AND_SP, (--)) {
             #if TIER_ONE
             goto resume_frame;
             #endif
             #if TIER_TWO
             stack_pointer = _PyFrame_GetStackPointer(frame);
-            ip_offset = (_Py_CODEUNIT *)_PyFrame_GetCode(frame)->co_code_adaptive;
+            ip_offset = frame->prev_instr + 1;
             #endif
+        }
+
+        op(RETURN_OFFSET, (--)) {
+            frame->prev_instr += frame->return_offset;
         }
 
         macro(RETURN_VALUE) =
             SAVE_IP +  // Tier 2 only; special-cased oparg
             SAVE_CURRENT_IP +  // Sets frame->prev_instr
             SAVE_RETURN_OFFSET +
-            _POP_FRAME;
+            _POP_FRAME +
+            RETURN_OFFSET +
+            LOAD_IP_AND_SP;
 
         inst(INSTRUMENTED_RETURN_VALUE, (retval --)) {
             int err = _Py_call_instrumentation_arg(
@@ -798,7 +806,7 @@ dummy_func(
                     frame, next_instr-1, retval);
             if (err) goto error;
             STACK_SHRINK(1);
-            assert(EMPTY());
+                assert(EMPTY());
             _PyFrame_SetStackPointer(frame, stack_pointer);
             _Py_LeaveRecursiveCallPy(tstate);
             assert(frame != &entry_frame);
@@ -816,7 +824,9 @@ dummy_func(
             SAVE_IP +  // Tier 2 only; special-cased oparg
             SAVE_CURRENT_IP +  // Sets frame->prev_instr
             SAVE_RETURN_OFFSET +
-            _POP_FRAME;
+            _POP_FRAME +
+            RETURN_OFFSET +
+            LOAD_IP_AND_SP;
 
         inst(INSTRUMENTED_RETURN_CONST, (--)) {
             PyObject *retval = GETITEM(FRAME_CO_CONSTS, oparg);
@@ -1059,24 +1069,22 @@ dummy_func(
             goto resume_frame;
         }
 
-        inst(YIELD_VALUE, (retval -- unused)) {
-            // NOTE: It's important that YIELD_VALUE never raises an exception!
-            // The compiler treats any exception raised here as a failed close()
-            // or throw() call.
+        op(_POP_GEN, ( -- )) {
             assert(oparg >= 0); /* make the generator identify this as HAS_ARG */
-            assert(frame != &entry_frame);
             PyGenObject *gen = _PyFrame_GetGenerator(frame);
             gen->gi_frame_state = FRAME_SUSPENDED;
-            _PyFrame_SetStackPointer(frame, stack_pointer - 1);
             tstate->exc_info = gen->gi_exc_state.previous_item;
             gen->gi_exc_state.previous_item = NULL;
-            _Py_LeaveRecursiveCallPy(tstate);
-            _PyInterpreterFrame *gen_frame = frame;
-            frame = tstate->current_frame = frame->previous;
-            gen_frame->previous = NULL;
-            _PyFrame_StackPush(frame, retval);
-            goto resume_frame;
         }
+
+        macro(YIELD_VALUE) =
+            SAVE_IP +  // Tier 2 only; special-cased oparg
+            SAVE_CURRENT_IP +  // Sets frame->prev_instr
+            _POP_GEN +
+            _POP_FRAME +
+            SAVE_YIELD_OFFSET +
+            LOAD_IP_AND_SP;
+
 
         inst(POP_EXCEPT, (exc_value -- )) {
             _PyErr_StackItem *exc_info = tstate->exc_info;

@@ -697,15 +697,23 @@
             #endif
             frame = tstate->current_frame = dying->previous;
             _PyEval_FrameClearAndPop(tstate, dying);
-            frame->prev_instr += frame->return_offset;
             _PyFrame_StackPush(frame, retval);
+            break;
+        }
+
+        case LOAD_IP_AND_SP: {
             #if TIER_ONE
             goto resume_frame;
             #endif
             #if TIER_TWO
             stack_pointer = _PyFrame_GetStackPointer(frame);
-            ip_offset = (_Py_CODEUNIT *)_PyFrame_GetCode(frame)->co_code_adaptive;
+            ip_offset = frame->prev_instr + 1;
             #endif
+            break;
+        }
+
+        case RETURN_OFFSET: {
+            frame->prev_instr += frame->return_offset;
             break;
         }
 
@@ -870,6 +878,15 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             ip_offset = (_Py_CODEUNIT *)_PyFrame_GetCode(frame)->co_code_adaptive;
             #endif
+            break;
+        }
+
+        case _POP_GEN: {
+            assert(oparg >= 0); /* make the generator identify this as HAS_ARG */
+            PyGenObject *gen = _PyFrame_GetGenerator(frame);
+            gen->gi_frame_state = FRAME_SUSPENDED;
+            tstate->exc_info = gen->gi_exc_state.previous_item;
+            gen->gi_exc_state.previous_item = NULL;
             break;
         }
 

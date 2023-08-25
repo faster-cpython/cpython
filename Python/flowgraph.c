@@ -749,6 +749,11 @@ calculate_stackdepth(cfg_builder *g)
         basicblock *next = b->b_next;
         for (int i = 0; i < b->b_iused; i++) {
             cfg_instr *instr = &b->b_instr[i];
+            if (instr->i_opcode == RESUME && instr->i_oparg > 0) {
+                /* RESUME after yield
+                 * Sender will have pushed value to the stack */
+                depth++;
+            }
             int effect = PyCompile_OpcodeStackEffectWithJump(
                              instr->i_opcode, instr->i_oparg, 0);
             if (effect == PY_INVALID_STACK_EFFECT) {

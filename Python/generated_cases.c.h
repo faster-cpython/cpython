@@ -1001,14 +1001,20 @@
                 #endif
                 frame = tstate->current_frame = dying->previous;
                 _PyEval_FrameClearAndPop(tstate, dying);
-                frame->prev_instr += frame->return_offset;
                 _PyFrame_StackPush(frame, retval);
+            }
+            // RETURN_OFFSET
+            {
+                frame->prev_instr += frame->return_offset;
+            }
+            // LOAD_IP_AND_SP
+            {
                 #if TIER_ONE
                 goto resume_frame;
                 #endif
                 #if TIER_TWO
                 stack_pointer = _PyFrame_GetStackPointer(frame);
-                ip_offset = (_Py_CODEUNIT *)_PyFrame_GetCode(frame)->co_code_adaptive;
+                ip_offset = frame->prev_instr + 1;
                 #endif
             }
         }
@@ -1021,7 +1027,7 @@
                     frame, next_instr-1, retval);
             if (err) goto error;
             STACK_SHRINK(1);
-            assert(EMPTY());
+                assert(EMPTY());
             _PyFrame_SetStackPointer(frame, stack_pointer);
             _Py_LeaveRecursiveCallPy(tstate);
             assert(frame != &entry_frame);
@@ -1070,14 +1076,20 @@
                 #endif
                 frame = tstate->current_frame = dying->previous;
                 _PyEval_FrameClearAndPop(tstate, dying);
-                frame->prev_instr += frame->return_offset;
                 _PyFrame_StackPush(frame, retval);
+            }
+            // RETURN_OFFSET
+            {
+                frame->prev_instr += frame->return_offset;
+            }
+            // LOAD_IP_AND_SP
+            {
                 #if TIER_ONE
                 goto resume_frame;
                 #endif
                 #if TIER_TWO
                 stack_pointer = _PyFrame_GetStackPointer(frame);
-                ip_offset = (_Py_CODEUNIT *)_PyFrame_GetCode(frame)->co_code_adaptive;
+                ip_offset = frame->prev_instr + 1;
                 #endif
             }
         }
@@ -1364,23 +1376,54 @@
 
         TARGET(YIELD_VALUE) {
             PyObject *retval;
+            // SAVE_CURRENT_IP
+            {
+                #if TIER_ONE
+                frame->prev_instr = next_instr - 1;
+                #endif
+                #if TIER_TWO
+                // Relies on a preceding SAVE_IP
+                frame->prev_instr--;
+                #endif
+            }
+            // _POP_GEN
+            {
+                assert(oparg >= 0); /* make the generator identify this as HAS_ARG */
+                PyGenObject *gen = _PyFrame_GetGenerator(frame);
+                gen->gi_frame_state = FRAME_SUSPENDED;
+                tstate->exc_info = gen->gi_exc_state.previous_item;
+                gen->gi_exc_state.previous_item = NULL;
+            }
+            // _POP_FRAME
             retval = stack_pointer[-1];
-            // NOTE: It's important that YIELD_VALUE never raises an exception!
-            // The compiler treats any exception raised here as a failed close()
-            // or throw() call.
-            assert(oparg >= 0); /* make the generator identify this as HAS_ARG */
-            assert(frame != &entry_frame);
-            PyGenObject *gen = _PyFrame_GetGenerator(frame);
-            gen->gi_frame_state = FRAME_SUSPENDED;
-            _PyFrame_SetStackPointer(frame, stack_pointer - 1);
-            tstate->exc_info = gen->gi_exc_state.previous_item;
-            gen->gi_exc_state.previous_item = NULL;
-            _Py_LeaveRecursiveCallPy(tstate);
-            _PyInterpreterFrame *gen_frame = frame;
-            frame = tstate->current_frame = frame->previous;
-            gen_frame->previous = NULL;
-            _PyFrame_StackPush(frame, retval);
-            goto resume_frame;
+            STACK_SHRINK(1);
+            {
+                assert(EMPTY());
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                _Py_LeaveRecursiveCallPy(tstate);
+                // GH-99729: We need to unlink the frame *before* clearing it:
+                _PyInterpreterFrame *dying = frame;
+                #if TIER_ONE
+                assert(frame != &entry_frame);
+                #endif
+                frame = tstate->current_frame = dying->previous;
+                _PyEval_FrameClearAndPop(tstate, dying);
+                _PyFrame_StackPush(frame, retval);
+            }
+            // SAVE_YIELD_OFFSET
+            {
+                frame->return_offset = oparg;
+            }
+            // LOAD_IP_AND_SP
+            {
+                #if TIER_ONE
+                goto resume_frame;
+                #endif
+                #if TIER_TWO
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                ip_offset = frame->prev_instr + 1;
+                #endif
+            }
         }
 
         TARGET(POP_EXCEPT) {

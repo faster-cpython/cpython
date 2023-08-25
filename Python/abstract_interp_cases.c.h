@@ -200,6 +200,14 @@
             break;
         }
 
+        case LOAD_IP_AND_SP: {
+            break;
+        }
+
+        case RETURN_OFFSET: {
+            break;
+        }
+
         case GET_AITER: {
             PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
             break;
@@ -223,6 +231,10 @@
 
         case _PUSH_FRAME: {
             PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
+            break;
+        }
+
+        case _POP_GEN: {
             break;
         }
 

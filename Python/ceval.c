@@ -713,6 +713,8 @@ start_frame:
 resume_frame:
     SET_LOCALS_FROM_FRAME();
 
+lltrace_dispatch:
+
 #ifdef LLTRACE
     {
         if (frame != &entry_frame && GLOBALS()) {
