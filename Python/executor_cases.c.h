@@ -829,6 +829,50 @@
             break;
         }
 
+        case _SEND_GEN: {
+            PyObject *v;
+            PyObject *receiver;
+            _PyInterpreterFrame *gen_frame;
+            v = stack_pointer[-1];
+            receiver = stack_pointer[-2];
+            DEOPT_IF(tstate->interp->eval_frame, SEND);
+            PyGenObject *gen = (PyGenObject *)receiver;
+            DEOPT_IF(Py_TYPE(gen) != &PyGen_Type &&
+                     Py_TYPE(gen) != &PyCoro_Type, SEND);
+            DEOPT_IF(gen->gi_frame_state >= FRAME_EXECUTING, SEND);
+            STAT_INC(SEND, hit);
+            gen_frame = (_PyInterpreterFrame *)gen->gi_iframe;
+            // STACK_SHRINK(1);  /* Does this go or not? */
+            _PyFrame_StackPush(gen_frame, v);
+            gen->gi_frame_state = FRAME_EXECUTING;
+            gen->gi_exc_state.previous_item = tstate->exc_info;
+            tstate->exc_info = &gen->gi_exc_state;
+            stack_pointer[-1] = (PyObject *)gen_frame;
+            break;
+        }
+
+        case _PUSH_FRAME: {
+            _PyInterpreterFrame *new_frame;
+            new_frame = (_PyInterpreterFrame *)stack_pointer[-1];
+            STACK_SHRINK(1);
+            // Write it out explicitly because it's subtly different.
+            // Eventually this should be the only occurrence of this code.
+            assert(tstate->interp->eval_frame == NULL);
+            _PyFrame_SetStackPointer(frame, stack_pointer);
+            new_frame->previous = frame;
+            CALL_STAT_INC(inlined_py_calls);
+            frame = tstate->current_frame = new_frame;
+            #if TIER_ONE
+            goto start_frame;
+            #endif
+            #if TIER_TWO
+            if (_Py_EnterRecursivePy(tstate)) goto pop_1_exit_unwind;
+            stack_pointer = _PyFrame_GetStackPointer(frame);
+            ip_offset = (_Py_CODEUNIT *)_PyFrame_GetCode(frame)->co_code_adaptive;
+            #endif
+            break;
+        }
+
         case POP_EXCEPT: {
             PyObject *exc_value;
             exc_value = stack_pointer[-1];
@@ -2270,29 +2314,6 @@
             break;
         }
 
-        case _PUSH_FRAME: {
-            _PyInterpreterFrame *new_frame;
-            new_frame = (_PyInterpreterFrame *)stack_pointer[-1];
-            STACK_SHRINK(1);
-            // Write it out explicitly because it's subtly different.
-            // Eventually this should be the only occurrence of this code.
-            frame->return_offset = 0;
-            assert(tstate->interp->eval_frame == NULL);
-            _PyFrame_SetStackPointer(frame, stack_pointer);
-            new_frame->previous = frame;
-            CALL_STAT_INC(inlined_py_calls);
-            frame = tstate->current_frame = new_frame;
-            #if TIER_ONE
-            goto start_frame;
-            #endif
-            #if TIER_TWO
-            if (_Py_EnterRecursivePy(tstate)) goto pop_1_exit_unwind;
-            stack_pointer = _PyFrame_GetStackPointer(frame);
-            ip_offset = (_Py_CODEUNIT *)_PyFrame_GetCode(frame)->co_code_adaptive;
-            #endif
-            break;
-        }
-
         case CALL_NO_KW_TYPE_1: {
             PyObject **args;
             PyObject *null;
@@ -2830,6 +2851,16 @@
             assert(oparg >= 2);
             stack_pointer[-2 - (oparg-2)] = top;
             stack_pointer[-1] = bottom;
+            break;
+        }
+
+        case SAVE_RETURN_OFFSET: {
+            frame->return_offset = 0;
+            break;
+        }
+
+        case SAVE_YIELD_OFFSET: {
+            frame->return_offset = oparg;
             break;
         }
 

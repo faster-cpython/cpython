@@ -983,6 +983,10 @@
                 frame->prev_instr--;
                 #endif
             }
+            // SAVE_RETURN_OFFSET
+            {
+                frame->return_offset = 0;
+            }
             // _POP_FRAME
             retval = stack_pointer[-1];
             STACK_SHRINK(1);
@@ -1048,6 +1052,10 @@
                 // Relies on a preceding SAVE_IP
                 frame->prev_instr--;
                 #endif
+            }
+            // SAVE_RETURN_OFFSET
+            {
+                frame->return_offset = 0;
             }
             // _POP_FRAME
             retval = value;
@@ -1276,23 +1284,60 @@
         TARGET(SEND_GEN) {
             PyObject *v;
             PyObject *receiver;
+            _PyInterpreterFrame *gen_frame;
+            _PyInterpreterFrame *new_frame;
+            // _SEND_GEN
             v = stack_pointer[-1];
             receiver = stack_pointer[-2];
-            DEOPT_IF(tstate->interp->eval_frame, SEND);
-            PyGenObject *gen = (PyGenObject *)receiver;
-            DEOPT_IF(Py_TYPE(gen) != &PyGen_Type &&
-                     Py_TYPE(gen) != &PyCoro_Type, SEND);
-            DEOPT_IF(gen->gi_frame_state >= FRAME_EXECUTING, SEND);
-            STAT_INC(SEND, hit);
-            _PyInterpreterFrame *gen_frame = (_PyInterpreterFrame *)gen->gi_iframe;
+            {
+                DEOPT_IF(tstate->interp->eval_frame, SEND);
+                PyGenObject *gen = (PyGenObject *)receiver;
+                DEOPT_IF(Py_TYPE(gen) != &PyGen_Type &&
+                         Py_TYPE(gen) != &PyCoro_Type, SEND);
+                DEOPT_IF(gen->gi_frame_state >= FRAME_EXECUTING, SEND);
+                STAT_INC(SEND, hit);
+                gen_frame = (_PyInterpreterFrame *)gen->gi_iframe;
+                // STACK_SHRINK(1);  /* Does this go or not? */
+                _PyFrame_StackPush(gen_frame, v);
+                gen->gi_frame_state = FRAME_EXECUTING;
+                gen->gi_exc_state.previous_item = tstate->exc_info;
+                tstate->exc_info = &gen->gi_exc_state;
+            }
+            // SAVE_CURRENT_IP
+            next_instr += 1;
+            {
+                #if TIER_ONE
+                frame->prev_instr = next_instr - 1;
+                #endif
+                #if TIER_TWO
+                // Relies on a preceding SAVE_IP
+                frame->prev_instr--;
+                #endif
+            }
+            // SAVE_YIELD_OFFSET
+            {
+                frame->return_offset = oparg;
+            }
+            // _PUSH_FRAME
+            new_frame = gen_frame;
             STACK_SHRINK(1);
-            _PyFrame_StackPush(gen_frame, v);
-            gen->gi_frame_state = FRAME_EXECUTING;
-            gen->gi_exc_state.previous_item = tstate->exc_info;
-            tstate->exc_info = &gen->gi_exc_state;
-            SKIP_OVER(INLINE_CACHE_ENTRIES_SEND);
-            frame->return_offset = oparg;
-            DISPATCH_INLINED(gen_frame);
+            {
+                // Write it out explicitly because it's subtly different.
+                // Eventually this should be the only occurrence of this code.
+                assert(tstate->interp->eval_frame == NULL);
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                new_frame->previous = frame;
+                CALL_STAT_INC(inlined_py_calls);
+                frame = tstate->current_frame = new_frame;
+                #if TIER_ONE
+                goto start_frame;
+                #endif
+                #if TIER_TWO
+                if (_Py_EnterRecursivePy(tstate)) goto pop_1_exit_unwind;
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                ip_offset = (_Py_CODEUNIT *)_PyFrame_GetCode(frame)->co_code_adaptive;
+                #endif
+            }
         }
 
         TARGET(INSTRUMENTED_YIELD_VALUE) {
@@ -3864,13 +3909,16 @@
                 frame->prev_instr--;
                 #endif
             }
+            // SAVE_RETURN_OFFSET
+            {
+                frame->return_offset = 0;
+            }
             // _PUSH_FRAME
             STACK_SHRINK(oparg);
             STACK_SHRINK(2);
             {
                 // Write it out explicitly because it's subtly different.
                 // Eventually this should be the only occurrence of this code.
-                frame->return_offset = 0;
                 assert(tstate->interp->eval_frame == NULL);
                 _PyFrame_SetStackPointer(frame, stack_pointer);
                 new_frame->previous = frame;
@@ -3940,13 +3988,16 @@
                 frame->prev_instr--;
                 #endif
             }
+            // SAVE_RETURN_OFFSET
+            {
+                frame->return_offset = 0;
+            }
             // _PUSH_FRAME
             STACK_SHRINK(oparg);
             STACK_SHRINK(2);
             {
                 // Write it out explicitly because it's subtly different.
                 // Eventually this should be the only occurrence of this code.
-                frame->return_offset = 0;
                 assert(tstate->interp->eval_frame == NULL);
                 _PyFrame_SetStackPointer(frame, stack_pointer);
                 new_frame->previous = frame;

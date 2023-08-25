@@ -789,6 +789,7 @@ dummy_func(
         macro(RETURN_VALUE) =
             SAVE_IP +  // Tier 2 only; special-cased oparg
             SAVE_CURRENT_IP +  // Sets frame->prev_instr
+            SAVE_RETURN_OFFSET +
             _POP_FRAME;
 
         inst(INSTRUMENTED_RETURN_VALUE, (retval --)) {
@@ -814,6 +815,7 @@ dummy_func(
             LOAD_CONST +
             SAVE_IP +  // Tier 2 only; special-cased oparg
             SAVE_CURRENT_IP +  // Sets frame->prev_instr
+            SAVE_RETURN_OFFSET +
             _POP_FRAME;
 
         inst(INSTRUMENTED_RETURN_CONST, (--)) {
@@ -993,23 +995,49 @@ dummy_func(
             Py_DECREF(v);
         }
 
-        inst(SEND_GEN, (unused/1, receiver, v -- receiver, unused)) {
+        op(_SEND_GEN, (receiver, v -- receiver, gen_frame: _PyInterpreterFrame*)) {
             DEOPT_IF(tstate->interp->eval_frame, SEND);
             PyGenObject *gen = (PyGenObject *)receiver;
             DEOPT_IF(Py_TYPE(gen) != &PyGen_Type &&
                      Py_TYPE(gen) != &PyCoro_Type, SEND);
             DEOPT_IF(gen->gi_frame_state >= FRAME_EXECUTING, SEND);
             STAT_INC(SEND, hit);
-            _PyInterpreterFrame *gen_frame = (_PyInterpreterFrame *)gen->gi_iframe;
-            STACK_SHRINK(1);
+            gen_frame = (_PyInterpreterFrame *)gen->gi_iframe;
+            // STACK_SHRINK(1);  /* Does this go or not? */
             _PyFrame_StackPush(gen_frame, v);
             gen->gi_frame_state = FRAME_EXECUTING;
             gen->gi_exc_state.previous_item = tstate->exc_info;
             tstate->exc_info = &gen->gi_exc_state;
-            SKIP_OVER(INLINE_CACHE_ENTRIES_SEND);
-            frame->return_offset = oparg;
-            DISPATCH_INLINED(gen_frame);
         }
+
+        // The 'unused' output effect represents the return value
+        // (which will be pushed when the frame returns).
+        // It is needed so CALL_PY_EXACT_ARGS matches its family.
+        op(_PUSH_FRAME, (new_frame: _PyInterpreterFrame* -- unused)) {
+            // Write it out explicitly because it's subtly different.
+            // Eventually this should be the only occurrence of this code.
+            assert(tstate->interp->eval_frame == NULL);
+            _PyFrame_SetStackPointer(frame, stack_pointer);
+            new_frame->previous = frame;
+            CALL_STAT_INC(inlined_py_calls);
+            frame = tstate->current_frame = new_frame;
+            #if TIER_ONE
+            goto start_frame;
+            #endif
+            #if TIER_TWO
+            ERROR_IF(_Py_EnterRecursivePy(tstate), exit_unwind);
+            stack_pointer = _PyFrame_GetStackPointer(frame);
+            ip_offset = (_Py_CODEUNIT *)_PyFrame_GetCode(frame)->co_code_adaptive;
+            #endif
+        }
+
+        macro(SEND_GEN) =
+            unused/1 + // Skip over the counter
+            _SEND_GEN +
+            SAVE_IP +  // Tier 2 only; special-cased oparg
+            SAVE_CURRENT_IP +
+            SAVE_YIELD_OFFSET +
+            _PUSH_FRAME;
 
         inst(INSTRUMENTED_YIELD_VALUE, (retval -- unused)) {
             assert(frame != &entry_frame);
@@ -2987,28 +3015,6 @@ dummy_func(
             }
         }
 
-        // The 'unused' output effect represents the return value
-        // (which will be pushed when the frame returns).
-        // It is needed so CALL_PY_EXACT_ARGS matches its family.
-        op(_PUSH_FRAME, (new_frame: _PyInterpreterFrame* -- unused)) {
-            // Write it out explicitly because it's subtly different.
-            // Eventually this should be the only occurrence of this code.
-            frame->return_offset = 0;
-            assert(tstate->interp->eval_frame == NULL);
-            _PyFrame_SetStackPointer(frame, stack_pointer);
-            new_frame->previous = frame;
-            CALL_STAT_INC(inlined_py_calls);
-            frame = tstate->current_frame = new_frame;
-            #if TIER_ONE
-            goto start_frame;
-            #endif
-            #if TIER_TWO
-            ERROR_IF(_Py_EnterRecursivePy(tstate), exit_unwind);
-            stack_pointer = _PyFrame_GetStackPointer(frame);
-            ip_offset = (_Py_CODEUNIT *)_PyFrame_GetCode(frame)->co_code_adaptive;
-            #endif
-        }
-
         macro(CALL_BOUND_METHOD_EXACT_ARGS) =
             unused/1 + // Skip over the counter
             _CHECK_PEP_523 +
@@ -3019,6 +3025,7 @@ dummy_func(
             _INIT_CALL_PY_EXACT_ARGS +
             SAVE_IP +  // Tier 2 only; special-cased oparg
             SAVE_CURRENT_IP +  // Sets frame->prev_instr
+            SAVE_RETURN_OFFSET +
             _PUSH_FRAME;
 
         macro(CALL_PY_EXACT_ARGS) =
@@ -3029,6 +3036,7 @@ dummy_func(
             _INIT_CALL_PY_EXACT_ARGS +
             SAVE_IP +  // Tier 2 only; special-cased oparg
             SAVE_CURRENT_IP +  // Sets frame->prev_instr
+            SAVE_RETURN_OFFSET +
             _PUSH_FRAME;
 
         inst(CALL_PY_WITH_DEFAULTS, (unused/1, func_version/2, callable, self_or_null, args[oparg] -- unused)) {
@@ -3767,6 +3775,14 @@ dummy_func(
         inst(RESERVED, (--)) {
             assert(0 && "Executing RESERVED instruction.");
             Py_UNREACHABLE();
+        }
+
+        op(SAVE_RETURN_OFFSET, (--)) {
+            frame->return_offset = 0;
+        }
+
+        op(SAVE_YIELD_OFFSET, (--)) {
+            frame->return_offset = oparg;
         }
 
         ///////// Tier-2 only opcodes /////////

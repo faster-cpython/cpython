@@ -38,37 +38,40 @@
 #define _GUARD_BOTH_UNICODE 310
 #define _BINARY_OP_ADD_UNICODE 311
 #define _POP_FRAME 312
-#define _LOAD_LOCALS 313
-#define _LOAD_FROM_DICT_OR_GLOBALS 314
-#define _GUARD_GLOBALS_VERSION 315
-#define _GUARD_BUILTINS_VERSION 316
-#define _LOAD_GLOBAL_MODULE 317
-#define _LOAD_GLOBAL_BUILTINS 318
-#define _GUARD_TYPE_VERSION 319
-#define _CHECK_MANAGED_OBJECT_HAS_VALUES 320
-#define _LOAD_ATTR_INSTANCE_VALUE 321
-#define IS_NONE 322
-#define _ITER_CHECK_LIST 323
-#define _IS_ITER_EXHAUSTED_LIST 324
-#define _ITER_NEXT_LIST 325
-#define _ITER_CHECK_TUPLE 326
-#define _IS_ITER_EXHAUSTED_TUPLE 327
-#define _ITER_NEXT_TUPLE 328
-#define _ITER_CHECK_RANGE 329
-#define _IS_ITER_EXHAUSTED_RANGE 330
-#define _ITER_NEXT_RANGE 331
-#define _CHECK_CALL_BOUND_METHOD_EXACT_ARGS 332
-#define _INIT_CALL_BOUND_METHOD_EXACT_ARGS 333
-#define _CHECK_PEP_523 334
-#define _CHECK_FUNCTION_EXACT_ARGS 335
-#define _CHECK_STACK_SPACE 336
-#define _INIT_CALL_PY_EXACT_ARGS 337
-#define _PUSH_FRAME 338
-#define _POP_JUMP_IF_FALSE 339
-#define _POP_JUMP_IF_TRUE 340
-#define JUMP_TO_TOP 341
-#define SAVE_CURRENT_IP 342
-#define INSERT 343
+#define _SEND_GEN 313
+#define _PUSH_FRAME 314
+#define _LOAD_LOCALS 315
+#define _LOAD_FROM_DICT_OR_GLOBALS 316
+#define _GUARD_GLOBALS_VERSION 317
+#define _GUARD_BUILTINS_VERSION 318
+#define _LOAD_GLOBAL_MODULE 319
+#define _LOAD_GLOBAL_BUILTINS 320
+#define _GUARD_TYPE_VERSION 321
+#define _CHECK_MANAGED_OBJECT_HAS_VALUES 322
+#define _LOAD_ATTR_INSTANCE_VALUE 323
+#define IS_NONE 324
+#define _ITER_CHECK_LIST 325
+#define _IS_ITER_EXHAUSTED_LIST 326
+#define _ITER_NEXT_LIST 327
+#define _ITER_CHECK_TUPLE 328
+#define _IS_ITER_EXHAUSTED_TUPLE 329
+#define _ITER_NEXT_TUPLE 330
+#define _ITER_CHECK_RANGE 331
+#define _IS_ITER_EXHAUSTED_RANGE 332
+#define _ITER_NEXT_RANGE 333
+#define _CHECK_CALL_BOUND_METHOD_EXACT_ARGS 334
+#define _INIT_CALL_BOUND_METHOD_EXACT_ARGS 335
+#define _CHECK_PEP_523 336
+#define _CHECK_FUNCTION_EXACT_ARGS 337
+#define _CHECK_STACK_SPACE 338
+#define _INIT_CALL_PY_EXACT_ARGS 339
+#define SAVE_RETURN_OFFSET 340
+#define SAVE_YIELD_OFFSET 341
+#define _POP_JUMP_IF_FALSE 342
+#define _POP_JUMP_IF_TRUE 343
+#define JUMP_TO_TOP 344
+#define SAVE_CURRENT_IP 345
+#define INSERT 346
 
 extern int _PyOpcode_num_popped(int opcode, int oparg, bool jump);
 #ifdef NEED_OPCODE_METADATA
@@ -222,6 +225,10 @@ int _PyOpcode_num_popped(int opcode, int oparg, bool jump)  {
             return 1;
         case SEND:
             return 2;
+        case _SEND_GEN:
+            return 2;
+        case _PUSH_FRAME:
+            return 1;
         case SEND_GEN:
             return 2;
         case INSTRUMENTED_YIELD_VALUE:
@@ -498,8 +505,6 @@ int _PyOpcode_num_popped(int opcode, int oparg, bool jump)  {
             return oparg + 2;
         case _INIT_CALL_PY_EXACT_ARGS:
             return oparg + 2;
-        case _PUSH_FRAME:
-            return 1;
         case CALL_BOUND_METHOD_EXACT_ARGS:
             return oparg + 2;
         case CALL_PY_EXACT_ARGS:
@@ -581,6 +586,10 @@ int _PyOpcode_num_popped(int opcode, int oparg, bool jump)  {
         case CACHE:
             return 0;
         case RESERVED:
+            return 0;
+        case SAVE_RETURN_OFFSET:
+            return 0;
+        case SAVE_YIELD_OFFSET:
             return 0;
         case _POP_JUMP_IF_FALSE:
             return 1;
@@ -754,6 +763,10 @@ int _PyOpcode_num_pushed(int opcode, int oparg, bool jump)  {
             return 1;
         case SEND:
             return 2;
+        case _SEND_GEN:
+            return 2;
+        case _PUSH_FRAME:
+            return 1;
         case SEND_GEN:
             return 2;
         case INSTRUMENTED_YIELD_VALUE:
@@ -1030,8 +1043,6 @@ int _PyOpcode_num_pushed(int opcode, int oparg, bool jump)  {
             return oparg + 2;
         case _INIT_CALL_PY_EXACT_ARGS:
             return 1;
-        case _PUSH_FRAME:
-            return 1;
         case CALL_BOUND_METHOD_EXACT_ARGS:
             return 1;
         case CALL_PY_EXACT_ARGS:
@@ -1113,6 +1124,10 @@ int _PyOpcode_num_pushed(int opcode, int oparg, bool jump)  {
         case CACHE:
             return 0;
         case RESERVED:
+            return 0;
+        case SAVE_RETURN_OFFSET:
+            return 0;
+        case SAVE_YIELD_OFFSET:
             return 0;
         case _POP_JUMP_IF_FALSE:
             return 0;
@@ -1464,11 +1479,12 @@ const struct opcode_macro_expansion _PyOpcode_macro_expansion[OPCODE_MACRO_EXPAN
     [DELETE_SUBSCR] = { .nuops = 1, .uops = { { DELETE_SUBSCR, 0, 0 } } },
     [CALL_INTRINSIC_1] = { .nuops = 1, .uops = { { CALL_INTRINSIC_1, 0, 0 } } },
     [CALL_INTRINSIC_2] = { .nuops = 1, .uops = { { CALL_INTRINSIC_2, 0, 0 } } },
-    [RETURN_VALUE] = { .nuops = 3, .uops = { { SAVE_IP, 7, 0 }, { SAVE_CURRENT_IP, 0, 0 }, { _POP_FRAME, 0, 0 } } },
-    [RETURN_CONST] = { .nuops = 4, .uops = { { LOAD_CONST, 0, 0 }, { SAVE_IP, 7, 0 }, { SAVE_CURRENT_IP, 0, 0 }, { _POP_FRAME, 0, 0 } } },
+    [RETURN_VALUE] = { .nuops = 4, .uops = { { SAVE_IP, 7, 0 }, { SAVE_CURRENT_IP, 0, 0 }, { SAVE_RETURN_OFFSET, 0, 0 }, { _POP_FRAME, 0, 0 } } },
+    [RETURN_CONST] = { .nuops = 5, .uops = { { LOAD_CONST, 0, 0 }, { SAVE_IP, 7, 0 }, { SAVE_CURRENT_IP, 0, 0 }, { SAVE_RETURN_OFFSET, 0, 0 }, { _POP_FRAME, 0, 0 } } },
     [GET_AITER] = { .nuops = 1, .uops = { { GET_AITER, 0, 0 } } },
     [GET_ANEXT] = { .nuops = 1, .uops = { { GET_ANEXT, 0, 0 } } },
     [GET_AWAITABLE] = { .nuops = 1, .uops = { { GET_AWAITABLE, 0, 0 } } },
+    [SEND_GEN] = { .nuops = 5, .uops = { { _SEND_GEN, 0, 0 }, { SAVE_IP, 7, 1 }, { SAVE_CURRENT_IP, 0, 0 }, { SAVE_YIELD_OFFSET, 0, 0 }, { _PUSH_FRAME, 0, 0 } } },
     [POP_EXCEPT] = { .nuops = 1, .uops = { { POP_EXCEPT, 0, 0 } } },
     [LOAD_ASSERTION_ERROR] = { .nuops = 1, .uops = { { LOAD_ASSERTION_ERROR, 0, 0 } } },
     [LOAD_BUILD_CLASS] = { .nuops = 1, .uops = { { LOAD_BUILD_CLASS, 0, 0 } } },
@@ -1528,8 +1544,8 @@ const struct opcode_macro_expansion _PyOpcode_macro_expansion[OPCODE_MACRO_EXPAN
     [GET_YIELD_FROM_ITER] = { .nuops = 1, .uops = { { GET_YIELD_FROM_ITER, 0, 0 } } },
     [WITH_EXCEPT_START] = { .nuops = 1, .uops = { { WITH_EXCEPT_START, 0, 0 } } },
     [PUSH_EXC_INFO] = { .nuops = 1, .uops = { { PUSH_EXC_INFO, 0, 0 } } },
-    [CALL_BOUND_METHOD_EXACT_ARGS] = { .nuops = 9, .uops = { { _CHECK_PEP_523, 0, 0 }, { _CHECK_CALL_BOUND_METHOD_EXACT_ARGS, 0, 0 }, { _INIT_CALL_BOUND_METHOD_EXACT_ARGS, 0, 0 }, { _CHECK_FUNCTION_EXACT_ARGS, 2, 1 }, { _CHECK_STACK_SPACE, 0, 0 }, { _INIT_CALL_PY_EXACT_ARGS, 0, 0 }, { SAVE_IP, 7, 3 }, { SAVE_CURRENT_IP, 0, 0 }, { _PUSH_FRAME, 0, 0 } } },
-    [CALL_PY_EXACT_ARGS] = { .nuops = 7, .uops = { { _CHECK_PEP_523, 0, 0 }, { _CHECK_FUNCTION_EXACT_ARGS, 2, 1 }, { _CHECK_STACK_SPACE, 0, 0 }, { _INIT_CALL_PY_EXACT_ARGS, 0, 0 }, { SAVE_IP, 7, 3 }, { SAVE_CURRENT_IP, 0, 0 }, { _PUSH_FRAME, 0, 0 } } },
+    [CALL_BOUND_METHOD_EXACT_ARGS] = { .nuops = 10, .uops = { { _CHECK_PEP_523, 0, 0 }, { _CHECK_CALL_BOUND_METHOD_EXACT_ARGS, 0, 0 }, { _INIT_CALL_BOUND_METHOD_EXACT_ARGS, 0, 0 }, { _CHECK_FUNCTION_EXACT_ARGS, 2, 1 }, { _CHECK_STACK_SPACE, 0, 0 }, { _INIT_CALL_PY_EXACT_ARGS, 0, 0 }, { SAVE_IP, 7, 3 }, { SAVE_CURRENT_IP, 0, 0 }, { SAVE_RETURN_OFFSET, 0, 0 }, { _PUSH_FRAME, 0, 0 } } },
+    [CALL_PY_EXACT_ARGS] = { .nuops = 8, .uops = { { _CHECK_PEP_523, 0, 0 }, { _CHECK_FUNCTION_EXACT_ARGS, 2, 1 }, { _CHECK_STACK_SPACE, 0, 0 }, { _INIT_CALL_PY_EXACT_ARGS, 0, 0 }, { SAVE_IP, 7, 3 }, { SAVE_CURRENT_IP, 0, 0 }, { SAVE_RETURN_OFFSET, 0, 0 }, { _PUSH_FRAME, 0, 0 } } },
     [CALL_NO_KW_TYPE_1] = { .nuops = 1, .uops = { { CALL_NO_KW_TYPE_1, 0, 0 } } },
     [CALL_NO_KW_STR_1] = { .nuops = 1, .uops = { { CALL_NO_KW_STR_1, 0, 0 } } },
     [CALL_NO_KW_TUPLE_1] = { .nuops = 1, .uops = { { CALL_NO_KW_TUPLE_1, 0, 0 } } },
@@ -1569,6 +1585,8 @@ const char * const _PyOpcode_uop_name[OPCODE_UOP_NAME_SIZE] = {
     [_GUARD_BOTH_UNICODE] = "_GUARD_BOTH_UNICODE",
     [_BINARY_OP_ADD_UNICODE] = "_BINARY_OP_ADD_UNICODE",
     [_POP_FRAME] = "_POP_FRAME",
+    [_SEND_GEN] = "_SEND_GEN",
+    [_PUSH_FRAME] = "_PUSH_FRAME",
     [_LOAD_LOCALS] = "_LOAD_LOCALS",
     [_LOAD_FROM_DICT_OR_GLOBALS] = "_LOAD_FROM_DICT_OR_GLOBALS",
     [_GUARD_GLOBALS_VERSION] = "_GUARD_GLOBALS_VERSION",
@@ -1594,7 +1612,8 @@ const char * const _PyOpcode_uop_name[OPCODE_UOP_NAME_SIZE] = {
     [_CHECK_FUNCTION_EXACT_ARGS] = "_CHECK_FUNCTION_EXACT_ARGS",
     [_CHECK_STACK_SPACE] = "_CHECK_STACK_SPACE",
     [_INIT_CALL_PY_EXACT_ARGS] = "_INIT_CALL_PY_EXACT_ARGS",
-    [_PUSH_FRAME] = "_PUSH_FRAME",
+    [SAVE_RETURN_OFFSET] = "SAVE_RETURN_OFFSET",
+    [SAVE_YIELD_OFFSET] = "SAVE_YIELD_OFFSET",
     [_POP_JUMP_IF_FALSE] = "_POP_JUMP_IF_FALSE",
     [_POP_JUMP_IF_TRUE] = "_POP_JUMP_IF_TRUE",
     [JUMP_TO_TOP] = "JUMP_TO_TOP",

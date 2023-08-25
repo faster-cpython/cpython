@@ -216,6 +216,16 @@
             break;
         }
 
+        case _SEND_GEN: {
+            PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
+            break;
+        }
+
+        case _PUSH_FRAME: {
+            PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
+            break;
+        }
+
         case POP_EXCEPT: {
             STACK_SHRINK(1);
             break;
@@ -650,11 +660,6 @@
             break;
         }
 
-        case _PUSH_FRAME: {
-            PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
-            break;
-        }
-
         case CALL_NO_KW_TYPE_1: {
             STACK_SHRINK(oparg);
             STACK_SHRINK(1);
@@ -773,6 +778,14 @@
         case SWAP: {
             PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-2 - (oparg-2))), true);
             PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
+            break;
+        }
+
+        case SAVE_RETURN_OFFSET: {
+            break;
+        }
+
+        case SAVE_YIELD_OFFSET: {
             break;
         }
 
