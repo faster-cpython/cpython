@@ -1683,6 +1683,7 @@ _Py_Instrument(PyCodeObject *code, PyInterpreterState *interp)
 #ifdef INSTRUMENT_DEBUG
     sanity_check_instrumentation(code);
 #endif
+    _Py_notify_code_watchers(PY_CODE_EVENT_INSTRUMENT, code);
     return 0;
 }
 

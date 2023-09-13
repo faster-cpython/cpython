@@ -492,6 +492,8 @@ extern int _Py_GetBaseOpcode(PyCodeObject *code, int offset);
 
 extern int _PyInstruction_GetLength(PyCodeObject *code, int offset);
 
+void _Py_notify_code_watchers(PyCodeEvent event, PyCodeObject *code);
+
 #ifdef __cplusplus
 }
 #endif

@@ -26,8 +26,8 @@ code_event_name(PyCodeEvent event) {
     Py_UNREACHABLE();
 }
 
-static void
-notify_code_watchers(PyCodeEvent event, PyCodeObject *co)
+void
+_Py_notify_code_watchers(PyCodeEvent event, PyCodeObject *co)
 {
     assert(Py_REFCNT(co) > 0);
     PyInterpreterState *interp = _PyInterpreterState_GET();
@@ -449,7 +449,7 @@ init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
     }
     co->_co_firsttraceable = entry_point;
     _PyCode_Quicken(co);
-    notify_code_watchers(PY_CODE_EVENT_CREATE, co);
+    _Py_notify_code_watchers(PY_CODE_EVENT_CREATE, co);
 }
 
 static int
@@ -1695,7 +1695,7 @@ code_dealloc(PyCodeObject *co)
 {
     assert(Py_REFCNT(co) == 0);
     Py_SET_REFCNT(co, 1);
-    notify_code_watchers(PY_CODE_EVENT_DESTROY, co);
+    _Py_notify_code_watchers(PY_CODE_EVENT_DESTROY, co);
     if (Py_REFCNT(co) > 1) {
         Py_SET_REFCNT(co, Py_REFCNT(co) - 1);
         return;
