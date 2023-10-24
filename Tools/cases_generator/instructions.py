@@ -118,6 +118,8 @@ class Instruction:
 
     def is_viable_uop(self) -> bool:
         """Whether this instruction is viable as a uop."""
+        if variable_used_unspecialized(self.inst, "TIER_TWO_ONLY"):
+            return True
         dprint: typing.Callable[..., None] = lambda *args, **kwargs: None
         if "FRAME" in self.name:
             dprint = print

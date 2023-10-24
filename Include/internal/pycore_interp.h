@@ -32,6 +32,7 @@ extern "C" {
 #include "pycore_typeobject.h"    // struct types_state
 #include "pycore_unicodeobject.h" // struct _Py_unicode_state
 #include "pycore_warnings.h"      // struct _warnings_runtime_state
+#include "pycore_uops.h"
 
 
 struct _Py_long_state {
@@ -235,6 +236,8 @@ struct _is {
    /* the initial PyInterpreterState.threads.head */
     PyThreadState _initial_thread;
     Py_ssize_t _interactive_src_count;
+    _PyExecutorObject *mini_executors[100];
+    int first_unused_mini_executor;
 };
 
 

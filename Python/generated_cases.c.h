@@ -3793,7 +3793,7 @@
             _PyCallCache *cache = (_PyCallCache *)next_instr;
             if (ADAPTIVE_COUNTER_IS_ZERO(cache->counter)) {
                 next_instr--;
-                _Py_Specialize_Call(callable, next_instr, total_args);
+                _Py_Specialize_Call(callable, next_instr, total_args, self_or_null != NULL);
                 DISPATCH_SAME_OPARG();
             }
             STAT_INC(CALL, deferred);
@@ -4072,6 +4072,26 @@
             SKIP_OVER(INLINE_CACHE_ENTRIES_CALL);
             frame->return_offset = 0;
             DISPATCH_INLINED(new_frame);
+        }
+
+        TARGET(CALL_FUNCTION_UOPS) {
+            uint32_t index = read_u32(&next_instr[1].cache);
+            TIER_ONE_ONLY
+            /* Want to tailcall or dispatch here,
+             * but use executor machinery for now. */
+            _PyExecutorObject *executor = tstate->interp->mini_executors[index];
+            /* _PyUopExecute consume a reference to the executor */
+            Py_INCREF(executor);
+            frame = _PyUopExecute(executor, frame, stack_pointer);
+            if (frame == NULL) {
+                frame = tstate->current_frame;
+                goto resume_with_error;
+            }
+            if (frame == (_PyInterpreterFrame *)-1) {
+                frame = tstate->current_frame;
+                GO_TO_INSTRUCTION(CALL);
+            }
+            goto resume_frame;
         }
 
         TARGET(CALL_TYPE_1) {

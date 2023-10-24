@@ -28,6 +28,11 @@
         goto deoptimize;         \
     }
 
+#define EXIT_TO_TIER1(COND, INSTNAME) \
+    if ((COND)) {                \
+        goto exit_to_tier1;         \
+    }
+
 #ifdef Py_STATS
 // Disable these macros that apply to Tier 1 stats when we are in Tier 2
 #undef STAT_INC
@@ -144,4 +149,11 @@ deoptimize:
     _PyFrame_SetStackPointer(frame, stack_pointer);
     Py_DECREF(self);
     return frame;
+
+exit_to_tier1:
+    /* This is a hack. We should be juuping to the tier 1 instruction directly */
+    _PyFrame_SetStackPointer(frame, stack_pointer);
+    Py_DECREF(self);
+    return (_PyInterpreterFrame *)-1;
 }
+

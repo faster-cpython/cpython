@@ -81,14 +81,23 @@
 #define _INIT_CALL_BOUND_METHOD_EXACT_ARGS 353
 #define _CHECK_PEP_523 354
 #define _CHECK_FUNCTION_EXACT_ARGS 355
-#define _CHECK_STACK_SPACE 356
-#define _INIT_CALL_PY_EXACT_ARGS 357
-#define _PUSH_FRAME 358
-#define _POP_JUMP_IF_FALSE 359
-#define _POP_JUMP_IF_TRUE 360
-#define _JUMP_TO_TOP 361
-#define _SAVE_CURRENT_IP 362
-#define _INSERT 363
+#define _CHECK_FUNCTION_VERSION 356
+#define _CHECK_STACK_SPACE 357
+#define _MAKE_FRAME 358
+#define _SET_ARGS 359
+#define _SET_DEFAULT 360
+#define _CHECK_SELF_IS_NULL 361
+#define _CHECK_SELF_NOT_NULL 362
+#define _CLEAR_UNDER 363
+#define _POP_UNDER 364
+#define _INIT_CALL_PY_EXACT_ARGS 365
+#define _PUSH_FRAME 366
+#define _TO_TIER_ONE 367
+#define _POP_JUMP_IF_FALSE 368
+#define _POP_JUMP_IF_TRUE 369
+#define _JUMP_TO_TOP 370
+#define _SAVE_CURRENT_IP 371
+#define _INSERT 372
 
 extern int _PyOpcode_num_popped(int opcode, int oparg, bool jump);
 #ifdef NEED_OPCODE_METADATA
@@ -554,8 +563,24 @@ int _PyOpcode_num_popped(int opcode, int oparg, bool jump)  {
             return 0;
         case _CHECK_FUNCTION_EXACT_ARGS:
             return oparg + 2;
+        case _CHECK_FUNCTION_VERSION:
+            return oparg + 2;
         case _CHECK_STACK_SPACE:
             return oparg + 2;
+        case _MAKE_FRAME:
+            return oparg + 2;
+        case _SET_ARGS:
+            return oparg + 1;
+        case _SET_DEFAULT:
+            return 2;
+        case _CHECK_SELF_IS_NULL:
+            return oparg + 1;
+        case _CHECK_SELF_NOT_NULL:
+            return oparg + 1;
+        case _CLEAR_UNDER:
+            return 2;
+        case _POP_UNDER:
+            return 2;
         case _INIT_CALL_PY_EXACT_ARGS:
             return oparg + 2;
         case _PUSH_FRAME:
@@ -566,6 +591,10 @@ int _PyOpcode_num_popped(int opcode, int oparg, bool jump)  {
             return oparg + 2;
         case CALL_PY_WITH_DEFAULTS:
             return oparg + 2;
+        case CALL_FUNCTION_UOPS:
+            return oparg + 2;
+        case _TO_TIER_ONE:
+            return 1;
         case CALL_TYPE_1:
             return oparg + 2;
         case CALL_STR_1:
@@ -1130,8 +1159,24 @@ int _PyOpcode_num_pushed(int opcode, int oparg, bool jump)  {
             return 0;
         case _CHECK_FUNCTION_EXACT_ARGS:
             return oparg + 2;
+        case _CHECK_FUNCTION_VERSION:
+            return oparg + 2;
         case _CHECK_STACK_SPACE:
             return oparg + 2;
+        case _MAKE_FRAME:
+            return oparg + 3;
+        case _SET_ARGS:
+            return 1;
+        case _SET_DEFAULT:
+            return 2;
+        case _CHECK_SELF_IS_NULL:
+            return oparg + 1;
+        case _CHECK_SELF_NOT_NULL:
+            return oparg + 1;
+        case _CLEAR_UNDER:
+            return 1;
+        case _POP_UNDER:
+            return 1;
         case _INIT_CALL_PY_EXACT_ARGS:
             return 1;
         case _PUSH_FRAME:
@@ -1141,6 +1186,10 @@ int _PyOpcode_num_pushed(int opcode, int oparg, bool jump)  {
         case CALL_PY_EXACT_ARGS:
             return 1;
         case CALL_PY_WITH_DEFAULTS:
+            return 1;
+        case CALL_FUNCTION_UOPS:
+            return 1;
+        case _TO_TIER_ONE:
             return 1;
         case CALL_TYPE_1:
             return 1;
@@ -1539,12 +1588,22 @@ const struct opcode_metadata _PyOpcode_opcode_metadata[OPCODE_METADATA_SIZE] = {
     [_INIT_CALL_BOUND_METHOD_EXACT_ARGS] = { true, INSTR_FMT_IB, HAS_ARG_FLAG },
     [_CHECK_PEP_523] = { true, INSTR_FMT_IX, HAS_DEOPT_FLAG },
     [_CHECK_FUNCTION_EXACT_ARGS] = { true, INSTR_FMT_IBC0, HAS_ARG_FLAG | HAS_DEOPT_FLAG },
+    [_CHECK_FUNCTION_VERSION] = { true, INSTR_FMT_IBC0, HAS_ARG_FLAG },
     [_CHECK_STACK_SPACE] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_DEOPT_FLAG },
+    [_MAKE_FRAME] = { true, INSTR_FMT_IB, HAS_ARG_FLAG },
+    [_SET_ARGS] = { true, INSTR_FMT_IB, HAS_ARG_FLAG },
+    [_SET_DEFAULT] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG },
+    [_CHECK_SELF_IS_NULL] = { true, INSTR_FMT_IB, HAS_ARG_FLAG },
+    [_CHECK_SELF_NOT_NULL] = { true, INSTR_FMT_IB, HAS_ARG_FLAG },
+    [_CLEAR_UNDER] = { true, INSTR_FMT_IX, 0 },
+    [_POP_UNDER] = { true, INSTR_FMT_IX, 0 },
     [_INIT_CALL_PY_EXACT_ARGS] = { true, INSTR_FMT_IB, HAS_ARG_FLAG },
     [_PUSH_FRAME] = { true, INSTR_FMT_IX, 0 },
     [CALL_BOUND_METHOD_EXACT_ARGS] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_DEOPT_FLAG },
     [CALL_PY_EXACT_ARGS] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_DEOPT_FLAG },
     [CALL_PY_WITH_DEFAULTS] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_DEOPT_FLAG },
+    [CALL_FUNCTION_UOPS] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_ERROR_FLAG },
+    [_TO_TIER_ONE] = { true, INSTR_FMT_IB, HAS_ARG_FLAG },
     [CALL_TYPE_1] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_DEOPT_FLAG },
     [CALL_STR_1] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_EVAL_BREAK_FLAG | HAS_DEOPT_FLAG | HAS_ERROR_FLAG },
     [CALL_TUPLE_1] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_EVAL_BREAK_FLAG | HAS_DEOPT_FLAG | HAS_ERROR_FLAG },
@@ -1806,9 +1865,18 @@ const char * const _PyOpcode_uop_name[OPCODE_UOP_NAME_SIZE] = {
     [_INIT_CALL_BOUND_METHOD_EXACT_ARGS] = "_INIT_CALL_BOUND_METHOD_EXACT_ARGS",
     [_CHECK_PEP_523] = "_CHECK_PEP_523",
     [_CHECK_FUNCTION_EXACT_ARGS] = "_CHECK_FUNCTION_EXACT_ARGS",
+    [_CHECK_FUNCTION_VERSION] = "_CHECK_FUNCTION_VERSION",
     [_CHECK_STACK_SPACE] = "_CHECK_STACK_SPACE",
+    [_MAKE_FRAME] = "_MAKE_FRAME",
+    [_SET_ARGS] = "_SET_ARGS",
+    [_SET_DEFAULT] = "_SET_DEFAULT",
+    [_CHECK_SELF_IS_NULL] = "_CHECK_SELF_IS_NULL",
+    [_CHECK_SELF_NOT_NULL] = "_CHECK_SELF_NOT_NULL",
+    [_CLEAR_UNDER] = "_CLEAR_UNDER",
+    [_POP_UNDER] = "_POP_UNDER",
     [_INIT_CALL_PY_EXACT_ARGS] = "_INIT_CALL_PY_EXACT_ARGS",
     [_PUSH_FRAME] = "_PUSH_FRAME",
+    [_TO_TIER_ONE] = "_TO_TIER_ONE",
     [_POP_JUMP_IF_FALSE] = "_POP_JUMP_IF_FALSE",
     [_POP_JUMP_IF_TRUE] = "_POP_JUMP_IF_TRUE",
     [_JUMP_TO_TOP] = "_JUMP_TO_TOP",
@@ -1876,6 +1944,7 @@ const char *const _PyOpcode_OpName[268] = {
     [BUILD_TUPLE] = "BUILD_TUPLE",
     [CALL] = "CALL",
     [CALL_FUNCTION_EX] = "CALL_FUNCTION_EX",
+    [CALL_FUNCTION_UOPS] = "CALL_FUNCTION_UOPS",
     [CALL_INTRINSIC_1] = "CALL_INTRINSIC_1",
     [CALL_INTRINSIC_2] = "CALL_INTRINSIC_2",
     [CALL_KW] = "CALL_KW",
@@ -2062,6 +2131,7 @@ const uint8_t _PyOpcode_Caches[256] = {
     [POP_JUMP_IF_NOT_NONE] = 1,
     [FOR_ITER] = 1,
     [CALL] = 3,
+    [CALL_FUNCTION_UOPS] = 3,
     [BINARY_OP] = 1,
     [JUMP_BACKWARD] = 1,
 };
@@ -2104,6 +2174,7 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [CALL_BUILTIN_FAST_WITH_KEYWORDS] = CALL,
     [CALL_BUILTIN_O] = CALL,
     [CALL_FUNCTION_EX] = CALL_FUNCTION_EX,
+    [CALL_FUNCTION_UOPS] = CALL_FUNCTION_UOPS,
     [CALL_INTRINSIC_1] = CALL_INTRINSIC_1,
     [CALL_INTRINSIC_2] = CALL_INTRINSIC_2,
     [CALL_ISINSTANCE] = CALL,
@@ -2282,7 +2353,6 @@ const uint8_t _PyOpcode_Deopt[256] = {
 #endif // NEED_OPCODE_METADATA
 
 #define EXTRA_CASES \
-    case 119: \
     case 120: \
     case 121: \
     case 122: \

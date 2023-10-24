@@ -375,7 +375,7 @@ static PyMemberDef uop_members[] = {
     { NULL }
 };
 
-static PyTypeObject UOpExecutor_Type = {
+PyTypeObject _Py_UOpExecutor_Type = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
     .tp_name = "uop_executor",
     .tp_basicsize = sizeof(_PyUOpExecutorObject) - sizeof(_PyUOpInstruction),
@@ -933,7 +933,7 @@ uop_optimize(
         trace_length = _Py_uop_analyze_and_optimize(code, trace, trace_length, curr_stackentries);
     }
     trace_length = remove_unneeded_uops(trace, trace_length);
-    _PyUOpExecutorObject *executor = PyObject_NewVar(_PyUOpExecutorObject, &UOpExecutor_Type, trace_length);
+    _PyUOpExecutorObject *executor = PyObject_NewVar(_PyUOpExecutorObject, &_Py_UOpExecutor_Type, trace_length);
     if (executor == NULL) {
         return -1;
     }
@@ -962,7 +962,7 @@ static PyTypeObject UOpOptimizer_Type = {
 PyObject *
 PyUnstable_Optimizer_NewUOpOptimizer(void)
 {
-    PyType_Ready(&UOpExecutor_Type);
+    PyType_Ready(&_Py_UOpExecutor_Type);
     PyType_Ready(&UOpOptimizer_Type);
     _PyOptimizerObject *opt = PyObject_New(_PyOptimizerObject, &UOpOptimizer_Type);
     if (opt == NULL) {

@@ -1502,6 +1502,7 @@ new_threadstate(PyInterpreterState *interp, int whence)
 
     init_threadstate(tstate, interp, id, whence);
     add_threadstate(interp, tstate, old_head);
+    interp->first_unused_mini_executor = 0;
 
     HEAD_UNLOCK(runtime);
     if (!used_newtstate) {

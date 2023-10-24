@@ -12,6 +12,7 @@
 #include "pycore_opcode_metadata.h" // _PyOpcode_Caches
 #include "pycore_pylifecycle.h"   // _PyOS_URandomNonblock()
 #include "pycore_runtime.h"       // _Py_ID()
+#include "pycore_uops.h"
 
 #include <stdlib.h> // rand()
 
@@ -1828,9 +1829,71 @@ specialize_method_descriptor(PyMethodDescrObject *descr, _Py_CODEUNIT *instr,
     return -1;
 }
 
+extern PyTypeObject _Py_UOpExecutor_Type;
+
+/* Use executor machinery for now.
+ * There is no need for executors, though.
+ * We could just need the uops as there is no invalidation needed
+ */
+static int32_t
+add_mini_executor(_PyUOpInstruction *insts, int length)
+{
+    PyInterpreterState *interp = _PyInterpreterState_GET();
+    _PyUOpExecutorObject *executor = PyObject_NewVar(_PyUOpExecutorObject, &_Py_UOpExecutor_Type, length);
+    executor->base.execute = _PyUopExecute;
+    memcpy(executor->trace, insts, length * sizeof(_PyUOpInstruction));
+    _PyBloomFilter dependencies;
+    _Py_BloomFilter_Init(&dependencies);
+    _Py_ExecutorInit((_PyExecutorObject *)executor, &dependencies);
+    int32_t index = interp->first_unused_mini_executor++;
+    interp->mini_executors[index] = (_PyExecutorObject *)executor;
+    assert(interp->first_unused_mini_executor < 100);
+    return index;
+}
+
+static int32_t
+generate_py_call_with_defaults_sequence(uint32_t version, int nargs, int argcount, int defaults, bool has_self)
+{
+    /* TO DO -- Proper management of these uop caches and size checks */
+    _PyUOpInstruction insts[16];
+    _PyUOpInstruction *inst = &insts[0];
+
+#define ADD_UOP(NAME, OPARG, OPERAND) \
+    *inst++ = (_PyUOpInstruction) { NAME, OPARG, OPERAND };
+
+    ADD_UOP(_CHECK_FUNCTION_VERSION, nargs, version);
+    if (has_self) {
+        ADD_UOP(_CHECK_SELF_NOT_NULL, nargs, 0);
+        nargs++;
+    }
+    else {
+        ADD_UOP(_CHECK_SELF_IS_NULL, nargs, 0);
+    }
+    ADD_UOP(_MAKE_FRAME, nargs, 0);
+    if (!has_self) {
+        ADD_UOP(_SET_ARGS, nargs + 1, 0);
+    }
+    else {
+        ADD_UOP(_SET_ARGS, nargs, 0);
+        /* have NULL under frame */
+        ADD_UOP(_CLEAR_UNDER, 0, 0);
+    }
+    int min_args = argcount - defaults;
+    for (int i = nargs; i < argcount; i++) {
+        ADD_UOP(_SET_DEFAULT, i, i - min_args);
+    }
+    /* Remove callable */
+    ADD_UOP(_POP_UNDER, 0, 0);
+    ADD_UOP(_PUSH_FRAME, 0, 0);
+    ADD_UOP(_TO_TIER_ONE, INLINE_CACHE_ENTRIES_CALL+1, 0);
+    int length = inst - insts;
+    assert(length < 16);
+    return add_mini_executor(insts, length);
+}
+
 static int
 specialize_py_call(PyFunctionObject *func, _Py_CODEUNIT *instr, int nargs,
-                   bool bound_method)
+                   bool bound_method, bool has_self)
 {
     _PyCallCache *cache = (_PyCallCache *)(instr + 1);
     PyCodeObject *code = (PyCodeObject *)func->func_code;
@@ -1869,7 +1932,15 @@ specialize_py_call(PyFunctionObject *func, _Py_CODEUNIT *instr, int nargs,
         return -1;
     }
     else {
-        instr->op.code = CALL_PY_WITH_DEFAULTS;
+        int defaults = argcount - nargs;
+        int32_t index = generate_py_call_with_defaults_sequence(version, nargs, argcount, defaults, has_self);
+        write_u32(cache->func_version, index);
+        if (index < 0) {
+            SPECIALIZATION_FAIL(CALL, SPEC_FAIL_OTHER);
+            return -1;
+        }
+        instr->op.code = CALL_FUNCTION_UOPS;
+//        instr->op.code = CALL_PY_WITH_DEFAULTS;
     }
     return 0;
 }
@@ -1948,7 +2019,7 @@ call_fail_kind(PyObject *callable)
 
 
 void
-_Py_Specialize_Call(PyObject *callable, _Py_CODEUNIT *instr, int nargs)
+_Py_Specialize_Call(PyObject *callable, _Py_CODEUNIT *instr, int nargs, int has_self)
 {
     assert(ENABLE_SPECIALIZATION);
     assert(_PyOpcode_Caches[CALL] == INLINE_CACHE_ENTRIES_CALL);
@@ -1959,7 +2030,7 @@ _Py_Specialize_Call(PyObject *callable, _Py_CODEUNIT *instr, int nargs)
         fail = specialize_c_call(callable, instr, nargs);
     }
     else if (PyFunction_Check(callable)) {
-        fail = specialize_py_call((PyFunctionObject *)callable, instr, nargs, false);
+        fail = specialize_py_call((PyFunctionObject *)callable, instr, nargs, false, has_self);
     }
     else if (PyType_Check(callable)) {
         fail = specialize_class_call(callable, instr, nargs);
@@ -1970,7 +2041,7 @@ _Py_Specialize_Call(PyObject *callable, _Py_CODEUNIT *instr, int nargs)
     else if (PyMethod_Check(callable)) {
         PyObject *func = ((PyMethodObject *)callable)->im_func;
         if (PyFunction_Check(func)) {
-            fail = specialize_py_call((PyFunctionObject *)func, instr, nargs+1, true);
+            fail = specialize_py_call((PyFunctionObject *)func, instr, nargs+1, true, has_self);
         }
         else {
             SPECIALIZATION_FAIL(CALL, SPEC_FAIL_CALL_BOUND_METHOD);

@@ -253,7 +253,7 @@ extern void _Py_Specialize_BinarySubscr(PyObject *sub, PyObject *container,
 extern void _Py_Specialize_StoreSubscr(PyObject *container, PyObject *sub,
                                        _Py_CODEUNIT *instr);
 extern void _Py_Specialize_Call(PyObject *callable, _Py_CODEUNIT *instr,
-                                int nargs);
+                                int nargs, int has_self);
 extern void _Py_Specialize_BinaryOp(PyObject *lhs, PyObject *rhs, _Py_CODEUNIT *instr,
                                     int oparg, PyObject **locals);
 extern void _Py_Specialize_CompareOp(PyObject *lhs, PyObject *rhs,

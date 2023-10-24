@@ -2950,7 +2950,7 @@ dummy_func(
             _PyCallCache *cache = (_PyCallCache *)next_instr;
             if (ADAPTIVE_COUNTER_IS_ZERO(cache->counter)) {
                 next_instr--;
-                _Py_Specialize_Call(callable, next_instr, total_args);
+                _Py_Specialize_Call(callable, next_instr, total_args, self_or_null != NULL);
                 DISPATCH_SAME_OPARG();
             }
             STAT_INC(CALL, deferred);
@@ -3045,11 +3045,53 @@ dummy_func(
             DEOPT_IF(code->co_argcount != oparg + (self_or_null != NULL));
         }
 
+
+        op(_CHECK_FUNCTION_VERSION, (func_version/2, callable, unused, unused[oparg] -- callable, unused, unused[oparg])) {
+            EXIT_TO_TIER1(!PyFunction_Check(callable), CALL);
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            EXIT_TO_TIER1(func->func_version != func_version, CALL);
+        }
+
         op(_CHECK_STACK_SPACE, (callable, unused, unused[oparg] -- callable, unused, unused[oparg])) {
             PyFunctionObject *func = (PyFunctionObject *)callable;
             PyCodeObject *code = (PyCodeObject *)func->func_code;
             DEOPT_IF(!_PyThreadState_HasStackSpace(tstate, code->co_framesize));
             DEOPT_IF(tstate->py_recursion_remaining <= 1);
+        }
+
+        op(_MAKE_FRAME, (callable, unused, unused[oparg] -- callable, unused, unused[oparg], new_frame: _PyInterpreterFrame*)) {
+            assert(PyFunction_Check(callable));
+            new_frame = _PyFrame_PushUnchecked(tstate, (PyFunctionObject *)callable, oparg);
+        }
+
+        op(_SET_ARGS, (args[oparg], new_frame: _PyInterpreterFrame* -- new_frame: _PyInterpreterFrame*)) {
+            for (int i = 0; i < oparg; i++) {
+                new_frame->localsplus[i] = args[i];
+            }
+        }
+
+        op(_SET_DEFAULT, (index/1, callable, new_frame: _PyInterpreterFrame* -- callable, new_frame: _PyInterpreterFrame*)) {
+            assert(PyFunction_Check(callable));
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            PyObject *def = PyTuple_GET_ITEM(func->func_defaults, index);
+            new_frame->localsplus[oparg] = Py_NewRef(def);
+        }
+
+        op(_CHECK_SELF_IS_NULL, (null, unused[oparg] -- null, unused[oparg])) {
+            EXIT_TO_TIER1(null != NULL, CALL);
+        }
+
+        op(_CHECK_SELF_NOT_NULL, (self, unused[oparg] -- self, unused[oparg])) {
+            EXIT_TO_TIER1(self == NULL, CALL);
+        }
+
+        op(_CLEAR_UNDER, (nos, tos -- tos)) {
+            TIER_TWO_ONLY
+        }
+
+        op(_POP_UNDER, (nos, tos -- tos)) {
+            TIER_TWO_ONLY
+            Py_DECREF(nos);
         }
 
         op(_INIT_CALL_PY_EXACT_ARGS, (callable, self_or_null, args[oparg] -- new_frame: _PyInterpreterFrame*)) {
@@ -3142,6 +3184,35 @@ dummy_func(
             SKIP_OVER(INLINE_CACHE_ENTRIES_CALL);
             frame->return_offset = 0;
             DISPATCH_INLINED(new_frame);
+        }
+
+        inst(CALL_FUNCTION_UOPS, (unused/1, index/2, unused, unused, unused[oparg] -- unused)) {
+            TIER_ONE_ONLY
+            /* Want to tailcall or dispatch here,
+             * but use executor machinery for now. */
+            _PyExecutorObject *executor = tstate->interp->mini_executors[index];
+            /* _PyUopExecute consume a reference to the executor */
+            Py_INCREF(executor);
+            frame = _PyUopExecute(executor, frame, stack_pointer);
+            if (frame == NULL) {
+                frame = tstate->current_frame;
+                goto resume_with_error;
+            }
+            if (frame == (_PyInterpreterFrame *)-1) {
+                frame = tstate->current_frame;
+                GO_TO_INSTRUCTION(CALL);
+            }
+            goto resume_frame;
+        }
+
+        op(_TO_TIER_ONE, (unused -- unused)) {
+            TIER_TWO_ONLY
+            _PyFrame_SetStackPointer(frame, stack_pointer);
+            /* What we want to do here is:
+             * next_instr = frame->prev_instr + oparg;
+             * DISPATCH(); -- Tier 1 dispatch. */
+            frame->prev_instr += oparg-1;
+            return frame;
         }
 
         inst(CALL_TYPE_1, (unused/1, unused/2, callable, null, args[oparg] -- res)) {

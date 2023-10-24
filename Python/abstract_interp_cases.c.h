@@ -744,7 +744,47 @@
             break;
         }
 
+        case _CHECK_FUNCTION_VERSION: {
+            break;
+        }
+
         case _CHECK_STACK_SPACE: {
+            break;
+        }
+
+        case _MAKE_FRAME: {
+            STACK_GROW(1);
+            PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
+            break;
+        }
+
+        case _SET_ARGS: {
+            STACK_SHRINK(oparg);
+            PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
+            break;
+        }
+
+        case _SET_DEFAULT: {
+            break;
+        }
+
+        case _CHECK_SELF_IS_NULL: {
+            break;
+        }
+
+        case _CHECK_SELF_NOT_NULL: {
+            break;
+        }
+
+        case _CLEAR_UNDER: {
+            STACK_SHRINK(1);
+            PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
+            break;
+        }
+
+        case _POP_UNDER: {
+            STACK_SHRINK(1);
+            PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
             break;
         }
 
@@ -757,6 +797,10 @@
 
         case _PUSH_FRAME: {
             PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
+            break;
+        }
+
+        case _TO_TIER_ONE: {
             break;
         }
 

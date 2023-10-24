@@ -2546,6 +2546,16 @@
             break;
         }
 
+        case _CHECK_FUNCTION_VERSION: {
+            PyObject *callable;
+            callable = stack_pointer[-2 - oparg];
+            uint32_t func_version = (uint32_t)operand;
+            EXIT_TO_TIER1(!PyFunction_Check(callable), CALL);
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            EXIT_TO_TIER1(func->func_version != func_version, CALL);
+            break;
+        }
+
         case _CHECK_STACK_SPACE: {
             PyObject *callable;
             callable = stack_pointer[-2 - oparg];
@@ -2553,6 +2563,80 @@
             PyCodeObject *code = (PyCodeObject *)func->func_code;
             DEOPT_IF(!_PyThreadState_HasStackSpace(tstate, code->co_framesize), _CHECK_STACK_SPACE);
             DEOPT_IF(tstate->py_recursion_remaining <= 1, _CHECK_STACK_SPACE);
+            break;
+        }
+
+        case _MAKE_FRAME: {
+            PyObject *callable;
+            _PyInterpreterFrame *new_frame;
+            callable = stack_pointer[-2 - oparg];
+            assert(PyFunction_Check(callable));
+            new_frame = _PyFrame_PushUnchecked(tstate, (PyFunctionObject *)callable, oparg);
+            STACK_GROW(1);
+            stack_pointer[-1] = (PyObject *)new_frame;
+            break;
+        }
+
+        case _SET_ARGS: {
+            _PyInterpreterFrame *new_frame;
+            PyObject **args;
+            new_frame = (_PyInterpreterFrame *)stack_pointer[-1];
+            args = stack_pointer - 1 - oparg;
+            for (int i = 0; i < oparg; i++) {
+                new_frame->localsplus[i] = args[i];
+            }
+            STACK_SHRINK(oparg);
+            stack_pointer[-1] = (PyObject *)new_frame;
+            break;
+        }
+
+        case _SET_DEFAULT: {
+            _PyInterpreterFrame *new_frame;
+            PyObject *callable;
+            new_frame = (_PyInterpreterFrame *)stack_pointer[-1];
+            callable = stack_pointer[-2];
+            uint16_t index = (uint16_t)operand;
+            assert(PyFunction_Check(callable));
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            PyObject *def = PyTuple_GET_ITEM(func->func_defaults, index);
+            new_frame->localsplus[oparg] = Py_NewRef(def);
+            break;
+        }
+
+        case _CHECK_SELF_IS_NULL: {
+            PyObject *null;
+            null = stack_pointer[-1 - oparg];
+            EXIT_TO_TIER1(null != NULL, CALL);
+            break;
+        }
+
+        case _CHECK_SELF_NOT_NULL: {
+            PyObject *self;
+            self = stack_pointer[-1 - oparg];
+            EXIT_TO_TIER1(self == NULL, CALL);
+            break;
+        }
+
+        case _CLEAR_UNDER: {
+            PyObject *tos;
+            PyObject *nos;
+            tos = stack_pointer[-1];
+            nos = stack_pointer[-2];
+            TIER_TWO_ONLY
+            STACK_SHRINK(1);
+            stack_pointer[-1] = tos;
+            break;
+        }
+
+        case _POP_UNDER: {
+            PyObject *tos;
+            PyObject *nos;
+            tos = stack_pointer[-1];
+            nos = stack_pointer[-2];
+            TIER_TWO_ONLY
+            Py_DECREF(nos);
+            STACK_SHRINK(1);
+            stack_pointer[-1] = tos;
             break;
         }
 
@@ -2602,6 +2686,17 @@
                 goto exit_unwind;
             }
 #endif
+            break;
+        }
+
+        case _TO_TIER_ONE: {
+            TIER_TWO_ONLY
+            _PyFrame_SetStackPointer(frame, stack_pointer);
+            /* What we want to do here is:
+             * next_instr = frame->prev_instr + oparg;
+             * DISPATCH(); -- Tier 1 dispatch. */
+            frame->prev_instr += oparg-1;
+            return frame;
             break;
         }
 
