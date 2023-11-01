@@ -92,6 +92,14 @@ class CacheEffect(Node):
     name: str
     size: int
 
+    @property
+    def infallible(self) -> bool:
+        return True
+
+    @property
+    def escapes(self) -> bool:
+        return False
+
 
 @dataclass
 class OpName(Node):

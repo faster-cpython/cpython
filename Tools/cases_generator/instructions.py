@@ -133,6 +133,40 @@ class Instruction:
                 res = False
         return res
 
+    @property
+    def infallible(self) -> bool:
+        return (
+            #not self.has_deopt and
+            not self.instr_flags.HAS_ERROR_FLAG
+        )
+
+    @property
+    def escapes(self) -> bool:
+        """An instruction escapes if makes a call,
+        that can potentially see the state of the VM
+        This doesn't include Py_INCREF as it just increments,
+        but does include Py_DECREF as that might call Py_Dealloc."""
+
+        # TO DO -- Do this properly
+        return not self._no_escape()
+
+    def _no_escape(self):
+        return (
+            self.name.startswith("LOAD_FAST") or
+            self.name.startswith("LOAD_CONST") or
+            self.name  in (
+                "POP_JUMP_IF_FALSE",
+                "POP_JUMP_IF_TRUE",
+                "JUMP_FORWARD",
+                "JUMP_BACKWARD_NO_INTERRUPT",
+                "NOP",
+                "EXTENDED_ARG",
+                "SWAP",
+                "COPY",
+                "INTERPETER_EXIT",
+            )
+        )
+
     def write_body(
         self,
         out: Formatter,
@@ -261,6 +295,13 @@ class Component:
     instr: Instruction
     active_caches: list[ActiveCacheEffect]
 
+    @property
+    def infallible(self) -> bool:
+        return self.instr.infallible
+
+    @property
+    def escapes(self) -> bool:
+        return self.instr.escapes
 
 MacroParts = list[Component | parsing.CacheEffect]
 
@@ -279,6 +320,13 @@ class MacroInstruction:
     predicted: bool = False
     family: parsing.Family | None = None
 
+    @property
+    def infallible(self) -> bool:
+        return all(part.infallible for part in self.parts)
+
+    @property
+    def escapes(self) -> bool:
+        return any(part.escapes for part in self.parts)
 
 @dataclasses.dataclass
 class PseudoInstruction:
