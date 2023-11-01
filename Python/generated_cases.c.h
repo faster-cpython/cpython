@@ -4,7 +4,6 @@
 // Do not edit!
 
         TARGET(NOP) {
-            frame->instr_ptr = next_instr;
             next_instr += 1;
             INSTRUCTION_STATS(NOP);
             DISPATCH();
@@ -97,7 +96,6 @@
         }
 
         TARGET(LOAD_FAST) {
-            frame->instr_ptr = next_instr;
             next_instr += 1;
             INSTRUCTION_STATS(LOAD_FAST);
             PyObject *value;
@@ -110,7 +108,6 @@
         }
 
         TARGET(LOAD_FAST_AND_CLEAR) {
-            frame->instr_ptr = next_instr;
             next_instr += 1;
             INSTRUCTION_STATS(LOAD_FAST_AND_CLEAR);
             PyObject *value;
@@ -123,7 +120,6 @@
         }
 
         TARGET(LOAD_FAST_LOAD_FAST) {
-            frame->instr_ptr = next_instr;
             next_instr += 1;
             INSTRUCTION_STATS(LOAD_FAST_LOAD_FAST);
             PyObject *value1;
@@ -141,7 +137,6 @@
         }
 
         TARGET(LOAD_CONST) {
-            frame->instr_ptr = next_instr;
             next_instr += 1;
             INSTRUCTION_STATS(LOAD_CONST);
             PyObject *value;
@@ -3385,7 +3380,6 @@
         }
 
         TARGET(JUMP_FORWARD) {
-            frame->instr_ptr = next_instr;
             next_instr += 1;
             INSTRUCTION_STATS(JUMP_FORWARD);
             JUMPBY(oparg);
@@ -3442,7 +3436,7 @@
         }
 
         TARGET(POP_JUMP_IF_FALSE) {
-            _Py_CODEUNIT *this_instr = frame->instr_ptr = next_instr;
+            _Py_CODEUNIT *this_instr = next_instr;
             next_instr += 2;
             INSTRUCTION_STATS(POP_JUMP_IF_FALSE);
             PyObject *cond;
@@ -3458,7 +3452,7 @@
         }
 
         TARGET(POP_JUMP_IF_TRUE) {
-            _Py_CODEUNIT *this_instr = frame->instr_ptr = next_instr;
+            _Py_CODEUNIT *this_instr = next_instr;
             next_instr += 2;
             INSTRUCTION_STATS(POP_JUMP_IF_TRUE);
             PyObject *cond;
@@ -3538,7 +3532,6 @@
         }
 
         TARGET(JUMP_BACKWARD_NO_INTERRUPT) {
-            frame->instr_ptr = next_instr;
             next_instr += 1;
             INSTRUCTION_STATS(JUMP_BACKWARD_NO_INTERRUPT);
             /* This bytecode is used in the `yield from` or `await` loop.
@@ -5566,7 +5559,6 @@
         }
 
         TARGET(COPY) {
-            frame->instr_ptr = next_instr;
             next_instr += 1;
             INSTRUCTION_STATS(COPY);
             PyObject *bottom;
@@ -5621,7 +5613,6 @@
         }
 
         TARGET(SWAP) {
-            frame->instr_ptr = next_instr;
             next_instr += 1;
             INSTRUCTION_STATS(SWAP);
             PyObject *top;
@@ -5740,7 +5731,6 @@
         }
 
         TARGET(EXTENDED_ARG) {
-            frame->instr_ptr = next_instr;
             next_instr += 1;
             INSTRUCTION_STATS(EXTENDED_ARG);
             assert(oparg);
