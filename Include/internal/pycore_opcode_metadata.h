@@ -116,6 +116,10 @@
 #define _SAVE_RETURN_OFFSET 388
 #define _INSERT 389
 #define _CHECK_VALIDITY 390
+#define _INLINE_IMMORTAL_CONSTANT 391
+#define _INLINE_CONSTANT 392
+#define _INLINE_IMMORTAL_CONSTANT_WITH_NULL 393
+#define _INLINE_CONSTANT_WITH_NULL 394
 
 extern int _PyOpcode_num_popped(int opcode, int oparg, bool jump);
 #ifdef NEED_OPCODE_METADATA
@@ -740,6 +744,14 @@ int _PyOpcode_num_popped(int opcode, int oparg, bool jump)  {
         case _INSERT:
             return oparg + 1;
         case _CHECK_VALIDITY:
+            return 0;
+        case _INLINE_IMMORTAL_CONSTANT:
+            return 0;
+        case _INLINE_CONSTANT:
+            return 0;
+        case _INLINE_IMMORTAL_CONSTANT_WITH_NULL:
+            return 0;
+        case _INLINE_CONSTANT_WITH_NULL:
             return 0;
         default:
             return -1;
@@ -1371,6 +1383,14 @@ int _PyOpcode_num_pushed(int opcode, int oparg, bool jump)  {
             return oparg + 1;
         case _CHECK_VALIDITY:
             return 0;
+        case _INLINE_IMMORTAL_CONSTANT:
+            return 1;
+        case _INLINE_CONSTANT:
+            return 1;
+        case _INLINE_IMMORTAL_CONSTANT_WITH_NULL:
+            return 2;
+        case _INLINE_CONSTANT_WITH_NULL:
+            return 2;
         default:
             return -1;
     }
@@ -1757,6 +1777,10 @@ const struct opcode_metadata _PyOpcode_opcode_metadata[OPCODE_METADATA_SIZE] = {
     [_EXIT_TRACE] = { true, INSTR_FMT_IX, 0 },
     [_INSERT] = { true, INSTR_FMT_IB, HAS_ARG_FLAG },
     [_CHECK_VALIDITY] = { true, INSTR_FMT_IX, HAS_DEOPT_FLAG },
+    [_INLINE_IMMORTAL_CONSTANT] = { true, INSTR_FMT_IXC000, 0 },
+    [_INLINE_CONSTANT] = { true, INSTR_FMT_IXC000, 0 },
+    [_INLINE_IMMORTAL_CONSTANT_WITH_NULL] = { true, INSTR_FMT_IXC000, 0 },
+    [_INLINE_CONSTANT_WITH_NULL] = { true, INSTR_FMT_IXC000, 0 },
 };
 #endif // NEED_OPCODE_METADATA
 
@@ -2009,6 +2033,10 @@ const char * const _PyOpcode_uop_name[OPCODE_UOP_NAME_SIZE] = {
     [_SAVE_RETURN_OFFSET] = "_SAVE_RETURN_OFFSET",
     [_INSERT] = "_INSERT",
     [_CHECK_VALIDITY] = "_CHECK_VALIDITY",
+    [_INLINE_IMMORTAL_CONSTANT] = "_INLINE_IMMORTAL_CONSTANT",
+    [_INLINE_CONSTANT] = "_INLINE_CONSTANT",
+    [_INLINE_IMMORTAL_CONSTANT_WITH_NULL] = "_INLINE_IMMORTAL_CONSTANT_WITH_NULL",
+    [_INLINE_CONSTANT_WITH_NULL] = "_INLINE_CONSTANT_WITH_NULL",
 };
 #endif // NEED_OPCODE_METADATA
 

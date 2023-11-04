@@ -4044,6 +4044,28 @@ dummy_func(
             DEOPT_IF(!current_executor->base.vm_data.valid);
         }
 
+        op(_INLINE_IMMORTAL_CONSTANT, (ptr/4 -- res)) {
+            TIER_TWO_ONLY
+            res = ptr;
+        }
+
+        op(_INLINE_CONSTANT, (ptr/4 -- res)) {
+            TIER_TWO_ONLY
+            res = _Py_NewRef(ptr);
+        }
+
+        op(_INLINE_IMMORTAL_CONSTANT_WITH_NULL, (ptr/4 -- res, null)) {
+            TIER_TWO_ONLY
+            res = ptr;
+            null = NULL;
+        }
+
+        op(_INLINE_CONSTANT_WITH_NULL, (ptr/4 -- res, null)) {
+            TIER_TWO_ONLY
+            res = _Py_NewRef(ptr);
+            null = NULL;
+        }
+
 
 // END BYTECODES //
 

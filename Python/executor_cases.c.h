@@ -3306,4 +3306,50 @@
             break;
         }
 
+        case _INLINE_IMMORTAL_CONSTANT: {
+            PyObject *res;
+            PyObject *ptr = (PyObject *)next_uop[-1].operand;
+            TIER_TWO_ONLY
+            res = ptr;
+            STACK_GROW(1);
+            stack_pointer[-1] = res;
+            break;
+        }
+
+        case _INLINE_CONSTANT: {
+            PyObject *res;
+            PyObject *ptr = (PyObject *)next_uop[-1].operand;
+            TIER_TWO_ONLY
+            res = _Py_NewRef(ptr);
+            STACK_GROW(1);
+            stack_pointer[-1] = res;
+            break;
+        }
+
+        case _INLINE_IMMORTAL_CONSTANT_WITH_NULL: {
+            PyObject *res;
+            PyObject *null;
+            PyObject *ptr = (PyObject *)next_uop[-1].operand;
+            TIER_TWO_ONLY
+            res = ptr;
+            null = NULL;
+            STACK_GROW(2);
+            stack_pointer[-2] = res;
+            stack_pointer[-1] = null;
+            break;
+        }
+
+        case _INLINE_CONSTANT_WITH_NULL: {
+            PyObject *res;
+            PyObject *null;
+            PyObject *ptr = (PyObject *)next_uop[-1].operand;
+            TIER_TWO_ONLY
+            res = _Py_NewRef(ptr);
+            null = NULL;
+            STACK_GROW(2);
+            stack_pointer[-2] = res;
+            stack_pointer[-1] = null;
+            break;
+        }
+
 #undef TIER_TWO
