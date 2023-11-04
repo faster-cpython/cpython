@@ -250,6 +250,7 @@ maybe_lltrace_resume_frame(_PyInterpreterFrame *frame, PyObject *globals)
             lltrace = *python_lltrace - '0';  // TODO: Parse an int and all that
         }
     }
+    lltrace = 5;
     if (lltrace >= 5) {
         lltrace_resume_frame(frame);
     }
@@ -271,9 +272,8 @@ static void monitor_unwind(PyThreadState *tstate,
 static int monitor_handled(PyThreadState *tstate,
                  _PyInterpreterFrame *frame,
                  _Py_CODEUNIT *instr, PyObject *exc);
-static void monitor_throw(PyThreadState *tstate,
-                 _PyInterpreterFrame *frame,
-                 _Py_CODEUNIT *instr);
+void _Py_MonitorThrow(PyThreadState *tstate,
+                 _PyInterpreterFrame *frame);
 
 static int get_exception_handler(PyCodeObject *, int, int*, int*, int*);
 static  _PyInterpreterFrame *
@@ -671,14 +671,22 @@ PyEval_EvalFrame(PyFrameObject *f)
 {
     /* Function kept for backward compatibility */
     PyThreadState *tstate = _PyThreadState_GET();
-    return _PyEval_EvalFrame(tstate, f->f_frame, 0);
+    if (tstate->interp->eval_frame == NULL) {
+        return _PyEval_Interpret(tstate, f->f_frame);
+    }
+    return tstate->interp->eval_frame(tstate, f->f_frame, 0);
 }
 
 PyObject *
 PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 {
-    PyThreadState *tstate = _PyThreadState_GET();
-    return _PyEval_EvalFrame(tstate, f->f_frame, throwflag);
+    if (throwflag) {
+        PyThreadState *tstate = _PyThreadState_GET();
+        if (_Py_UnwindFrame(tstate, f->f_frame, f->f_frame->instr_ptr)) {
+            return NULL;
+        }
+    }
+    return PyEval_EvalFrame(f);
 }
 
 #include "ceval_macros.h"
@@ -761,14 +769,84 @@ _PyObjectArray_Free(PyObject **array, PyObject **scratch)
     }
 }
 
+_Py_CODEUNIT *
+unwind_frame(PyThreadState *tstate, _PyInterpreterFrame *frame, _Py_CODEUNIT *location)
+{
+    int offset, level, handler, lasti;
+start:
+    /* We can't use frame->instr_ptr here, as RERAISE may have set it */
+    offset = (int)(location - _PyCode_CODE(_PyFrame_GetCode(frame)));
+    if (get_exception_handler(_PyFrame_GetCode(frame), offset, &level, &handler, &lasti) == 0) {
+        // No handlers, so exit.
+        assert(PyErr_Occurred());
+
+        /* Pop remaining stack entries. */
+        _PyStackRef *stackbase = _PyFrame_Stackbase(frame);
+        while (frame->stackpointer > stackbase) {
+            PyStackRef_XCLOSE(_PyFrame_StackPop(frame));
+        }
+        monitor_unwind(tstate, frame, location);
+        // GH-99729: We need to unlink the frame *before* clearing it:
+        _PyInterpreterFrame *dying = frame;
+        tstate->current_frame = dying->previous;
+        _PyEval_FrameClearAndPop(tstate, dying);
+        return NULL;
+    }
+
+    _PyStackRef *new_top = _PyFrame_Stackbase(frame) + level;
+    assert(frame->stackpointer >= new_top);
+    while (frame->stackpointer > new_top) {
+        PyStackRef_XCLOSE(_PyFrame_StackPop(frame));
+    }
+    if (lasti) {
+        int frame_lasti = _PyInterpreterFrame_LASTI(frame);
+        PyObject *lasti = PyLong_FromLong(frame_lasti);
+        if (lasti == NULL) {
+            return NULL;
+        }
+       _PyFrame_StackPush(frame, PyStackRef_FromPyObjectSteal(lasti));
+    }
+
+    /* Make the raw exception data
+        available to the handler,
+        so a program can emulate the
+        Python main loop. */
+    PyObject *exc = _PyErr_GetRaisedException(tstate);
+    _PyFrame_StackPush(frame, PyStackRef_FromPyObjectSteal(exc));
+    location = _PyCode_CODE(_PyFrame_GetCode(frame)) + handler;
+    frame->instr_ptr = location;
+    if (monitor_handled(tstate, frame, location, exc) < 0) {
+        goto start;
+    }
+    return location;
+}
+
+_Py_CODEUNIT *
+_Py_UnwindFrame(PyThreadState *tstate, _PyInterpreterFrame *frame, _Py_CODEUNIT *location)
+{
+    assert(frame->stackpointer != NULL);
+    return unwind_frame(tstate, frame, location);
+}
+
 
 /* _PyEval_EvalFrameDefault() is a *big* function,
  * so consume 3 units of C stack */
 #define PY_EVAL_C_STACK_UNITS 2
 
 
+PyObject*
+_PyEval_EvalFrameDefault(PyThreadState *tstate, struct _PyInterpreterFrame *frame, int throwflag)
+{
+    if (throwflag) {
+        if (_Py_UnwindFrame(tstate, frame, frame->instr_ptr)) {
+            return NULL;
+        }
+    }
+    return _PyEval_Interpret(tstate, frame);
+}
+
 PyObject* _Py_HOT_FUNCTION
-_PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int throwflag)
+_PyEval_Interpret(PyThreadState *tstate, _PyInterpreterFrame *frame)
 {
     _Py_EnsureTstateNotNULL(tstate);
     CALL_STAT_INC(pyeval_calls);
@@ -817,13 +895,6 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
         goto exit_unwind;
     }
 
-    /* support for generator.throw() */
-    if (throwflag) {
-        if (_Py_EnterRecursivePy(tstate)) {
-            goto exit_unwind;
-        }
-        /* Because this avoids the RESUME,
-         * we need to update instrumentation */
 #ifdef Py_GIL_DISABLED
         /* Load thread-local bytecode */
         if (frame->tlbc_index != ((_PyThreadStateImpl *)tstate)->tlbc_index) {
@@ -837,12 +908,6 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
             frame->instr_ptr = bytecode + off;
         }
 #endif
-        _Py_Instrument(_PyFrame_GetCode(frame), tstate->interp);
-        monitor_throw(tstate, frame, frame->instr_ptr);
-        /* TO DO -- Monitor throw entry. */
-        goto resume_with_error;
-    }
-
     /* Local "register" variables.
      * These are cached values from the frame and code object.  */
     _Py_CODEUNIT *next_instr;
@@ -893,6 +958,7 @@ enter_tier_two:
 #ifdef _Py_JIT
     assert(0);
 #else
+        stack_pointer = _PyFrame_GetStackPointer(frame);
 
 #undef LOAD_IP
 #define LOAD_IP(UNUSED) (void)0
@@ -1757,7 +1823,10 @@ _PyEval_Vector(PyThreadState *tstate, PyFunctionObject *func,
         return NULL;
     }
     EVAL_CALL_STAT_INC(EVAL_CALL_VECTOR);
-    return _PyEval_EvalFrame(tstate, frame, 0);
+    if (tstate->interp->eval_frame != NULL) {
+        return tstate->interp->eval_frame(tstate, frame, 0);
+    }
+    return _PyEval_Interpret(tstate, frame);
 }
 
 /* Legacy API */
@@ -2235,15 +2304,14 @@ monitor_handled(PyThreadState *tstate,
     return _Py_call_instrumentation_arg(tstate, PY_MONITORING_EVENT_EXCEPTION_HANDLED, frame, instr, exc);
 }
 
-static void
-monitor_throw(PyThreadState *tstate,
-              _PyInterpreterFrame *frame,
-              _Py_CODEUNIT *instr)
+void
+_Py_MonitorThrow(PyThreadState *tstate,
+              _PyInterpreterFrame *frame)
 {
     if (no_tools_for_global_event(tstate, PY_MONITORING_EVENT_PY_THROW)) {
         return;
     }
-    do_monitor_exc(tstate, frame, instr, PY_MONITORING_EVENT_PY_THROW);
+    do_monitor_exc(tstate, frame, frame->instr_ptr, PY_MONITORING_EVENT_PY_THROW);
 }
 
 void

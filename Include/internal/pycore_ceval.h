@@ -108,6 +108,9 @@ extern _PyPerf_Callbacks _Py_perfmap_callbacks;
 extern _PyPerf_Callbacks _Py_perfmap_jit_callbacks;
 #endif
 
+_Py_CODEUNIT *
+_Py_UnwindFrame(PyThreadState *tstate, struct _PyInterpreterFrame *frame, _Py_CODEUNIT *location);
+
 static inline PyObject*
 _PyEval_EvalFrame(PyThreadState *tstate, struct _PyInterpreterFrame *frame, int throwflag)
 {
@@ -115,8 +118,12 @@ _PyEval_EvalFrame(PyThreadState *tstate, struct _PyInterpreterFrame *frame, int 
     if (tstate->interp->eval_frame == NULL) {
         return _PyEval_EvalFrameDefault(tstate, frame, throwflag);
     }
-    return tstate->interp->eval_frame(tstate, frame, throwflag);
+    return tstate->interp->eval_frame(tstate, frame, 0);
 }
+
+void
+_Py_MonitorThrow(PyThreadState *tstate,
+              _PyInterpreterFrame *frame);
 
 extern PyObject*
 _PyEval_Vector(PyThreadState *tstate,

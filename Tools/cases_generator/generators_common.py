@@ -178,6 +178,7 @@ class Emitter:
         assert lparen.kind == "LPAREN"
         first_tkn = tkn_iter.peek()
         unconditional = always_true(first_tkn)
+        self.out.emit("assert(frame->stackpointer == NULL);\n")
         if unconditional:
             next(tkn_iter)
             comma = next(tkn_iter)
@@ -226,6 +227,7 @@ class Emitter:
         next(tkn_iter)  # LPAREN
         next(tkn_iter)  # RPAREN
         next(tkn_iter)  # Semi colon
+        self.out.emit("assert(frame->stackpointer == NULL);\n")
         self.out.emit_at("goto error;", tkn)
         return False
 

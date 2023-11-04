@@ -166,9 +166,8 @@ static void invalidate_icache(char* begin, char*end) {
  * are passed in the same order as the function requires. This results in
  * shorter, more efficient ASM code for trampoline.
  */
-typedef PyObject *(*py_evaluator)(PyThreadState *, _PyInterpreterFrame *,
-                                  int throwflag);
-typedef PyObject *(*py_trampoline)(PyThreadState *, _PyInterpreterFrame *, int,
+typedef PyObject *(*py_evaluator)(PyThreadState *, _PyInterpreterFrame *, int throwflag);
+typedef PyObject *(*py_trampoline)(PyThreadState *, _PyInterpreterFrame *,
                                    py_evaluator);
 
 extern void *_Py_trampoline_func_start;  // Start of the template of the
@@ -377,8 +376,7 @@ compile_trampoline(void)
 }
 
 static PyObject *
-py_trampoline_evaluator(PyThreadState *ts, _PyInterpreterFrame *frame,
-                        int throw)
+py_trampoline_evaluator(PyThreadState *ts, _PyInterpreterFrame *frame, int throw)
 {
     if (perf_status == PERF_STATUS_FAILED ||
         perf_status == PERF_STATUS_NO_INIT) {
@@ -402,7 +400,7 @@ py_trampoline_evaluator(PyThreadState *ts, _PyInterpreterFrame *frame,
         f = new_trampoline;
     }
     assert(f != NULL);
-    return f(ts, frame, throw, _PyEval_EvalFrameDefault);
+    return f(ts, frame, _PyEval_EvalFrameDefault);
 default_eval:
     // Something failed, fall back to the default evaluator.
     return _PyEval_EvalFrameDefault(ts, frame, throw);

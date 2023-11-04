@@ -643,7 +643,7 @@ set_eval_frame_default(PyObject *self, PyObject *Py_UNUSED(args))
 }
 
 static PyObject *
-record_eval(PyThreadState *tstate, struct _PyInterpreterFrame *f, int exc)
+record_eval(PyThreadState *tstate, struct _PyInterpreterFrame *f, int throwflag)
 {
     if (PyStackRef_FunctionCheck(f->f_funcobj)) {
         PyFunctionObject *func = _PyFrame_GetFunction(f);
@@ -656,7 +656,7 @@ record_eval(PyThreadState *tstate, struct _PyInterpreterFrame *f, int exc)
             return NULL;
         }
     }
-    return _PyEval_EvalFrameDefault(tstate, f, exc);
+    return _PyEval_EvalFrameDefault(tstate, f, throwflag);
 }
 
 

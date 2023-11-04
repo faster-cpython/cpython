@@ -87,7 +87,6 @@ dummy_func(
     unsigned int oparg,
     _Py_CODEUNIT *next_instr,
     PyObject **stack_pointer,
-    int throwflag,
     PyObject *args[]
 )
 {
@@ -1381,7 +1380,6 @@ dummy_func(
 
         tier1 inst(CLEANUP_THROW, (sub_iter_st, last_sent_val_st, exc_value_st -- none, value)) {
             PyObject *exc_value = PyStackRef_AsPyObjectBorrow(exc_value_st);
-            assert(throwflag);
             assert(exc_value && PyExceptionInstance_Check(exc_value));
 
             int matches = PyErr_GivenExceptionMatches(exc_value, PyExc_StopIteration);
@@ -5231,53 +5229,34 @@ dummy_func(
                     PyTraceBack_Here(f);
                 }
             }
+            /* Manually spill and reload. TO DO: The code generator should do this */
+            _PyFrame_SetStackPointer(frame, stack_pointer);
             _PyEval_MonitorRaise(tstate, frame, next_instr-1);
+            stack_pointer = _PyFrame_GetStackPointer(frame);
             goto exception_unwind;
         }
 
         label(exception_unwind) {
+            assert(_PyErr_Occurred(tstate));
             /* We can't use frame->instr_ptr here, as RERAISE may have set it */
-            int offset = INSTR_OFFSET()-1;
-            int level, handler, lasti;
-            if (get_exception_handler(_PyFrame_GetCode(frame), offset, &level, &handler, &lasti) == 0) {
-                // No handlers, so exit.
+            /* Manually spill and reload. TO DO: The code generator should do this */
+            _PyFrame_SetStackPointer(frame, stack_pointer);
+            next_instr = _Py_UnwindFrame(tstate, frame, next_instr-1);
+            stack_pointer = _PyFrame_GetStackPointer(frame);
+            if (next_instr == NULL) {
                 assert(_PyErr_Occurred(tstate));
-
-                /* Pop remaining stack entries. */
-                _PyStackRef *stackbase = _PyFrame_Stackbase(frame);
-                while (stack_pointer > stackbase) {
-                    PyStackRef_XCLOSE(POP());
+                _Py_LeaveRecursiveCallPy(tstate);
+                frame = tstate->current_frame;
+                frame->return_offset = 0;
+                if (frame->owner == FRAME_OWNED_BY_INTERPRETER) {
+                    /* Restore previous frame and exit */
+                    tstate->current_frame = frame->previous;
+                    tstate->c_recursion_remaining += PY_EVAL_C_STACK_UNITS;
+                    return NULL;
                 }
-                assert(STACK_LEVEL() == 0);
-                _PyFrame_SetStackPointer(frame, stack_pointer);
-                monitor_unwind(tstate, frame, next_instr-1);
-                goto exit_unwind;
-            }
-
-            assert(STACK_LEVEL() >= level);
-            _PyStackRef *new_top = _PyFrame_Stackbase(frame) + level;
-            while (stack_pointer > new_top) {
-                PyStackRef_XCLOSE(POP());
-            }
-            if (lasti) {
-                int frame_lasti = _PyInterpreterFrame_LASTI(frame);
-                PyObject *lasti = PyLong_FromLong(frame_lasti);
-                if (lasti == NULL) {
-                    goto exception_unwind;
-                }
-                PUSH(PyStackRef_FromPyObjectSteal(lasti));
-            }
-
-            /* Make the raw exception data
-                available to the handler,
-                so a program can emulate the
-                Python main loop. */
-            PyObject *exc = _PyErr_GetRaisedException(tstate);
-            PUSH(PyStackRef_FromPyObjectSteal(exc));
-            next_instr = _PyFrame_GetBytecode(frame) + handler;
-
-            if (monitor_handled(tstate, frame, next_instr, exc) < 0) {
-                goto exception_unwind;
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                next_instr = frame->instr_ptr;
+                goto error;
             }
             /* Resume normal execution */
 #ifdef LLTRACE
@@ -5285,6 +5264,7 @@ dummy_func(
                 lltrace_resume_frame(frame);
             }
 #endif
+            assert(!_PyErr_Occurred(tstate));
             DISPATCH();
         }
 
