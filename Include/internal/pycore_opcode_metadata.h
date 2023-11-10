@@ -120,6 +120,8 @@
 #define _INLINE_CONSTANT 392
 #define _INLINE_IMMORTAL_CONSTANT_WITH_NULL 393
 #define _INLINE_CONSTANT_WITH_NULL 394
+#define _GUARD_GLOBALS_DICT 395
+#define _GUARD_BUILTINS_DICT 396
 
 extern int _PyOpcode_num_popped(int opcode, int oparg, bool jump);
 #ifdef NEED_OPCODE_METADATA
@@ -752,6 +754,10 @@ int _PyOpcode_num_popped(int opcode, int oparg, bool jump)  {
         case _INLINE_IMMORTAL_CONSTANT_WITH_NULL:
             return 0;
         case _INLINE_CONSTANT_WITH_NULL:
+            return 0;
+        case _GUARD_GLOBALS_DICT:
+            return 0;
+        case _GUARD_BUILTINS_DICT:
             return 0;
         default:
             return -1;
@@ -1391,6 +1397,10 @@ int _PyOpcode_num_pushed(int opcode, int oparg, bool jump)  {
             return 2;
         case _INLINE_CONSTANT_WITH_NULL:
             return 2;
+        case _GUARD_GLOBALS_DICT:
+            return 0;
+        case _GUARD_BUILTINS_DICT:
+            return 0;
         default:
             return -1;
     }
@@ -1777,10 +1787,12 @@ const struct opcode_metadata _PyOpcode_opcode_metadata[OPCODE_METADATA_SIZE] = {
     [_EXIT_TRACE] = { true, INSTR_FMT_IX, 0 },
     [_INSERT] = { true, INSTR_FMT_IB, HAS_ARG_FLAG },
     [_CHECK_VALIDITY] = { true, INSTR_FMT_IX, HAS_DEOPT_FLAG },
-    [_INLINE_IMMORTAL_CONSTANT] = { true, INSTR_FMT_IXC000, 0 },
-    [_INLINE_CONSTANT] = { true, INSTR_FMT_IXC000, 0 },
-    [_INLINE_IMMORTAL_CONSTANT_WITH_NULL] = { true, INSTR_FMT_IXC000, 0 },
-    [_INLINE_CONSTANT_WITH_NULL] = { true, INSTR_FMT_IXC000, 0 },
+    [_INLINE_IMMORTAL_CONSTANT] = { true, INSTR_FMT_IBC000, HAS_ARG_FLAG },
+    [_INLINE_CONSTANT] = { true, INSTR_FMT_IBC000, HAS_ARG_FLAG },
+    [_INLINE_IMMORTAL_CONSTANT_WITH_NULL] = { true, INSTR_FMT_IBC000, HAS_ARG_FLAG },
+    [_INLINE_CONSTANT_WITH_NULL] = { true, INSTR_FMT_IBC000, HAS_ARG_FLAG },
+    [_GUARD_GLOBALS_DICT] = { true, INSTR_FMT_IXC000, HAS_DEOPT_FLAG },
+    [_GUARD_BUILTINS_DICT] = { true, INSTR_FMT_IXC000, HAS_DEOPT_FLAG },
 };
 #endif // NEED_OPCODE_METADATA
 
@@ -2037,6 +2049,8 @@ const char * const _PyOpcode_uop_name[OPCODE_UOP_NAME_SIZE] = {
     [_INLINE_CONSTANT] = "_INLINE_CONSTANT",
     [_INLINE_IMMORTAL_CONSTANT_WITH_NULL] = "_INLINE_IMMORTAL_CONSTANT_WITH_NULL",
     [_INLINE_CONSTANT_WITH_NULL] = "_INLINE_CONSTANT_WITH_NULL",
+    [_GUARD_GLOBALS_DICT] = "_GUARD_GLOBALS_DICT",
+    [_GUARD_BUILTINS_DICT] = "_GUARD_BUILTINS_DICT",
 };
 #endif // NEED_OPCODE_METADATA
 

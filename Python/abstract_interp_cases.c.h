@@ -980,3 +980,11 @@
             PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
             break;
         }
+
+        case _GUARD_GLOBALS_DICT: {
+            break;
+        }
+
+        case _GUARD_BUILTINS_DICT: {
+            break;
+        }

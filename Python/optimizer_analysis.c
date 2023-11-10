@@ -16,7 +16,7 @@
 
 /* TO DO -- make these per interpreter */
 static int builtins_watcher = -1;
-static int globals_watcher;
+static int globals_watcher = -1;
 
 
 int builtins_watcher_callback(PyDict_WatchEvent event, PyObject* dict, PyObject* key, PyObject* new_value)
@@ -27,54 +27,138 @@ int builtins_watcher_callback(PyDict_WatchEvent event, PyObject* dict, PyObject*
     return 0;
 }
 
+int globals_watcher_callback(PyDict_WatchEvent event, PyObject* dict, PyObject* key, PyObject* new_value)
+{
+    if (event != PyDict_EVENT_CLONED) {
+        _Py_Executors_InvalidateDependency(_PyInterpreterState_GET(), dict);
+    }
+    /* TO DO -- Mark the dict, as a warning for future optimization attempts */
+}
+
 static void
-remove_globals(_PyUOpInstruction *buffer, int buffer_size)
+global_to_const(_PyUOpInstruction *inst, PyObject *obj)
+{
+    assert(inst->opcode == _LOAD_GLOBAL_MODULE || inst->opcode == _LOAD_GLOBAL_BUILTINS);
+    assert(PyDict_CheckExact(obj));
+    PyDictObject *dict = (PyDictObject *)obj;
+    assert(dict->ma_keys->dk_kind == DICT_KEYS_UNICODE);
+    PyDictUnicodeEntry *entries = DK_UNICODE_ENTRIES(dict->ma_keys);
+    assert(inst->operand < dict->ma_used);
+    assert(inst->operand <= UINT16_MAX);
+    PyObject *res = entries[inst->operand].me_value;
+    if (res == NULL) {
+        return;
+    }
+    if (_Py_IsImmortal(res)) {
+        inst->opcode = (inst->oparg & 1) ? _INLINE_IMMORTAL_CONSTANT_WITH_NULL : _INLINE_IMMORTAL_CONSTANT;
+    }
+    else {
+        inst->opcode = (inst->oparg & 1) ? _INLINE_CONSTANT_WITH_NULL : _INLINE_CONSTANT;
+    }
+    inst->oparg = inst->operand; /* For debugging */
+    inst->operand = (uint64_t)res;
+}
+
+static int
+check_globals_version(_PyUOpInstruction *inst, PyObject *obj)
+{
+    if (!PyDict_CheckExact(obj)) {
+        return -1;
+    }
+    PyDictObject *dict = (PyDictObject *)obj;
+    if (dict->ma_keys->dk_version != inst->operand) {
+        return -1;
+    }
+    return 0;
+}
+
+
+static void
+remove_globals(_PyUOpInstruction *buffer, int buffer_size, _PyInterpreterFrame *frame, _PyBloomFilter *dependencies)
 {
     PyInterpreterState *interp = _PyInterpreterState_GET();
-    int builtins_are_builtins = -1;
+    PyFunctionObject *func = (PyFunctionObject *)frame->f_funcobj;
+    assert(PyFunction_Check(func));
+    PyObject *builtins = frame->f_builtins;
+    PyObject *globals = frame->f_globals;
+    assert(func->func_builtins == builtins);
+    assert(func->func_globals == globals);
+    /* In order to treat globals and builtins as a constant we
+     * need to verify that the function version is as expected */
+    if (interp->builtins != builtins) {
+        return;
+    }
+    bool builtins_is_guarded = false;
+    bool globals_is_guarded = false;
     for (int pc = 0; pc < buffer_size; pc++) {
         int opcode = buffer[pc].opcode;
-        if (opcode == _GUARD_BUILTINS_VERSION) {
-            assert(PyDict_CheckExact(interp->builtins));
-            builtins_are_builtins =
-                (((PyDictObject *)interp->builtins)->ma_keys->dk_version ==
-                buffer[pc].operand);
-            if (builtins_are_builtins <= 0) {
-                continue;
-            }
-            if (builtins_watcher < 0) {
-                builtins_watcher = PyDict_AddWatcher(builtins_watcher_callback);
+        switch(opcode) {
+            case _GUARD_BUILTINS_VERSION:
                 if (builtins_watcher < 0) {
-                    PyErr_Clear();
-                    return;
+                    builtins_watcher = PyDict_AddWatcher(builtins_watcher_callback);
+                    if (builtins_watcher < 0) {
+                        PyErr_Clear();
+                        return;
+                    }
+                    PyDict_Watch(builtins_watcher, builtins);
                 }
-                PyDict_Watch(builtins_watcher, interp->builtins);
-            }
-            buffer[pc].opcode = NOP;
-        }
-        /* TO DO -- Need access to the function, so that we can get the globals to watch it */
-        else if (opcode == _LOAD_GLOBAL_BUILTINS) {
-            if (builtins_are_builtins <= 0) {
-                continue;
-            }
-            PyDictObject *bdict = (PyDictObject *)interp->builtins;
-            PyDictUnicodeEntry *entries = DK_UNICODE_ENTRIES(bdict->ma_keys);
-            PyObject *res = entries[buffer[pc].operand].me_value;
-            if (res == NULL) {
-                continue;
-            }
-            if (_Py_IsImmortal(res)) {
-                buffer[pc].opcode = (buffer[pc].oparg & 1) ? _INLINE_IMMORTAL_CONSTANT_WITH_NULL : _INLINE_IMMORTAL_CONSTANT;
-            }
-            else {
-                buffer[pc].opcode = (buffer[pc].oparg & 1) ? _INLINE_CONSTANT_WITH_NULL : _INLINE_CONSTANT;
-            }
-            buffer[pc].operand = (uint64_t)res;
-        }
-        else if (opcode == _JUMP_TO_TOP || opcode == _EXIT_TRACE) {
-            break;
+                if (check_globals_version(&buffer[pc], builtins)) {
+                    continue;
+                }
+                if (builtins_is_guarded) {
+                    buffer[pc].opcode = NOP;
+                }
+                else {
+                    buffer[pc].opcode = _GUARD_BUILTINS_DICT;
+                    buffer[pc].operand = (uint64_t)builtins;
+                    builtins_is_guarded = true;
+                }
+                break;
+            case _GUARD_GLOBALS_VERSION:
+                if (globals_watcher < 0) {
+                    globals_watcher = PyDict_AddWatcher(globals_watcher_callback);
+                    if (globals_watcher < 0) {
+                        PyErr_Clear();
+                        return;
+                    }
+                }
+                if (check_globals_version(&buffer[pc], globals)) {
+                    continue;
+                }
+                if (globals_is_guarded) {
+                    buffer[pc].opcode = NOP;
+                }
+                else {
+                    _Py_BloomFilter_Add(dependencies, globals);
+                    PyDict_Watch(globals_watcher, globals);
+                    buffer[pc].opcode = _GUARD_GLOBALS_DICT;
+                    buffer[pc].operand = (uint64_t)globals;
+                    globals_is_guarded = true;
+                }
+                break;
+            case _LOAD_GLOBAL_BUILTINS:
+                if (builtins_is_guarded) {
+                    global_to_const(&buffer[pc], builtins);
+                }
+                break;
+            case _LOAD_GLOBAL_MODULE:
+                if (globals_is_guarded) {
+                    global_to_const(&buffer[pc], globals);
+                }
+                break;
+            case _CHECK_PEP_523:
+                buffer[pc].opcode = NOP;
+                break;
+            case _JUMP_TO_TOP :
+            case _EXIT_TRACE:
+                goto done;
+            case _PUSH_FRAME:
+            case _POP_FRAME:
+                goto done;
         }
     }
+    done:
+        return;
 }
 
 static void
@@ -83,7 +167,7 @@ remove_unneeded_uops(_PyUOpInstruction *buffer, int buffer_size)
     // Note that we don't enter stubs, those SET_IPs are needed.
     int last_set_ip = -1;
     bool need_ip = true;
-    bool maybe_invalid = false;
+    bool maybe_invalid = true;
     for (int pc = 0; pc < buffer_size; pc++) {
         int opcode = buffer[pc].opcode;
         if (opcode == _SET_IP) {
@@ -119,15 +203,39 @@ remove_unneeded_uops(_PyUOpInstruction *buffer, int buffer_size)
 }
 
 
+static const char *
+uop_name(int index) {
+    if (index <= MAX_REAL_OPCODE) {
+        return _PyOpcode_OpName[index];
+    }
+    return _PyOpcode_uop_name[index];
+}
+
+static void dump_uops(_PyUOpInstruction *buffer, int buffer_size)
+{
+    printf("-------------------------------\n");
+    for (int i = 0; i < buffer_size; i++) {
+        int opcode = buffer[i].opcode;
+        printf("%d: %s, %d\n", i, uop_name(opcode), buffer[i].oparg);
+        if (opcode == _JUMP_TO_TOP || opcode == _EXIT_TRACE) {
+            break;
+        }
+    }
+}
+
 int
 _Py_uop_analyze_and_optimize(
-    PyCodeObject *co,
+    _PyInterpreterFrame *frame,
     _PyUOpInstruction *buffer,
     int buffer_size,
-    int curr_stacklen
+    PyObject **stack_pointer,
+    _PyBloomFilter *dependencies
 )
 {
-    remove_globals(buffer, buffer_size);
+    // dump_uops(buffer, buffer_size);
+    remove_globals(buffer, buffer_size, frame, dependencies);
+    // printf(" -->\n");
+    // dump_uops(buffer, buffer_size);
     remove_unneeded_uops(buffer, buffer_size);
     return 0;
 }

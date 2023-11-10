@@ -102,10 +102,10 @@ PyUnstable_Replace_Executor(PyCodeObject *code, _Py_CODEUNIT *instr, _PyExecutor
 static int
 error_optimize(
     _PyOptimizerObject* self,
-    PyCodeObject *code,
+    _PyInterpreterFrame *code,
     _Py_CODEUNIT *instr,
     _PyExecutorObject **exec,
-    int Py_UNUSED(stack_entries))
+    PyObject **Py_UNUSED(stack_pointer))
 {
     PyErr_Format(PyExc_SystemError, "Should never call error_optimize");
     return -1;
@@ -166,7 +166,7 @@ _PyOptimizer_BackEdge(_PyInterpreterFrame *frame, _Py_CODEUNIT *src, _Py_CODEUNI
     }
     _PyOptimizerObject *opt = interp->optimizer;
     _PyExecutorObject *executor = NULL;
-    int err = opt->optimize(opt, code, dest, &executor, (int)(stack_pointer - _PyFrame_Stackbase(frame)));
+    int err = opt->optimize(opt, frame, dest, &executor, stack_pointer);
     if (err <= 0) {
         assert(executor == NULL);
         return err;
@@ -259,10 +259,10 @@ counter_execute(_PyExecutorObject *self, _PyInterpreterFrame *frame, PyObject **
 static int
 counter_optimize(
     _PyOptimizerObject* self,
-    PyCodeObject *code,
+    _PyInterpreterFrame *frame,
     _Py_CODEUNIT *instr,
     _PyExecutorObject **exec_ptr,
-    int Py_UNUSED(curr_stackentries)
+    PyObject **Py_UNUSED(stackptr)
 )
 {
     _PyCounterExecutorObject *executor = (_PyCounterExecutorObject *)_PyObject_New(&_PyCounterExecutor_Type);
@@ -901,11 +901,14 @@ dump_executor(_PyExecutorObject *obj)
 static int
 uop_optimize(
     _PyOptimizerObject *self,
-    PyCodeObject *code,
+    _PyInterpreterFrame *frame,
     _Py_CODEUNIT *instr,
     _PyExecutorObject **exec_ptr,
-    int curr_stackentries)
+    PyObject **stack_pointer)
 {
+
+    PyCodeObject *code = (PyCodeObject *)frame->f_executable;
+    assert(PyCode_Check(code));
     _PyBloomFilter dependencies;
     _Py_BloomFilter_Init(&dependencies);
     _PyUOpInstruction buffer[_Py_UOP_MAX_TRACE_LENGTH];
@@ -917,7 +920,7 @@ uop_optimize(
     OPT_STAT_INC(traces_created);
     char *uop_optimize = Py_GETENV("PYTHONUOPSOPTIMIZE");
     if (uop_optimize == NULL || *uop_optimize > '0') {
-        err = _Py_uop_analyze_and_optimize(code, buffer, _Py_UOP_MAX_TRACE_LENGTH, curr_stackentries);
+        err = _Py_uop_analyze_and_optimize(frame, buffer, _Py_UOP_MAX_TRACE_LENGTH, stack_pointer, &dependencies);
         if (err < 0) {
             return -1;
         }
