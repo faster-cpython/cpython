@@ -74,7 +74,8 @@ check_globals_version(_PyUOpInstruction *inst, PyObject *obj)
 
 
 static void
-remove_globals(_PyUOpInstruction *buffer, int buffer_size, _PyInterpreterFrame *frame, _PyBloomFilter *dependencies)
+remove_globals(_PyUOpInstruction *buffer, int buffer_size,
+               _PyInterpreterFrame *frame, _PyBloomFilter *dependencies)
 {
     PyInterpreterState *interp = _PyInterpreterState_GET();
     PyFunctionObject *func = (PyFunctionObject *)frame->f_funcobj;
@@ -91,7 +92,8 @@ remove_globals(_PyUOpInstruction *buffer, int buffer_size, _PyInterpreterFrame *
     bool builtins_is_guarded = false;
     bool globals_is_guarded = false;
     for (int pc = 0; pc < buffer_size; pc++) {
-        int opcode = buffer[pc].opcode;
+        _PyUOpInstruction *inst = &buffer[pc];
+        int opcode = inst->opcode;
         switch(opcode) {
             case _GUARD_BUILTINS_VERSION:
                 if (builtins_watcher < 0) {
@@ -102,7 +104,7 @@ remove_globals(_PyUOpInstruction *buffer, int buffer_size, _PyInterpreterFrame *
                     }
                     PyDict_Watch(builtins_watcher, builtins);
                 }
-                if (check_globals_version(&buffer[pc], builtins)) {
+                if (check_globals_version(inst, builtins)) {
                     continue;
                 }
                 if (builtins_is_guarded) {
@@ -138,17 +140,32 @@ remove_globals(_PyUOpInstruction *buffer, int buffer_size, _PyInterpreterFrame *
                 break;
             case _LOAD_GLOBAL_BUILTINS:
                 if (builtins_is_guarded) {
-                    global_to_const(&buffer[pc], builtins);
+                    global_to_const(inst, builtins);
                 }
                 break;
             case _LOAD_GLOBAL_MODULE:
                 if (globals_is_guarded) {
-                    global_to_const(&buffer[pc], globals);
+                    global_to_const(inst, globals);
                 }
                 break;
             case _CHECK_PEP_523:
-                buffer[pc].opcode = NOP;
+                if (interp->eval_frame == NULL) {
+                    buffer[pc].opcode = NOP;
+                }
                 break;
+            case LOAD_CONST:
+            {
+                PyObject *consts = ((PyCodeObject *)frame->f_executable)->co_consts;
+                PyObject *val = PyTuple_GET_ITEM(consts, inst->oparg);
+                if (_Py_IsImmortal(val)) {
+                    inst->opcode = _INLINE_IMMORTAL_CONSTANT;
+                }
+                else {
+                    inst->opcode = _INLINE_CONSTANT;
+                }
+                inst->oparg = inst->operand; /* For debugging */
+                inst->operand = (uint64_t)val;
+            }
             case _JUMP_TO_TOP :
             case _EXIT_TRACE:
                 goto done;
@@ -192,7 +209,9 @@ remove_unneeded_uops(_PyUOpInstruction *buffer, int buffer_size)
         }
         else {
             // If opcode has ERROR or DEOPT, set need_ip to true
-            if (_PyOpcode_opcode_metadata[opcode].flags & (HAS_ERROR_FLAG | HAS_DEOPT_FLAG) || opcode == _PUSH_FRAME) {
+            if (_PyOpcode_opcode_metadata[opcode].flags & (HAS_ERROR_FLAG | HAS_DEOPT_FLAG)
+                || opcode == _PUSH_FRAME)
+            {
                 need_ip = true;
             }
             if (_PyOpcode_opcode_metadata[opcode].flags & HAS_ESCAPES_FLAG) {
