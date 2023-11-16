@@ -407,6 +407,12 @@ BRANCH_TO_GUARD[4][2] = {
 
 #define TRACE_STACK_SIZE 5
 
+#define MINIMUM_LIKELIHOOD 0.3
+/* 0.95 might be too optimistic, or too pessimistic. We don't know yet. */
+#define GUARD_LIKELIHOOD 0.95
+#define SCALED_VALUE(VAL) ((uint32_t)((1<<16)*(VAL)))
+#define SCALED_MULTIPLY(A, B) (((A)*(B))>>16)
+
 /* Returns 1 on success,
  * 0 if it failed to produce a worthwhile trace,
  * and -1 on an error.
@@ -422,6 +428,9 @@ translate_bytecode_to_trace(
     PyCodeObject *initial_code = code;
     _Py_BloomFilter_Add(dependencies, initial_code);
     _Py_CODEUNIT *initial_instr = instr;
+    /* Use a scaled int, not a float for portable speed.
+     * Floats are fast enough on most hardware, but ints are fast everywhere. */
+     uint32_t likelihood = SCALED_VALUE(1.0);
     int trace_length = 0;
     int max_length = buffer_size;
     int reserved = 0;
@@ -515,6 +524,9 @@ top:  // Jump here after _PUSH_FRAME or likely branches
         uint32_t oparg = instr->op.arg;
         uint32_t extras = 0;
 
+        if (likelihood < SCALED_VALUE(MINIMUM_LIKELIHOOD)) {
+            goto done;
+        }
 
         if (opcode == EXTENDED_ARG) {
             instr++;
@@ -545,6 +557,7 @@ top:  // Jump here after _PUSH_FRAME or likely branches
                 int counter = instr[1].cache;
                 int bitcount = _Py_popcount32(counter);
                 int jump_likely = bitcount > 8;
+
                 uint32_t uopcode = BRANCH_TO_GUARD[opcode - POP_JUMP_IF_FALSE][jump_likely];
                 _Py_CODEUNIT *next_instr = instr + 1 + _PyOpcode_Caches[_PyOpcode_Deopt[opcode]];
                 DPRINTF(4, "%s(%d): counter=%x, bitcount=%d, likely=%d, uopcode=%s\n",
@@ -556,7 +569,13 @@ top:  // Jump here after _PUSH_FRAME or likely branches
                     DPRINTF(2, "Jump likely (%x = %d bits), continue at byte offset %d\n",
                             instr[1].cache, bitcount, 2 * INSTR_IP(target_instr, code));
                     instr = target_instr;
+                    uint32_t jump_likelihood = SCALED_VALUE(bitcount-1)>>4;
+                    likelihood = SCALED_MULTIPLY(likelihood, jump_likelihood);
                     goto top;
+                }
+                else {
+                    uint32_t jump_likelihood = SCALED_VALUE(15-bitcount)>>4;
+                    likelihood = SCALED_MULTIPLY(likelihood, jump_likelihood);
                 }
                 break;
             }
@@ -606,6 +625,9 @@ top:  // Jump here after _PUSH_FRAME or likely branches
                         uint64_t operand = 0;
                         // Add one to account for the actual opcode/oparg pair:
                         int offset = expansion->uops[i].offset + 1;
+                        if (OPCODE_HAS_DEOPT(uop)) {
+                            likelihood = SCALED_MULTIPLY(likelihood, SCALED_VALUE(GUARD_LIKELIHOOD));
+                        }
                         switch (expansion->uops[i].size) {
                             case OPARG_FULL:
                                 if (extras && OPCODE_HAS_JUMP(opcode)) {
