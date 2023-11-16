@@ -165,7 +165,7 @@ remove_globals(_PyUOpInstruction *buffer, int buffer_size,
                 inst->operand = (uint64_t)val;
                 break;
             }
-            case _JUMP_TO_TOP :
+            case _JUMP_TO_TOP:
             case _EXIT_TRACE:
                 goto done;
             case _PUSH_FRAME:
