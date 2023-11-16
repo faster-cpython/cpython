@@ -32,6 +32,7 @@ int globals_watcher_callback(PyDict_WatchEvent event, PyObject* dict, PyObject* 
         _Py_Executors_InvalidateDependency(_PyInterpreterState_GET(), dict);
     }
     /* TO DO -- Mark the dict, as a warning for future optimization attempts */
+    return 0;
 }
 
 static void
@@ -54,7 +55,6 @@ global_to_const(_PyUOpInstruction *inst, PyObject *obj)
     else {
         inst->opcode = (inst->oparg & 1) ? _INLINE_CONSTANT_WITH_NULL : _INLINE_CONSTANT;
     }
-    inst->oparg = inst->operand; /* For debugging */
     inst->operand = (uint64_t)res;
 }
 
@@ -138,7 +138,7 @@ remove_globals(_PyUOpInstruction *buffer, int buffer_size,
                 }
                 break;
             case _LOAD_GLOBAL_BUILTINS:
-                if (builtins_is_guarded) {
+                if (globals_is_guarded && builtins_is_guarded) {
                     global_to_const(inst, builtins);
                 }
                 break;
@@ -164,6 +164,7 @@ remove_globals(_PyUOpInstruction *buffer, int buffer_size,
                 }
                 inst->oparg = inst->operand; /* For debugging */
                 inst->operand = (uint64_t)val;
+                break;
             }
             case _JUMP_TO_TOP :
             case _EXIT_TRACE:
@@ -182,7 +183,7 @@ remove_unneeded_uops(_PyUOpInstruction *buffer, int buffer_size)
 {
     // Note that we don't enter stubs, those SET_IPs are needed.
     int last_set_ip = -1;
-    bool maybe_invalid = false;
+    bool maybe_invalid = true;
     for (int pc = 0; pc < buffer_size; pc++) {
         int opcode = buffer[pc].opcode;
         if (opcode == _SET_IP) {

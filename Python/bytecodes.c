@@ -4024,46 +4024,33 @@ dummy_func(
         op(_INLINE_IMMORTAL_CONSTANT, (ptr/4 -- res)) {
             TIER_TWO_ONLY
             res = ptr;
-            PyObject *g = DK_UNICODE_ENTRIES(((PyDictObject *)GLOBALS())->ma_keys)[oparg].me_value;
-            PyObject *b = DK_UNICODE_ENTRIES(((PyDictObject *)BUILTINS())->ma_keys)[oparg].me_value;
-            assert(g == res || b == res);
         }
 
         op(_INLINE_CONSTANT, (ptr/4 -- res)) {
             TIER_TWO_ONLY
-            assert(current_executor->base.vm_data.valid);
             res = _Py_NewRef(ptr);
-            assert(((PyDictObject *)GLOBALS())->ma_keys->dk_kind == DICT_KEYS_UNICODE);
-            assert(((PyDictObject *)BUILTINS())->ma_keys->dk_kind == DICT_KEYS_UNICODE);
-            PyObject *g = DK_UNICODE_ENTRIES(((PyDictObject *)GLOBALS())->ma_keys)[oparg].me_value;
-            PyObject *b = DK_UNICODE_ENTRIES(((PyDictObject *)BUILTINS())->ma_keys)[oparg].me_value;
-            assert(g == res || b == res);
         }
 
         op(_INLINE_IMMORTAL_CONSTANT_WITH_NULL, (ptr/4 -- res, null)) {
             TIER_TWO_ONLY
             res = ptr;
             null = NULL;
-            PyObject *g = DK_UNICODE_ENTRIES(((PyDictObject *)GLOBALS())->ma_keys)[oparg].me_value;
-            PyObject *b = DK_UNICODE_ENTRIES(((PyDictObject *)BUILTINS())->ma_keys)[oparg].me_value;
-            assert(g == res || b == res);
         }
 
         op(_INLINE_CONSTANT_WITH_NULL, (ptr/4 -- res, null)) {
             TIER_TWO_ONLY
             res = _Py_NewRef(ptr);
             null = NULL;
-            assert(DK_UNICODE_ENTRIES(((PyDictObject *)GLOBALS())->ma_keys)[oparg].me_value == res || DK_UNICODE_ENTRIES(((PyDictObject *)BUILTINS())->ma_keys)[oparg].me_value == res);
         }
 
         op(_GUARD_GLOBALS_DICT, (ptr/4 -- )) {
             TIER_TWO_ONLY
-            DEOPT_IF(frame->f_globals != ptr);
+            DEOPT_IF(GLOBALS() != ptr);
         }
 
         op(_GUARD_BUILTINS_DICT, (ptr/4 -- )) {
             TIER_TWO_ONLY
-            DEOPT_IF(frame->f_builtins != ptr);
+            DEOPT_IF(BUILTINS() != ptr);
         }
 
 

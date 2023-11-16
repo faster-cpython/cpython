@@ -3269,9 +3269,6 @@
             PyObject *ptr = (PyObject *)operand;
             TIER_TWO_ONLY
             res = ptr;
-            PyObject *g = DK_UNICODE_ENTRIES(((PyDictObject *)GLOBALS())->ma_keys)[oparg].me_value;
-            PyObject *b = DK_UNICODE_ENTRIES(((PyDictObject *)BUILTINS())->ma_keys)[oparg].me_value;
-            assert(g == res || b == res);
             STACK_GROW(1);
             stack_pointer[-1] = res;
             break;
@@ -3283,11 +3280,6 @@
             TIER_TWO_ONLY
             assert(current_executor->base.vm_data.valid);
             res = _Py_NewRef(ptr);
-            assert(((PyDictObject *)GLOBALS())->ma_keys->dk_kind == DICT_KEYS_UNICODE);
-            assert(((PyDictObject *)BUILTINS())->ma_keys->dk_kind == DICT_KEYS_UNICODE);
-            PyObject *g = DK_UNICODE_ENTRIES(((PyDictObject *)GLOBALS())->ma_keys)[oparg].me_value;
-            PyObject *b = DK_UNICODE_ENTRIES(((PyDictObject *)BUILTINS())->ma_keys)[oparg].me_value;
-            assert(g == res || b == res);
             STACK_GROW(1);
             stack_pointer[-1] = res;
             break;
@@ -3300,9 +3292,6 @@
             TIER_TWO_ONLY
             res = ptr;
             null = NULL;
-            PyObject *g = DK_UNICODE_ENTRIES(((PyDictObject *)GLOBALS())->ma_keys)[oparg].me_value;
-            PyObject *b = DK_UNICODE_ENTRIES(((PyDictObject *)BUILTINS())->ma_keys)[oparg].me_value;
-            assert(g == res || b == res);
             STACK_GROW(2);
             stack_pointer[-2] = res;
             stack_pointer[-1] = null;
@@ -3316,7 +3305,6 @@
             TIER_TWO_ONLY
             res = _Py_NewRef(ptr);
             null = NULL;
-            assert(DK_UNICODE_ENTRIES(((PyDictObject *)GLOBALS())->ma_keys)[oparg].me_value == res || DK_UNICODE_ENTRIES(((PyDictObject *)BUILTINS())->ma_keys)[oparg].me_value == res);
             STACK_GROW(2);
             stack_pointer[-2] = res;
             stack_pointer[-1] = null;
@@ -3326,14 +3314,14 @@
         case _GUARD_GLOBALS_DICT: {
             PyObject *ptr = (PyObject *)operand;
             TIER_TWO_ONLY
-            DEOPT_IF(frame->f_globals != ptr, _GUARD_GLOBALS_DICT);
+            DEOPT_IF(GLOBALS() != ptr, _GUARD_GLOBALS_DICT);
             break;
         }
 
         case _GUARD_BUILTINS_DICT: {
             PyObject *ptr = (PyObject *)operand;
             TIER_TWO_ONLY
-            DEOPT_IF(frame->f_builtins != ptr, _GUARD_BUILTINS_DICT);
+            DEOPT_IF(BUILTINS() != ptr, _GUARD_BUILTINS_DICT);
             break;
         }
 
