@@ -628,9 +628,7 @@
             break;
         }
 
-        case _IS_ITER_EXHAUSTED_LIST: {
-            STACK_GROW(1);
-            PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
+        case _GUARD_NOT_EXHAUSTED_LIST: {
             break;
         }
 
@@ -644,9 +642,7 @@
             break;
         }
 
-        case _IS_ITER_EXHAUSTED_TUPLE: {
-            STACK_GROW(1);
-            PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
+        case _GUARD_NOT_EXHAUSTED_TUPLE: {
             break;
         }
 
@@ -660,9 +656,7 @@
             break;
         }
 
-        case _IS_ITER_EXHAUSTED_RANGE: {
-            STACK_GROW(1);
-            PARTITIONNODE_OVERWRITE((_Py_PARTITIONNODE_t *)PARTITIONNODE_NULLROOT, PEEK(-(-1)), true);
+        case _GUARD_NOT_EXHAUSTED_RANGE: {
             break;
         }
 
@@ -920,12 +914,22 @@
             break;
         }
 
-        case _POP_JUMP_IF_FALSE: {
+        case _GUARD_IS_TRUE_POP: {
             STACK_SHRINK(1);
             break;
         }
 
-        case _POP_JUMP_IF_TRUE: {
+        case _GUARD_IS_FALSE_POP: {
+            STACK_SHRINK(1);
+            break;
+        }
+
+        case _GUARD_IS_NONE_POP: {
+            STACK_SHRINK(1);
+            break;
+        }
+
+        case _GUARD_IS_NOT_NONE_POP: {
             STACK_SHRINK(1);
             break;
         }

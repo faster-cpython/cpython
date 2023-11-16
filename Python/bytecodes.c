@@ -643,16 +643,12 @@ dummy_func(
         inst(BINARY_SUBSCR_DICT, (unused/1, dict, sub -- res)) {
             DEOPT_IF(!PyDict_CheckExact(dict));
             STAT_INC(BINARY_SUBSCR, hit);
-            res = PyDict_GetItemWithError(dict, sub);
-            if (res == NULL) {
-                if (!_PyErr_Occurred(tstate)) {
-                    _PyErr_SetKeyError(sub);
-                }
-                DECREF_INPUTS();
-                ERROR_IF(true, error);
+            int rc = PyDict_GetItemRef(dict, sub, &res);
+            if (rc == 0) {
+                _PyErr_SetKeyError(sub);
             }
-            Py_INCREF(res);  // Do this before DECREF'ing dict, sub
             DECREF_INPUTS();
+            ERROR_IF(rc <= 0, error); // not found or error
         }
 
         inst(BINARY_SUBSCR_GETITEM, (unused/1, container, sub -- unused)) {
@@ -1349,14 +1345,10 @@ dummy_func(
                 GOTO_ERROR(error);
             }
             if (v == NULL) {
-                v = PyDict_GetItemWithError(GLOBALS(), name);
-                if (v != NULL) {
-                    Py_INCREF(v);
-                }
-                else if (_PyErr_Occurred(tstate)) {
+                if (PyDict_GetItemRef(GLOBALS(), name, &v) < 0) {
                     GOTO_ERROR(error);
                 }
-                else {
+                if (v == NULL) {
                     if (PyMapping_GetOptionalItem(BUILTINS(), name, &v) < 0) {
                         GOTO_ERROR(error);
                     }
@@ -1383,14 +1375,10 @@ dummy_func(
                 GOTO_ERROR(error);
             }
             if (v == NULL) {
-                v = PyDict_GetItemWithError(GLOBALS(), name);
-                if (v != NULL) {
-                    Py_INCREF(v);
-                }
-                else if (_PyErr_Occurred(tstate)) {
+                if (PyDict_GetItemRef(GLOBALS(), name, &v) < 0) {
                     GOTO_ERROR(error);
                 }
-                else {
+                if (v == NULL) {
                     if (PyMapping_GetOptionalItem(BUILTINS(), name, &v) < 0) {
                         GOTO_ERROR(error);
                     }
@@ -1663,34 +1651,17 @@ dummy_func(
                 ERROR_IF(true, error);
             }
             /* check if __annotations__ in locals()... */
-            if (PyDict_CheckExact(LOCALS())) {
-                ann_dict = _PyDict_GetItemWithError(LOCALS(),
-                                                    &_Py_ID(__annotations__));
-                if (ann_dict == NULL) {
-                    ERROR_IF(_PyErr_Occurred(tstate), error);
-                    /* ...if not, create a new one */
-                    ann_dict = PyDict_New();
-                    ERROR_IF(ann_dict == NULL, error);
-                    err = PyDict_SetItem(LOCALS(), &_Py_ID(__annotations__),
-                                         ann_dict);
-                    Py_DECREF(ann_dict);
-                    ERROR_IF(err, error);
-                }
+            ERROR_IF(PyMapping_GetOptionalItem(LOCALS(), &_Py_ID(__annotations__), &ann_dict) < 0, error);
+            if (ann_dict == NULL) {
+                ann_dict = PyDict_New();
+                ERROR_IF(ann_dict == NULL, error);
+                err = PyObject_SetItem(LOCALS(), &_Py_ID(__annotations__),
+                                       ann_dict);
+                Py_DECREF(ann_dict);
+                ERROR_IF(err, error);
             }
             else {
-                /* do the same if locals() is not a dict */
-                ERROR_IF(PyMapping_GetOptionalItem(LOCALS(), &_Py_ID(__annotations__), &ann_dict) < 0, error);
-                if (ann_dict == NULL) {
-                    ann_dict = PyDict_New();
-                    ERROR_IF(ann_dict == NULL, error);
-                    err = PyObject_SetItem(LOCALS(), &_Py_ID(__annotations__),
-                                           ann_dict);
-                    Py_DECREF(ann_dict);
-                    ERROR_IF(err, error);
-                }
-                else {
-                    Py_DECREF(ann_dict);
-                }
+                Py_DECREF(ann_dict);
             }
         }
 
@@ -2335,10 +2306,12 @@ dummy_func(
             JUMPBY(-oparg);
             #if ENABLE_SPECIALIZATION
             this_instr[1].cache += (1 << OPTIMIZER_BITS_IN_COUNTER);
-            if (this_instr[1].cache > tstate->interp->optimizer_backedge_threshold &&
-                // Double-check that the opcode isn't instrumented or something:
-                this_instr->op.code == JUMP_BACKWARD)
-            {
+            /* We are using unsigned values, but we really want signed values, so
+             * do the 2s complement comparison manually */
+            uint16_t ucounter = this_instr[1].cache + (1 << 15);
+            uint16_t threshold = tstate->interp->optimizer_backedge_threshold + (1 << 15);
+            // Double-check that the opcode isn't instrumented or something:
+            if (ucounter > threshold && this_instr->op.code == JUMP_BACKWARD) {
                 OPT_STAT_INC(attempts);
                 int optimized = _PyOptimizer_BackEdge(frame, this_instr, next_instr, stack_pointer);
                 ERROR_IF(optimized < 0, error);
@@ -2346,8 +2319,19 @@ dummy_func(
                     // Rewind and enter the executor:
                     assert(this_instr->op.code == ENTER_EXECUTOR);
                     next_instr = this_instr;
+                    this_instr[1].cache &= ((1 << OPTIMIZER_BITS_IN_COUNTER) - 1);
                 }
-                this_instr[1].cache &= ((1 << OPTIMIZER_BITS_IN_COUNTER) - 1);
+                else {
+                    int backoff = this_instr[1].cache & ((1 << OPTIMIZER_BITS_IN_COUNTER) - 1);
+                    if (backoff < MINIMUM_TIER2_BACKOFF) {
+                        backoff = MINIMUM_TIER2_BACKOFF;
+                    }
+                    else if (backoff < 15 - OPTIMIZER_BITS_IN_COUNTER) {
+                        backoff++;
+                    }
+                    assert(backoff <= 15 - OPTIMIZER_BITS_IN_COUNTER);
+                    this_instr[1].cache = ((1 << 16) - ((1 << OPTIMIZER_BITS_IN_COUNTER) << backoff)) | backoff;
+                }
             }
             #endif  /* ENABLE_SPECIALIZATION */
         }
@@ -2384,7 +2368,7 @@ dummy_func(
             goto enter_tier_one;
         }
 
-        inst(POP_JUMP_IF_FALSE, (unused/1, cond -- )) {
+       replaced op(_POP_JUMP_IF_FALSE, (unused/1, cond -- )) {
             assert(PyBool_Check(cond));
             int flag = Py_IsFalse(cond);
             #if ENABLE_SPECIALIZATION
@@ -2393,7 +2377,7 @@ dummy_func(
             JUMPBY(oparg * flag);
         }
 
-        inst(POP_JUMP_IF_TRUE, (unused/1, cond -- )) {
+        replaced op(_POP_JUMP_IF_TRUE, (unused/1, cond -- )) {
             assert(PyBool_Check(cond));
             int flag = Py_IsTrue(cond);
             #if ENABLE_SPECIALIZATION
@@ -2412,9 +2396,13 @@ dummy_func(
             }
         }
 
-        macro(POP_JUMP_IF_NONE) = _IS_NONE + POP_JUMP_IF_TRUE;
+        macro(POP_JUMP_IF_TRUE) = _POP_JUMP_IF_TRUE;
 
-        macro(POP_JUMP_IF_NOT_NONE) = _IS_NONE + POP_JUMP_IF_FALSE;
+        macro(POP_JUMP_IF_FALSE) = _POP_JUMP_IF_FALSE;
+
+        macro(POP_JUMP_IF_NONE) = _IS_NONE + _POP_JUMP_IF_TRUE;
+
+        macro(POP_JUMP_IF_NOT_NONE) = _IS_NONE + _POP_JUMP_IF_FALSE;
 
         inst(JUMP_BACKWARD_NO_INTERRUPT, (--)) {
             /* This bytecode is used in the `yield from` or `await` loop.
@@ -2580,7 +2568,7 @@ dummy_func(
             DEOPT_IF(Py_TYPE(iter) != &PyListIter_Type);
         }
 
-        op(_ITER_JUMP_LIST, (iter -- iter)) {
+        replaced op(_ITER_JUMP_LIST, (iter -- iter)) {
             _PyListIterObject *it = (_PyListIterObject *)iter;
             assert(Py_TYPE(iter) == &PyListIter_Type);
             STAT_INC(FOR_ITER, hit);
@@ -2599,21 +2587,12 @@ dummy_func(
         }
 
         // Only used by Tier 2
-        op(_IS_ITER_EXHAUSTED_LIST, (iter -- iter, exhausted)) {
+        op(_GUARD_NOT_EXHAUSTED_LIST, (iter -- iter)) {
             _PyListIterObject *it = (_PyListIterObject *)iter;
             assert(Py_TYPE(iter) == &PyListIter_Type);
             PyListObject *seq = it->it_seq;
-            if (seq == NULL) {
-                exhausted = Py_True;
-            }
-            else if (it->it_index >= PyList_GET_SIZE(seq)) {
-                Py_DECREF(seq);
-                it->it_seq = NULL;
-                exhausted = Py_True;
-            }
-            else {
-                exhausted = Py_False;
-            }
+            DEOPT_IF(seq == NULL);
+            DEOPT_IF(it->it_index >= PyList_GET_SIZE(seq));
         }
 
         op(_ITER_NEXT_LIST, (iter -- iter, next)) {
@@ -2635,7 +2614,7 @@ dummy_func(
             DEOPT_IF(Py_TYPE(iter) != &PyTupleIter_Type);
         }
 
-        op(_ITER_JUMP_TUPLE, (iter -- iter)) {
+        replaced op(_ITER_JUMP_TUPLE, (iter -- iter)) {
             _PyTupleIterObject *it = (_PyTupleIterObject *)iter;
             assert(Py_TYPE(iter) == &PyTupleIter_Type);
             STAT_INC(FOR_ITER, hit);
@@ -2654,21 +2633,12 @@ dummy_func(
         }
 
         // Only used by Tier 2
-        op(_IS_ITER_EXHAUSTED_TUPLE, (iter -- iter, exhausted)) {
+        op(_GUARD_NOT_EXHAUSTED_TUPLE, (iter -- iter)) {
             _PyTupleIterObject *it = (_PyTupleIterObject *)iter;
             assert(Py_TYPE(iter) == &PyTupleIter_Type);
             PyTupleObject *seq = it->it_seq;
-            if (seq == NULL) {
-                exhausted = Py_True;
-            }
-            else if (it->it_index >= PyTuple_GET_SIZE(seq)) {
-                Py_DECREF(seq);
-                it->it_seq = NULL;
-                exhausted = Py_True;
-            }
-            else {
-                exhausted = Py_False;
-            }
+            DEOPT_IF(seq == NULL);
+            DEOPT_IF(it->it_index >= PyTuple_GET_SIZE(seq));
         }
 
         op(_ITER_NEXT_TUPLE, (iter -- iter, next)) {
@@ -2691,7 +2661,7 @@ dummy_func(
             DEOPT_IF(Py_TYPE(r) != &PyRangeIter_Type);
         }
 
-        op(_ITER_JUMP_RANGE, (iter -- iter)) {
+        replaced op(_ITER_JUMP_RANGE, (iter -- iter)) {
             _PyRangeIterObject *r = (_PyRangeIterObject *)iter;
             assert(Py_TYPE(r) == &PyRangeIter_Type);
             STAT_INC(FOR_ITER, hit);
@@ -2705,10 +2675,10 @@ dummy_func(
         }
 
         // Only used by Tier 2
-        op(_IS_ITER_EXHAUSTED_RANGE, (iter -- iter, exhausted)) {
+        op(_GUARD_NOT_EXHAUSTED_RANGE, (iter -- iter)) {
             _PyRangeIterObject *r = (_PyRangeIterObject *)iter;
             assert(Py_TYPE(r) == &PyRangeIter_Type);
-            exhausted = r->len <= 0 ? Py_True : Py_False;
+            DEOPT_IF(r->len <= 0);
         }
 
         op(_ITER_NEXT_RANGE, (iter -- iter, next)) {
@@ -3997,16 +3967,23 @@ dummy_func(
 
         ///////// Tier-2 only opcodes /////////
 
-        op(_POP_JUMP_IF_FALSE, (flag -- )) {
-            if (Py_IsFalse(flag)) {
-                next_uop = current_executor->trace + oparg;
-            }
+        op (_GUARD_IS_TRUE_POP, (flag -- )) {
+            DEOPT_IF(Py_IsFalse(flag));
+            assert(Py_IsTrue(flag));
         }
 
-        op(_POP_JUMP_IF_TRUE, (flag -- )) {
-            if (Py_IsTrue(flag)) {
-                next_uop = current_executor->trace + oparg;
-            }
+        op (_GUARD_IS_FALSE_POP, (flag -- )) {
+            DEOPT_IF(Py_IsTrue(flag));
+            assert(Py_IsFalse(flag));
+        }
+
+        op (_GUARD_IS_NONE_POP, (val -- )) {
+            DEOPT_IF(!Py_IsNone(val));
+        }
+
+        op (_GUARD_IS_NOT_NONE_POP, (val -- )) {
+            DEOPT_IF(Py_IsNone(val));
+            Py_DECREF(val);
         }
 
         op(_JUMP_TO_TOP, (--)) {
