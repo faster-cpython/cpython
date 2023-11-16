@@ -162,7 +162,6 @@ remove_globals(_PyUOpInstruction *buffer, int buffer_size,
                 else {
                     inst->opcode = _INLINE_CONSTANT;
                 }
-                inst->oparg = inst->operand; /* For debugging */
                 inst->operand = (uint64_t)val;
                 break;
             }
