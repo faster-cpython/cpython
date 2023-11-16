@@ -131,7 +131,10 @@ remove_globals(_PyUOpInstruction *buffer, int buffer_size,
                 }
                 else {
                     _Py_BloomFilter_Add(dependencies, globals);
-                    PyDict_Watch(globals_watcher, globals);
+                    if (PyDict_Watch(globals_watcher, globals) < 0) {
+                        PyErr_Clear();
+                        return;
+                    }
                     buffer[pc].opcode = _GUARD_GLOBALS_DICT;
                     buffer[pc].operand = (uint64_t)globals;
                     globals_is_guarded = true;
