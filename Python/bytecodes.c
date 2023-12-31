@@ -416,6 +416,14 @@ dummy_func(
             DEOPT_IF(!PyLong_CheckExact(right));
         }
 
+        op(_GUARD_TOS_INT, (value -- value)) {
+            DEOPT_IF(!PyLong_CheckExact(value));
+        }
+
+        op(_GUARD_NOS_INT, (value, unused -- value, unused)) {
+            DEOPT_IF(!PyLong_CheckExact(value));
+        }
+
         op(_BINARY_OP_MULTIPLY_INT, (left, right -- res)) {
             STAT_INC(BINARY_OP, hit);
             res = _PyLong_Multiply((PyLongObject *)left, (PyLongObject *)right);
@@ -450,6 +458,14 @@ dummy_func(
         op(_GUARD_BOTH_FLOAT, (left, right -- left, right)) {
             DEOPT_IF(!PyFloat_CheckExact(left));
             DEOPT_IF(!PyFloat_CheckExact(right));
+        }
+
+        op(_GUARD_TOS_FLOAT, (value -- value)) {
+            DEOPT_IF(!PyFloat_CheckExact(value));
+        }
+
+        op(_GUARD_NOS_FLOAT, (value, unused -- value, unused)) {
+            DEOPT_IF(!PyFloat_CheckExact(value));
         }
 
         op(_BINARY_OP_MULTIPLY_FLOAT, (left, right -- res)) {
@@ -4053,6 +4069,15 @@ dummy_func(
         op(_CHECK_VALIDITY, (--)) {
             TIER_TWO_ONLY
             DEOPT_IF(!current_executor->base.vm_data.valid);
+        }
+
+        op(_LOAD_INLINE_CONST, (val/4 -- res)) {
+            Py_INCREF(val);
+            res = val;
+        }
+
+        op(_LOAD_INLINE_IMMORTAL_CONST, (val/4 -- res)) {
+            res = val;
         }
 
 

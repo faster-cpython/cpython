@@ -243,6 +243,20 @@
             break;
         }
 
+        case _GUARD_TOS_INT: {
+            PyObject *value;
+            value = stack_pointer[-1];
+            if (!PyLong_CheckExact(value)) goto deoptimize;
+            break;
+        }
+
+        case _GUARD_NOS_INT: {
+            PyObject *value;
+            value = stack_pointer[-2];
+            if (!PyLong_CheckExact(value)) goto deoptimize;
+            break;
+        }
+
         case _BINARY_OP_MULTIPLY_INT: {
             PyObject *right;
             PyObject *left;
@@ -298,6 +312,20 @@
             left = stack_pointer[-2];
             if (!PyFloat_CheckExact(left)) goto deoptimize;
             if (!PyFloat_CheckExact(right)) goto deoptimize;
+            break;
+        }
+
+        case _GUARD_TOS_FLOAT: {
+            PyObject *value;
+            value = stack_pointer[-1];
+            if (!PyFloat_CheckExact(value)) goto deoptimize;
+            break;
+        }
+
+        case _GUARD_NOS_FLOAT: {
+            PyObject *value;
+            value = stack_pointer[-2];
+            if (!PyFloat_CheckExact(value)) goto deoptimize;
             break;
         }
 
@@ -3394,6 +3422,25 @@
         case _CHECK_VALIDITY: {
             TIER_TWO_ONLY
             if (!current_executor->base.vm_data.valid) goto deoptimize;
+            break;
+        }
+
+        case _LOAD_INLINE_CONST: {
+            PyObject *res;
+            PyObject *val = (PyObject *)CURRENT_OPERAND();
+            Py_INCREF(val);
+            res = val;
+            stack_pointer[0] = res;
+            stack_pointer += 1;
+            break;
+        }
+
+        case _LOAD_INLINE_IMMORTAL_CONST: {
+            PyObject *res;
+            PyObject *val = (PyObject *)CURRENT_OPERAND();
+            res = val;
+            stack_pointer[0] = res;
+            stack_pointer += 1;
             break;
         }
 

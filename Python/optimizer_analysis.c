@@ -13,6 +13,12 @@
 #include <stddef.h>
 #include "pycore_optimizer.h"
 
+extern int
+_Py_Tier2_Specialize(PyCodeObject *code,_PyUOpInstruction *buffer,
+           int buffer_size, int curr_stackdepth,
+           _PyBloomFilter* dependencies);
+
+
 static void
 remove_unneeded_uops(_PyUOpInstruction *buffer, int buffer_size)
 {
@@ -51,15 +57,39 @@ remove_unneeded_uops(_PyUOpInstruction *buffer, int buffer_size)
     }
 }
 
+static void
+dump_uops(_PyUOpInstruction *buffer, int n)
+{
+    printf("TRACE:\n");
+    for (int i = 0; i < n; i++) {
+        int opcode = buffer[i].opcode;
+        int oparg = buffer[i].oparg;
+        int operand = buffer[i].operand;
+        printf("    %s oparg: %d, operand: %d\n",
+               _PyOpcode_uop_name[opcode],
+               oparg, operand);
+        if (opcode == _EXIT_TRACE || opcode == _JUMP_TO_TOP) {
+            break;
+        }
+    }
+    printf("------------------\n\n");
+}
 
 int
 _Py_uop_analyze_and_optimize(
     PyCodeObject *co,
     _PyUOpInstruction *buffer,
     int buffer_size,
-    int curr_stacklen
+    int curr_stackdepth,
+    _PyBloomFilter* dependencies
 )
 {
+    dump_uops(buffer, buffer_size);
+    int mod = _Py_Tier2_Specialize(co, buffer, buffer_size, curr_stackdepth, dependencies);
+    if (mod) {
+        printf("MODIFIED ");
+        dump_uops(buffer, buffer_size);
+    }
     remove_unneeded_uops(buffer, buffer_size);
     return 0;
 }
