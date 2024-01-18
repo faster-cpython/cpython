@@ -658,8 +658,9 @@
             break;
         }
 
-        case _POP_FRAME: {
+        case _RETURN_VALUE: {
             PyObject *retval;
+            PyObject *res;
             retval = stack_pointer[-1];
             #if TIER_ONE
             assert(frame != &entry_frame);
@@ -672,21 +673,21 @@
             _PyInterpreterFrame *dying = frame;
             frame = tstate->current_frame = dying->previous;
             _PyEval_FrameClearAndPop(tstate, dying);
-            _PyFrame_StackPush(frame, retval);
             LOAD_SP();
             LOAD_IP(frame->return_offset);
+            res = retval;
             #if LLTRACE && TIER_ONE
             lltrace = maybe_lltrace_resume_frame(frame, &entry_frame, GLOBALS());
             if (lltrace < 0) {
                 goto exit_unwind;
             }
             #endif
+            stack_pointer[0] = res;
+            stack_pointer += 1;
             break;
         }
 
-        /* _INSTRUMENTED_RETURN_VALUE is not a viable micro-op for tier 2 */
-
-        /* _INSTRUMENTED_RETURN_CONST is not a viable micro-op for tier 2 */
+        /* _RETURN_INSTRUMENTATION is not a viable micro-op for tier 2 */
 
         case _GET_AITER: {
             PyObject *obj;
