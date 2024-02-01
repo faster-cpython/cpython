@@ -5,7 +5,6 @@
 #include "pycore_opcode_utils.h"
 #include "pycore_pystate.h"       // _PyInterpreterState_GET()
 #include "pycore_uop_metadata.h"
-#include "pycore_uops.h"
 #include "pycore_long.h"
 #include "cpython/optimizer.h"
 #include <stdbool.h>
@@ -18,6 +17,39 @@ _Py_Tier2_Specialize(PyCodeObject *code,_PyUOpInstruction *buffer,
            int buffer_size, int curr_stackdepth,
            _PyBloomFilter* dependencies);
 
+
+static void
+peephole_opt(PyCodeObject *co, _PyUOpInstruction *buffer, int buffer_size)
+{
+    for (int pc = 0; pc < buffer_size; pc++) {
+        int opcode = buffer[pc].opcode;
+        switch(opcode) {
+            case _LOAD_CONST: {
+                assert(co != NULL);
+                PyObject *val = PyTuple_GET_ITEM(co->co_consts, buffer[pc].oparg);
+                buffer[pc].opcode = _Py_IsImmortal(val) ? _LOAD_CONST_INLINE_BORROW : _LOAD_CONST_INLINE;
+                buffer[pc].operand = (uintptr_t)val;
+                break;
+            }
+            case _CHECK_PEP_523:
+            {
+                /* Setting the eval frame function invalidates
+                 * all executors, so no need to check dynamically */
+                if (_PyInterpreterState_GET()->eval_frame == NULL) {
+                    buffer[pc].opcode = _NOP;
+                }
+                break;
+            }
+            case _PUSH_FRAME:
+            case _POP_FRAME:
+                co = (PyCodeObject *)buffer[pc].operand;
+                break;
+            case _JUMP_TO_TOP:
+            case _EXIT_TRACE:
+                return;
+        }
+    }
+}
 
 static void
 remove_unneeded_uops(_PyUOpInstruction *buffer, int buffer_size)
@@ -85,6 +117,7 @@ _Py_uop_analyze_and_optimize(
 )
 {
     dump_uops(buffer, buffer_size);
+    peephole_opt(co, buffer, buffer_size);
     int mod = _Py_Tier2_Specialize(co, buffer, buffer_size, curr_stackdepth, dependencies);
     if (mod) {
         printf("MODIFIED ");
