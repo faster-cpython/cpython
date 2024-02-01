@@ -468,6 +468,7 @@ dummy_func(
             DEOPT_IF(!PyFloat_CheckExact(value));
         }
 
+        pure op(_BINARY_OP_MULTIPLY_FLOAT, (left, right -- res: &PYFLOAT_TYPE)) {
             STAT_INC(BINARY_OP, hit);
             double dres =
                 ((PyFloatObject *)left)->ob_fval *
@@ -1242,9 +1243,8 @@ dummy_func(
             (void)counter;
         }
 
-        op(_UNPACK_SEQUENCE, (seq -- unused[oparg])) {
-            PyObject **top = stack_pointer + oparg - 1;
-            int res = _PyEval_UnpackIterable(tstate, seq, oparg, -1, top);
+        op(_UNPACK_SEQUENCE, (seq -- values[oparg])) {
+            int res = _PyEval_UnpackIterable(tstate, seq, oparg, -1, values+oparg);
             DECREF_INPUTS();
             ERROR_IF(res == 0, error);
         }

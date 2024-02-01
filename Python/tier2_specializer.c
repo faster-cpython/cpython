@@ -8,7 +8,11 @@ typedef struct _SpecializerValue SpecializerValue;
 typedef struct _SpecializerSpace SpecializerSpace;
 typedef struct _SpecializerFrame SpecializerFrame;
 
+extern SpecializerValue *get_local(SpecializerFrame *frame, int index);
+extern void set_local(SpecializerFrame *frame, int index, SpecializerValue *value);
+
 extern SpecializerValue *new_constant(PyObject *k, SpecializerSpace *space);
+extern SpecializerValue *new_null(SpecializerSpace *space);
 extern PyObject *get_constant(SpecializerValue *o);
 extern PyTypeObject *get_type(SpecializerValue *o);
 
@@ -50,6 +54,21 @@ dummy_func(void) {
 
 // BEGIN BYTECODES //
 
+    op(_LOAD_FAST, (-- value)) {
+        value = get_local(frame, oparg);
+        if (value == NULL) goto fail;
+        promote_to_not_null(value);
+    }
+
+    op(_STORE_FAST, (value --)) {
+        set_local(frame, oparg, value);
+    }
+
+    op(_PUSH_NULL, (-- res)) {
+        res = new_null(space);
+        if (res == NULL) goto fail;
+    }
+
     op(_GUARD_BOTH_INT, (left, right -- left, right)) {
         if (is_int(left)) {
             REPLACE_OPCODE(is_int(right) ? _NOP : _GUARD_TOS_INT);
@@ -75,10 +94,9 @@ dummy_func(void) {
     op(_LOAD_CONST, (-- value)) {
         PyObject *k = PyTuple_GET_ITEM(code->co_consts, oparg);
         value = new_constant(k, space);
-        REPLACE_OPCODE(_Py_IsImmortal(k) ?
-            _LOAD_INLINE_IMMORTAL_CONST :
-            _LOAD_INLINE_CONST);
-        this_instr->operand = (uintptr_t)k;
+        if (value == NULL) {
+            goto fail;
+        }
     }
 
     op(_TO_BOOL_BOOL, (value -- value)) {
@@ -91,10 +109,26 @@ dummy_func(void) {
     }
 
     op(_TO_BOOL_NONE, (value -- res)) {
-        if (get_constant(value) == Py_None) {
-            REPLACE_OPCODE(_POP_TOP);
-        }
+        promote_to_const(value, Py_None);
         res = new_constant(Py_False, space);
+        if (res == NULL) goto fail;
+    }
+
+    op(_TO_BOOL_ALWAYS_TRUE, (value -- res)) {
+        res = new_constant(Py_True, space);
+        if (res == NULL) goto fail;
+    }
+
+    op(_TO_BOOL_LIST, (value -- res)) {
+        promote_to_type(value, &PyList_Type);
+        res = new_from_type(&PyBool_Type, space);
+        if (res == NULL) goto fail;
+    }
+
+    op(_TO_BOOL_STR, (value -- res)) {
+        promote_to_type(value, &PyUnicode_Type);
+        res = new_from_type(&PyBool_Type, space);
+        if (res == NULL) goto fail;
     }
 
     op (_GUARD_IS_TRUE_POP, (flag -- )) {
@@ -137,7 +171,6 @@ dummy_func(void) {
         res = new_from_type(&PyFloat_Type, space);
     }
 
-
     op(_COPY, (bottom, unused[oparg-1] -- bottom, unused[oparg-1], top)) {
         assert(oparg > 0);
         top = bottom;
@@ -147,12 +180,54 @@ dummy_func(void) {
                     top, unused[oparg-2], bottom)) {
     }
 
+    op(_IS_OP, (left, right -- b)) {
+        if (is_constant(left) && is_constant(right)) {
+            PyObject *o = get_constant(left) == get_constant(right) ? Py_True : Py_False;
+            b = new_constant(o, space);
+        }
+        else {
+            b = new_from_type(&PyBool_Type, space);
+        }
+        if (b == NULL) goto fail;
+    }
+
+    op(_COMPARE_OP_FLOAT, (left, right -- res)) {
+        promote_to_type(left, &PyFloat_Type);
+        promote_to_type(right, &PyFloat_Type);
+        res = new_from_type(&PyBool_Type, space);
+        if (res == NULL) goto fail;
+    }
+
+    op(_COMPARE_OP_INT, (left, right -- res)) {
+        promote_to_type(left, &PyLong_Type);
+        promote_to_type(right, &PyLong_Type);
+        res = new_from_type(&PyBool_Type, space);
+        if (res == NULL) goto fail;
+    }
+
+    op(_COMPARE_OP_STR, (left, right -- res)) {
+        promote_to_type(left, &PyUnicode_Type);
+        promote_to_type(right, &PyUnicode_Type);
+        res = new_from_type(&PyBool_Type, space);
+        if (res == NULL) goto fail;
+    }
+
+    op(_CONTAINS_OP, (left, right -- b)) {
+        b = new_from_type(&PyBool_Type, space);
+        if (b == NULL) goto fail;
+    }
+
     op(_JUMP_TO_TOP, (--)) {
         return modified;
     }
 
     op(_EXIT_TRACE, (--)) {
         return modified;
+    }
+
+    op(_ITER_NEXT_RANGE, (iter -- iter, next)) {
+        next = new_from_type(&PyLong_Type, space);
+        if (next == NULL) goto fail;
     }
 
     // Because this has type annotations we need to override it
@@ -172,6 +247,18 @@ dummy_func(void) {
         (void)new_frame;
         return modified;
     }
+
+    op(_UNPACK_EX, (seq -- values[oparg & 0xFF], unused, unused[oparg >> 8])) {
+        /* This has to be done manually */
+        int totalargs = (oparg & 0xFF) + (oparg >> 8) + 1;
+        for (int i = 0; i < totalargs; i++) {
+            values[i] = new_unknown(space);
+            if (values[i] == NULL) {
+                goto fail;
+            }
+        }
+    }
+
 
 
 // END BYTECODES //

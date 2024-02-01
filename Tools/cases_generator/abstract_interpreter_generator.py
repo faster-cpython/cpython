@@ -101,11 +101,14 @@ def emit_default(out: CWriter, uop: Uop) -> None:
             if var.is_array():
                 out.emit(f"for (int _i = {var.size}; --_i >= 0;) {{\n")
                 out.emit(f"{var.name}[_i]  = UNKNOWN();\n")
+                out.emit(f"if ({var.name}[_i] == NULL) goto fail;\n")
                 out.emit("}\n")
             elif var.name == "null":
                 out.emit(f"{var.name} = NULL_VALUE();\n")
+                out.emit(f"if ({var.name} == NULL) goto fail;\n")
             else:
                 out.emit(f"{var.name} = UNKNOWN();\n")
+                out.emit(f"if ({var.name} == NULL) goto fail;\n")
 
 def write_uop(
     override: Uop | None, uop: Uop, out: CWriter, stack: Stack, debug: bool
@@ -135,7 +138,7 @@ def write_uop(
                     else:
                         type = f"uint{cache.size*16}_t "
                         cast = f"uint{cache.size*16}_t"
-                    out.emit(f"{type}{cache.name} = ({cast})operand;\n")
+                    out.emit(f"{type}{cache.name} = ({cast})this_instr->operand;\n")
             emit_tokens(out, override, stack, None, {"DECREF_INPUTS": decref_inputs})
         else:
             emit_default(out, uop)

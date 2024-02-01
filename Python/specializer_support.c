@@ -1,7 +1,6 @@
 #include "Python.h"
 #include "opcode.h"
 #include "pycore_object.h"
-#include "pycore_uops.h"
 #include "pycore_uop_ids.h"
 #include "pycore_uop_metadata.h"
 #include "pycore_specialize_support.h"
@@ -10,6 +9,10 @@
 #define IS_CONSTANT 1
 /* For special value "not None" */
 #define NOT_NONE 2
+/* For special value "not NULL" */
+#define NOT_NULL 4
+/* For special value top */
+#define TOP 8
 
 typedef struct _SpecializerValue SpecializerValue;
 typedef struct _SpecializerSpace SpecializerSpace;
@@ -21,29 +24,107 @@ typedef struct _SpecializerFrame SpecializerFrame;
  */
 struct _SpecializerValue {
     uint8_t flags;
-    union {
-        PyObject *object;
-        struct _SpecializerValue *next;
-    };
+    PyObject *object;
+};
+
+struct _SpecializerFrame {
+    int stack_top;
+    int nlocals;
+    SpecializerValue *localsplus[1];
 };
 
 struct _SpecializerSpace {
+    char *base;
     int size;
-    SpecializerValue *free;
-    SpecializerValue values[1];
+    char *allocated_values;
+    char *stack_pointer;
 };
 
 static SpecializerValue *
-new_value(PyObject *object, int flags, SpecializerSpace *buffer)
+new_value(PyObject *object, int flags, SpecializerSpace *space)
 {
-    assert(buffer->free != NULL);
-    SpecializerValue *val = buffer->free;
-    buffer->free++;
-    assert(val != NULL);
-    assert(buffer->free < &buffer->values[buffer->size]);
-    val->object = object;
-    val->flags = flags;
-    return val;
+    char *ptr = space->allocated_values - sizeof(SpecializerValue);
+    if (ptr <= space->stack_pointer) {
+        return NULL;
+    }
+    space->allocated_values = ptr;
+    SpecializerValue *res = (SpecializerValue *)ptr;
+    res->object = object;
+    res->flags = flags;
+    return res;
+}
+
+static SpecializerValue *
+new_unknown(SpecializerSpace *buffer)
+{
+    return new_value(NULL, 0, buffer);
+}
+
+static SpecializerValue *
+new_null(SpecializerSpace *buffer)
+{
+    return new_value(NULL, 1, buffer);
+}
+
+static int
+is_null(SpecializerValue *o)
+{
+    return o->flags == 1 && o->object == NULL;
+}
+
+static void
+promote_to_not_null(SpecializerValue *o)
+{
+    if (o->object == NULL) {
+        if (o->flags == 0) {
+            o->flags = NOT_NULL;
+        }
+    }
+}
+
+static SpecializerFrame *
+new_frame(PyCodeObject *code, SpecializerSpace *space, int unknowns)
+{
+    int nlocalsplus = code->co_nlocals + code->co_stacksize;
+    size_t size = sizeof(SpecializerFrame) + sizeof(SpecializerValue *) * nlocalsplus;
+    if (space->stack_pointer + size >= space->allocated_values) {
+        return NULL;
+    }
+    SpecializerFrame *frame = (SpecializerFrame *)space->stack_pointer;
+    space->stack_pointer += size;
+    frame->stack_top = code->co_nlocals;
+    for (int i = 0; i < unknowns; i++) {
+        SpecializerValue *val = new_unknown(space);
+        if (val == NULL) {
+            return NULL;
+        }
+        frame->localsplus[i] = val;
+    }
+    return frame;
+}
+
+SpecializerValue **
+get_stack_pointer(SpecializerFrame *frame)
+{
+    return frame->localsplus + frame->stack_top;
+}
+
+void
+set_stack_pointer(SpecializerFrame *frame, SpecializerValue **sp)
+{
+    frame->stack_top = sp - frame->localsplus;
+}
+
+SpecializerValue *
+get_local(SpecializerFrame *frame, int index)
+{
+    return frame->localsplus[index];
+}
+
+void
+set_local(SpecializerFrame *frame, int index, SpecializerValue *value)
+{
+    frame->localsplus[index] = value;
 }
 
 static SpecializerValue *
@@ -100,12 +181,6 @@ is_float(SpecializerValue *o)
 }
 
 static SpecializerValue *
-new_unknown(SpecializerSpace *buffer)
-{
-    return new_value(NULL, 0, buffer);
-}
-
-static SpecializerValue *
 new_from_type(PyTypeObject *t, SpecializerSpace *buffer)
 {
     return new_value((PyObject *)t, 0, buffer);
@@ -114,6 +189,9 @@ new_from_type(PyTypeObject *t, SpecializerSpace *buffer)
 static void
 promote_to_const(SpecializerValue *o, PyObject *k)
 {
+    if (o->flags & TOP) {
+        return;
+    }
     if (o->flags & IS_CONSTANT) {
         assert(o->object == k);
     }
@@ -129,8 +207,14 @@ promote_to_const(SpecializerValue *o, PyObject *k)
 static void
 promote_to_type(SpecializerValue *o, PyTypeObject *t)
 {
+    if (o->flags & TOP) {
+        return;
+    }
     if (o->flags & IS_CONSTANT) {
-        assert(Py_TYPE(o->object) == t);
+        if (Py_TYPE(o->object) != t) {
+            o->flags = TOP;
+            o->object = NULL;
+        }
     }
     else {
         if (o->object != NULL) {
@@ -143,8 +227,24 @@ promote_to_type(SpecializerValue *o, PyTypeObject *t)
 }
 
 static int
+is_none(SpecializerValue *o)
+{
+    if (o->flags & TOP) {
+        return 0;
+    }
+    if (o->flags & IS_CONSTANT) {
+        return (o->object == Py_None);
+    }
+    return 0;
+}
+
+
+static int
 is_not_none(SpecializerValue *o)
 {
+    if (o->flags & TOP) {
+        return 0;
+    }
     if (o->flags & IS_CONSTANT) {
         return (o->object != Py_None);
     }
@@ -161,6 +261,9 @@ is_not_none(SpecializerValue *o)
 static void
 promote_to_not_none(SpecializerValue *o)
 {
+    if (o->flags & TOP) {
+        return;
+    }
     if (o->flags & IS_CONSTANT) {
         assert(o->object != Py_None);
     }
@@ -174,18 +277,15 @@ promote_to_not_none(SpecializerValue *o)
     }
 }
 
-static SpecializerSpace *
-initialize_space(void *memory, int size)
+static void
+initialize_space(SpecializerSpace *space, char *memory, int size)
 {
-    SpecializerSpace *space = memory;
-    int count = size/sizeof(SpecializerValue) - 1;
-    space->size = count;
-    space->values[0].next = NULL;
-    for (int i = 1; i < count; i++) {
-        space->values[i].next = &space->values[i-1];
-    }
-    space->free = &space->values[count-1];
-    return space;
+    assert(((size_t)memory) % sizeof(long double) == 0);
+    assert(size % sizeof(long double) == 0);
+    space->base = memory;
+    space->size = size;
+    space->stack_pointer = memory;
+    space->allocated_values = memory + size;
 }
 
 static int
@@ -193,8 +293,10 @@ guard_bool(_PyUOpInstruction *this_instr, SpecializerValue *flag, PyObject *b)
 {
     if (is_constant(flag)) {
         assert(Py_TYPE(get_constant(flag)) == &PyBool_Type);
-        this_instr->opcode = _POP_TOP;
-        if (get_constant(flag) != b) {
+        if (get_constant(flag) == b) {
+            this_instr->opcode = _POP_TOP;
+        }
+        else {
             // Guaranteed failure
             this_instr[1].opcode = _EXIT_TRACE;
             this_instr[1].target = this_instr->target;
@@ -202,7 +304,7 @@ guard_bool(_PyUOpInstruction *this_instr, SpecializerValue *flag, PyObject *b)
         return 1;
     }
     else {
-        promote_to_const(flag, Py_True);
+        promote_to_const(flag, b);
         return 0;
     }
 }
@@ -210,39 +312,37 @@ guard_bool(_PyUOpInstruction *this_instr, SpecializerValue *flag, PyObject *b)
 static int
 guard_none(_PyUOpInstruction *this_instr, SpecializerValue *flag, int test_is_none)
 {
-    if (is_constant(flag)) {
-        this_instr->opcode = _POP_TOP;
-        int val_is_none = get_constant(flag) == Py_None;
-        if (test_is_none != val_is_none) {
-            // Guaranteed failure
-            this_instr[1].opcode = _EXIT_TRACE;
-            this_instr[1].target = this_instr->target;
-        }
-        return 1;
+    int outcome = 0; // 1 guaranteed success, -1 guaranteed failure
+    if (is_not_none(flag)) {
+        outcome = test_is_none ? -1 : 1;
     }
-    else if (is_not_none(flag)) {
-        this_instr->opcode = _POP_TOP;
-        if (test_is_none) {
-            // Guaranteed failure
-            this_instr[1].opcode = _EXIT_TRACE;
-            this_instr[1].target = this_instr->target;
-        }
-        return 1;
+    else if (is_none(flag)) {
+        outcome = test_is_none ? 1 : -1;
+    }
+    if (test_is_none) {
+        promote_to_const(flag, Py_None);
     }
     else {
-        promote_to_const(flag, Py_True);
-        return 0;
+        promote_to_not_none(flag);
     }
+    if (outcome == 1) {
+        this_instr->opcode = _POP_TOP;
+        return 1;
+    }
+    if (outcome == -1) {
+        // Guaranteed failure
+        this_instr->opcode = _EXIT_TRACE;
+        return 1;
+    }
+    return 0;
 }
 
 #define UNKNOWN()   new_unknown(space)
-#define NULL_VALUE() new_unknown(space)
+#define NULL_VALUE() new_null(space)
 #define DEBUG_PRINTF(...) ((void)0)
 
 #define REPLACE_OPCODE(OP) \
     do { \
-        printf("Changing opcode '%s' to '%s'\n", \
-         _PyOpcode_uop_name[this_instr->opcode], _PyOpcode_uop_name[OP]); \
         this_instr->opcode = (OP); \
         modified = 1; \
     } while (0)
@@ -254,17 +354,16 @@ _Py_Tier2_Specialize(PyCodeObject *code, _PyUOpInstruction *buffer,
            int buffer_size, int curr_stackdepth,
            _PyBloomFilter* dependencies)
 {
-    /* We cannot have more variables than instructions */
-    SpecializerValue memory[buffer_size];
-    SpecializerSpace *space = initialize_space(&memory, buffer_size);
-    SpecializerValue *stack[32];
-    if (code->co_stacksize > 31) {
+    /* Highly unlikely to have more variables than instructions */
+    char memory[buffer_size * sizeof(SpecializerValue)];
+    SpecializerSpace allocated_space;
+    SpecializerSpace *space = &allocated_space;
+    initialize_space(space, memory, buffer_size * sizeof(SpecializerValue));
+    SpecializerFrame *frame = new_frame(code, space, code->co_nlocals + curr_stackdepth);
+    if (frame == NULL) {
         return 0;
     }
-    for (int i = 0; i < curr_stackdepth; i++) {
-        stack[i] = new_unknown(space);
-    }
-    SpecializerValue **stack_pointer = &stack[curr_stackdepth];
+    SpecializerValue **stack_pointer = get_stack_pointer(frame) + curr_stackdepth;
     int modified = 0;
     for (_PyUOpInstruction *this_instr = buffer; ; this_instr++) {
         int oparg = this_instr->oparg;
@@ -273,5 +372,6 @@ _Py_Tier2_Specialize(PyCodeObject *code, _PyUOpInstruction *buffer,
         }
         assert(this_instr < buffer + buffer_size);
     }
+fail: // "fail" just means we run out of space, not that there was an error.
     return modified;
 }

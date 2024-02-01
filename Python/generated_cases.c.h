@@ -5723,6 +5723,7 @@
             PREDICTED(UNPACK_SEQUENCE);
             _Py_CODEUNIT *this_instr = next_instr - 2;
             PyObject *seq;
+            PyObject **values;
             // _SPECIALIZE_UNPACK_SEQUENCE
             seq = stack_pointer[-1];
             {
@@ -5742,8 +5743,8 @@
             }
             // _UNPACK_SEQUENCE
             {
-                PyObject **top = stack_pointer + oparg - 1;
-                int res = _PyEval_UnpackIterable(tstate, seq, oparg, -1, top);
+                values = &stack_pointer[-1];
+                int res = _PyEval_UnpackIterable(tstate, seq, oparg, -1, values+oparg);
                 Py_DECREF(seq);
                 if (res == 0) goto pop_1_error;
             }

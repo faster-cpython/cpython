@@ -19,6 +19,7 @@
             SpecializerValue *value;
             DEBUG_PRINTF();
             value = UNKNOWN();
+            if (value == NULL) goto fail;
             stack_pointer[0] = value;
             stack_pointer += 1;
             break;
@@ -27,7 +28,9 @@
         case _LOAD_FAST: {
             SpecializerValue *value;
             DEBUG_PRINTF();
-            value = UNKNOWN();
+            value = get_local(frame, oparg);
+            if (value == NULL) goto fail;
+            promote_to_not_null(value);
             stack_pointer[0] = value;
             stack_pointer += 1;
             break;
@@ -37,6 +40,7 @@
             SpecializerValue *value;
             DEBUG_PRINTF();
             value = UNKNOWN();
+            if (value == NULL) goto fail;
             stack_pointer[0] = value;
             stack_pointer += 1;
             break;
@@ -47,10 +51,9 @@
             DEBUG_PRINTF();
             PyObject *k = PyTuple_GET_ITEM(code->co_consts, oparg);
             value = new_constant(k, space);
-            REPLACE_OPCODE(_Py_IsImmortal(k) ?
-                       _LOAD_INLINE_IMMORTAL_CONST :
-                _LOAD_INLINE_CONST);
-            this_instr->operand = (uintptr_t)k;
+            if (value == NULL) {
+                goto fail;
+            }
             stack_pointer[0] = value;
             stack_pointer += 1;
             break;
@@ -60,7 +63,7 @@
             SpecializerValue *value;
             value = stack_pointer[-1];
             DEBUG_PRINTF(value);
-            DECREF(value);
+            set_local(frame, oparg, value);
             stack_pointer += -1;
             break;
         }
@@ -77,7 +80,8 @@
         case _PUSH_NULL: {
             SpecializerValue *res;
             DEBUG_PRINTF();
-            res = UNKNOWN();
+            res = new_null(space);
+            if (res == NULL) goto fail;
             stack_pointer[0] = res;
             stack_pointer += 1;
             break;
@@ -92,6 +96,7 @@
             DECREF(receiver);
             DECREF(value);
             value = UNKNOWN();
+            if (value == NULL) goto fail;
             stack_pointer[-2] = value;
             stack_pointer += -1;
             break;
@@ -104,6 +109,7 @@
             DEBUG_PRINTF(value);
             DECREF(value);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-1] = res;
             break;
         }
@@ -115,6 +121,7 @@
             DEBUG_PRINTF(value);
             DECREF(value);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-1] = res;
             break;
         }
@@ -126,6 +133,7 @@
             DEBUG_PRINTF(value);
             DECREF(value);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-1] = res;
             break;
         }
@@ -150,6 +158,7 @@
             DEBUG_PRINTF(value);
             DECREF(value);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-1] = res;
             break;
         }
@@ -159,8 +168,9 @@
             SpecializerValue *res;
             value = stack_pointer[-1];
             DEBUG_PRINTF(value);
-            DECREF(value);
-            res = UNKNOWN();
+            promote_to_type(value, &PyList_Type);
+            res = new_from_type(&PyBool_Type, space);
+            if (res == NULL) goto fail;
             stack_pointer[-1] = res;
             break;
         }
@@ -170,10 +180,9 @@
             SpecializerValue *res;
             value = stack_pointer[-1];
             DEBUG_PRINTF(value);
-            if (get_constant(value) == Py_None) {
-                REPLACE_OPCODE(_POP_TOP);
-            }
+            promote_to_const(value, Py_None);
             res = new_constant(Py_False, space);
+            if (res == NULL) goto fail;
             stack_pointer[-1] = res;
             break;
         }
@@ -183,8 +192,9 @@
             SpecializerValue *res;
             value = stack_pointer[-1];
             DEBUG_PRINTF(value);
-            DECREF(value);
-            res = UNKNOWN();
+            promote_to_type(value, &PyUnicode_Type);
+            res = new_from_type(&PyBool_Type, space);
+            if (res == NULL) goto fail;
             stack_pointer[-1] = res;
             break;
         }
@@ -194,8 +204,9 @@
             SpecializerValue *res;
             value = stack_pointer[-1];
             DEBUG_PRINTF(value);
-            DECREF(value);
-            res = UNKNOWN();
+            uint32_t version = (uint32_t)this_instr->operand;
+            res = new_constant(Py_True, space);
+            if (res == NULL) goto fail;
             stack_pointer[-1] = res;
             break;
         }
@@ -207,6 +218,7 @@
             DEBUG_PRINTF(value);
             DECREF(value);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-1] = res;
             break;
         }
@@ -358,6 +370,7 @@
             DECREF(left);
             DECREF(right);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -373,6 +386,7 @@
             DECREF(container);
             DECREF(sub);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -391,6 +405,7 @@
             DECREF(start);
             DECREF(stop);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-3] = res;
             stack_pointer += -2;
             break;
@@ -424,6 +439,7 @@
             DECREF(list);
             DECREF(sub);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -439,6 +455,7 @@
             DECREF(str);
             DECREF(sub);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -454,6 +471,7 @@
             DECREF(tuple);
             DECREF(sub);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -469,6 +487,7 @@
             DECREF(dict);
             DECREF(sub);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -558,6 +577,7 @@
             DEBUG_PRINTF(value);
             DECREF(value);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-1] = res;
             break;
         }
@@ -572,6 +592,7 @@
             DECREF(value2);
             DECREF(value1);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -598,6 +619,7 @@
             DEBUG_PRINTF(obj);
             DECREF(obj);
             iter = UNKNOWN();
+            if (iter == NULL) goto fail;
             stack_pointer[-1] = iter;
             break;
         }
@@ -606,6 +628,7 @@
             SpecializerValue *awaitable;
             DEBUG_PRINTF();
             awaitable = UNKNOWN();
+            if (awaitable == NULL) goto fail;
             stack_pointer[0] = awaitable;
             stack_pointer += 1;
             break;
@@ -618,6 +641,7 @@
             DEBUG_PRINTF(iterable);
             DECREF(iterable);
             iter = UNKNOWN();
+            if (iter == NULL) goto fail;
             stack_pointer[-1] = iter;
             break;
         }
@@ -641,6 +665,7 @@
             SpecializerValue *value;
             DEBUG_PRINTF();
             value = UNKNOWN();
+            if (value == NULL) goto fail;
             stack_pointer[0] = value;
             stack_pointer += 1;
             break;
@@ -650,6 +675,7 @@
             SpecializerValue *bc;
             DEBUG_PRINTF();
             bc = UNKNOWN();
+            if (bc == NULL) goto fail;
             stack_pointer[0] = bc;
             stack_pointer += 1;
             break;
@@ -671,9 +697,15 @@
 
         case _UNPACK_SEQUENCE: {
             SpecializerValue *seq;
+            SpecializerValue **values;
             seq = stack_pointer[-1];
+            values = &stack_pointer[-1];
             DEBUG_PRINTF(seq);
             DECREF(seq);
+            for (int _i = oparg; --_i >= 0;) {
+                values[_i]  = UNKNOWN();
+                if (values[_i] == NULL) goto fail;
+            }
             stack_pointer += -1 + oparg;
             break;
         }
@@ -687,6 +719,7 @@
             DECREF(seq);
             for (int _i = oparg; --_i >= 0;) {
                 values[_i]  = UNKNOWN();
+                if (values[_i] == NULL) goto fail;
             }
             stack_pointer += -1 + oparg;
             break;
@@ -701,6 +734,7 @@
             DECREF(seq);
             for (int _i = oparg; --_i >= 0;) {
                 values[_i]  = UNKNOWN();
+                if (values[_i] == NULL) goto fail;
             }
             stack_pointer += -1 + oparg;
             break;
@@ -715,6 +749,7 @@
             DECREF(seq);
             for (int _i = oparg; --_i >= 0;) {
                 values[_i]  = UNKNOWN();
+                if (values[_i] == NULL) goto fail;
             }
             stack_pointer += -1 + oparg;
             break;
@@ -722,9 +757,18 @@
 
         case _UNPACK_EX: {
             SpecializerValue *seq;
+            SpecializerValue **values;
             seq = stack_pointer[-1];
+            values = &stack_pointer[-1];
             DEBUG_PRINTF(seq);
-            DECREF(seq);
+            /* This has to be done manually */
+            int totalargs = (oparg & 0xFF) + (oparg >> 8) + 1;
+            for (int i = 0; i < totalargs; i++) {
+                values[i] = new_unknown(space);
+                if (values[i] == NULL) {
+                    goto fail;
+                }
+            }
             stack_pointer += (oparg >> 8) + (oparg & 0xFF);
             break;
         }
@@ -768,6 +812,7 @@
             SpecializerValue *locals;
             DEBUG_PRINTF();
             locals = UNKNOWN();
+            if (locals == NULL) goto fail;
             stack_pointer[0] = locals;
             stack_pointer += 1;
             break;
@@ -780,6 +825,7 @@
             DEBUG_PRINTF(mod_or_class_dict);
             DECREF(mod_or_class_dict);
             v = UNKNOWN();
+            if (v == NULL) goto fail;
             stack_pointer[-1] = v;
             break;
         }
@@ -788,6 +834,7 @@
             SpecializerValue *v;
             DEBUG_PRINTF();
             v = UNKNOWN();
+            if (v == NULL) goto fail;
             stack_pointer[0] = v;
             stack_pointer += 1;
             break;
@@ -798,7 +845,9 @@
             SpecializerValue *null = NULL;
             DEBUG_PRINTF();
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             null = NULL_VALUE();
+            if (null == NULL) goto fail;
             stack_pointer[0] = res;
             if (oparg & 1) stack_pointer[1] = null;
             stack_pointer += 1 + (oparg & 1);
@@ -820,7 +869,9 @@
             SpecializerValue *null = NULL;
             DEBUG_PRINTF();
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             null = NULL_VALUE();
+            if (null == NULL) goto fail;
             stack_pointer[0] = res;
             if (oparg & 1) stack_pointer[1] = null;
             stack_pointer += 1 + (oparg & 1);
@@ -832,7 +883,9 @@
             SpecializerValue *null = NULL;
             DEBUG_PRINTF();
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             null = NULL_VALUE();
+            if (null == NULL) goto fail;
             stack_pointer[0] = res;
             if (oparg & 1) stack_pointer[1] = null;
             stack_pointer += 1 + (oparg & 1);
@@ -861,6 +914,7 @@
             DEBUG_PRINTF(class_dict);
             DECREF(class_dict);
             value = UNKNOWN();
+            if (value == NULL) goto fail;
             stack_pointer[-1] = value;
             break;
         }
@@ -869,6 +923,7 @@
             SpecializerValue *value;
             DEBUG_PRINTF();
             value = UNKNOWN();
+            if (value == NULL) goto fail;
             stack_pointer[0] = value;
             stack_pointer += 1;
             break;
@@ -897,6 +952,7 @@
                 DECREF(pieces[_i]);
             }
             str = UNKNOWN();
+            if (str == NULL) goto fail;
             stack_pointer[-oparg] = str;
             stack_pointer += 1 - oparg;
             break;
@@ -911,6 +967,7 @@
                 DECREF(values[_i]);
             }
             tup = UNKNOWN();
+            if (tup == NULL) goto fail;
             stack_pointer[-oparg] = tup;
             stack_pointer += 1 - oparg;
             break;
@@ -925,6 +982,7 @@
                 DECREF(values[_i]);
             }
             list = UNKNOWN();
+            if (list == NULL) goto fail;
             stack_pointer[-oparg] = list;
             stack_pointer += 1 - oparg;
             break;
@@ -957,6 +1015,7 @@
                 DECREF(values[_i]);
             }
             set = UNKNOWN();
+            if (set == NULL) goto fail;
             stack_pointer[-oparg] = set;
             stack_pointer += 1 - oparg;
             break;
@@ -971,6 +1030,7 @@
                 DECREF(values[_i]);
             }
             map = UNKNOWN();
+            if (map == NULL) goto fail;
             stack_pointer[-oparg*2] = map;
             stack_pointer += 1 - oparg*2;
             break;
@@ -993,6 +1053,7 @@
             }
             DECREF(keys);
             map = UNKNOWN();
+            if (map == NULL) goto fail;
             stack_pointer[-1 - oparg] = map;
             stack_pointer += -oparg;
             break;
@@ -1043,6 +1104,7 @@
             DECREF(class);
             DECREF(self);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             stack_pointer[-3] = attr;
             stack_pointer += -2 + ((0) ? 1 : 0);
             break;
@@ -1062,7 +1124,9 @@
             DECREF(class);
             DECREF(self);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             self_or_null = UNKNOWN();
+            if (self_or_null == NULL) goto fail;
             stack_pointer[-3] = attr;
             stack_pointer[-2] = self_or_null;
             stack_pointer += -1;
@@ -1077,7 +1141,9 @@
             DEBUG_PRINTF(owner);
             DECREF(owner);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             self_or_null = UNKNOWN();
+            if (self_or_null == NULL) goto fail;
             stack_pointer[-1] = attr;
             if (oparg & 1) stack_pointer[0] = self_or_null;
             stack_pointer += (oparg & 1);
@@ -1102,7 +1168,9 @@
             DEBUG_PRINTF(owner);
             DECREF(owner);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             null = NULL_VALUE();
+            if (null == NULL) goto fail;
             stack_pointer[-1] = attr;
             if (oparg & 1) stack_pointer[0] = null;
             stack_pointer += (oparg & 1);
@@ -1122,7 +1190,9 @@
             DEBUG_PRINTF(owner);
             DECREF(owner);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             null = NULL_VALUE();
+            if (null == NULL) goto fail;
             stack_pointer[-1] = attr;
             if (oparg & 1) stack_pointer[0] = null;
             stack_pointer += (oparg & 1);
@@ -1142,7 +1212,9 @@
             DEBUG_PRINTF(owner);
             DECREF(owner);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             null = NULL_VALUE();
+            if (null == NULL) goto fail;
             stack_pointer[-1] = attr;
             if (oparg & 1) stack_pointer[0] = null;
             stack_pointer += (oparg & 1);
@@ -1157,7 +1229,9 @@
             DEBUG_PRINTF(owner);
             DECREF(owner);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             null = NULL_VALUE();
+            if (null == NULL) goto fail;
             stack_pointer[-1] = attr;
             if (oparg & 1) stack_pointer[0] = null;
             stack_pointer += (oparg & 1);
@@ -1177,7 +1251,9 @@
             DEBUG_PRINTF(owner);
             DECREF(owner);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             null = NULL_VALUE();
+            if (null == NULL) goto fail;
             stack_pointer[-1] = attr;
             if (oparg & 1) stack_pointer[0] = null;
             stack_pointer += (oparg & 1);
@@ -1229,6 +1305,7 @@
             DECREF(left);
             DECREF(right);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -1241,9 +1318,10 @@
             right = stack_pointer[-1];
             left = stack_pointer[-2];
             DEBUG_PRINTF(left, right);
-            DECREF(left);
-            DECREF(right);
-            res = UNKNOWN();
+            promote_to_type(left, &PyFloat_Type);
+            promote_to_type(right, &PyFloat_Type);
+            res = new_from_type(&PyBool_Type, space);
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -1256,9 +1334,10 @@
             right = stack_pointer[-1];
             left = stack_pointer[-2];
             DEBUG_PRINTF(left, right);
-            DECREF(left);
-            DECREF(right);
-            res = UNKNOWN();
+            promote_to_type(left, &PyLong_Type);
+            promote_to_type(right, &PyLong_Type);
+            res = new_from_type(&PyBool_Type, space);
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -1271,9 +1350,10 @@
             right = stack_pointer[-1];
             left = stack_pointer[-2];
             DEBUG_PRINTF(left, right);
-            DECREF(left);
-            DECREF(right);
-            res = UNKNOWN();
+            promote_to_type(left, &PyUnicode_Type);
+            promote_to_type(right, &PyUnicode_Type);
+            res = new_from_type(&PyBool_Type, space);
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -1286,9 +1366,14 @@
             right = stack_pointer[-1];
             left = stack_pointer[-2];
             DEBUG_PRINTF(left, right);
-            DECREF(left);
-            DECREF(right);
-            b = UNKNOWN();
+            if (is_constant(left) && is_constant(right)) {
+                PyObject *o = get_constant(left) == get_constant(right) ? Py_True : Py_False;
+                b = new_constant(o, space);
+            }
+            else {
+                b = new_from_type(&PyBool_Type, space);
+            }
+            if (b == NULL) goto fail;
             stack_pointer[-2] = b;
             stack_pointer += -1;
             break;
@@ -1301,9 +1386,8 @@
             right = stack_pointer[-1];
             left = stack_pointer[-2];
             DEBUG_PRINTF(left, right);
-            DECREF(left);
-            DECREF(right);
-            b = UNKNOWN();
+            b = new_from_type(&PyBool_Type, space);
+            if (b == NULL) goto fail;
             stack_pointer[-2] = b;
             stack_pointer += -1;
             break;
@@ -1320,7 +1404,9 @@
             DECREF(exc_value);
             DECREF(match_type);
             rest = UNKNOWN();
+            if (rest == NULL) goto fail;
             match = UNKNOWN();
+            if (match == NULL) goto fail;
             stack_pointer[-2] = rest;
             stack_pointer[-1] = match;
             break;
@@ -1333,6 +1419,7 @@
             DEBUG_PRINTF(right);
             DECREF(right);
             b = UNKNOWN();
+            if (b == NULL) goto fail;
             stack_pointer[-1] = b;
             break;
         }
@@ -1350,6 +1437,7 @@
             DEBUG_PRINTF(value);
             DECREF(value);
             b = UNKNOWN();
+            if (b == NULL) goto fail;
             stack_pointer[-1] = b;
             break;
         }
@@ -1358,6 +1446,7 @@
             SpecializerValue *len_o;
             DEBUG_PRINTF();
             len_o = UNKNOWN();
+            if (len_o == NULL) goto fail;
             stack_pointer[0] = len_o;
             stack_pointer += 1;
             break;
@@ -1376,6 +1465,7 @@
             DECREF(type);
             DECREF(names);
             attrs = UNKNOWN();
+            if (attrs == NULL) goto fail;
             stack_pointer[-3] = attrs;
             stack_pointer += -2;
             break;
@@ -1385,6 +1475,7 @@
             SpecializerValue *res;
             DEBUG_PRINTF();
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[0] = res;
             stack_pointer += 1;
             break;
@@ -1394,6 +1485,7 @@
             SpecializerValue *res;
             DEBUG_PRINTF();
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[0] = res;
             stack_pointer += 1;
             break;
@@ -1403,6 +1495,7 @@
             SpecializerValue *values_or_none;
             DEBUG_PRINTF();
             values_or_none = UNKNOWN();
+            if (values_or_none == NULL) goto fail;
             stack_pointer[0] = values_or_none;
             stack_pointer += 1;
             break;
@@ -1415,6 +1508,7 @@
             DEBUG_PRINTF(iterable);
             DECREF(iterable);
             iter = UNKNOWN();
+            if (iter == NULL) goto fail;
             stack_pointer[-1] = iter;
             break;
         }
@@ -1426,6 +1520,7 @@
             DEBUG_PRINTF(iterable);
             DECREF(iterable);
             iter = UNKNOWN();
+            if (iter == NULL) goto fail;
             stack_pointer[-1] = iter;
             break;
         }
@@ -1436,6 +1531,7 @@
             SpecializerValue *next;
             DEBUG_PRINTF();
             next = UNKNOWN();
+            if (next == NULL) goto fail;
             stack_pointer[0] = next;
             stack_pointer += 1;
             break;
@@ -1459,6 +1555,7 @@
             SpecializerValue *next;
             DEBUG_PRINTF();
             next = UNKNOWN();
+            if (next == NULL) goto fail;
             stack_pointer[0] = next;
             stack_pointer += 1;
             break;
@@ -1480,6 +1577,7 @@
             SpecializerValue *next;
             DEBUG_PRINTF();
             next = UNKNOWN();
+            if (next == NULL) goto fail;
             stack_pointer[0] = next;
             stack_pointer += 1;
             break;
@@ -1498,9 +1596,12 @@
         }
 
         case _ITER_NEXT_RANGE: {
+            SpecializerValue *iter;
             SpecializerValue *next;
-            DEBUG_PRINTF();
-            next = UNKNOWN();
+            iter = stack_pointer[-1];
+            DEBUG_PRINTF(iter);
+            next = new_from_type(&PyLong_Type, space);
+            if (next == NULL) goto fail;
             stack_pointer[0] = next;
             stack_pointer += 1;
             break;
@@ -1516,7 +1617,9 @@
             DEBUG_PRINTF(mgr);
             DECREF(mgr);
             exit = UNKNOWN();
+            if (exit == NULL) goto fail;
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-1] = exit;
             stack_pointer[0] = res;
             stack_pointer += 1;
@@ -1531,7 +1634,9 @@
             DEBUG_PRINTF(mgr);
             DECREF(mgr);
             exit = UNKNOWN();
+            if (exit == NULL) goto fail;
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-1] = exit;
             stack_pointer[0] = res;
             stack_pointer += 1;
@@ -1542,6 +1647,7 @@
             SpecializerValue *res;
             DEBUG_PRINTF();
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[0] = res;
             stack_pointer += 1;
             break;
@@ -1554,7 +1660,9 @@
             DEBUG_PRINTF(new_exc);
             DECREF(new_exc);
             prev_exc = UNKNOWN();
+            if (prev_exc == NULL) goto fail;
             new_exc = UNKNOWN();
+            if (new_exc == NULL) goto fail;
             stack_pointer[-1] = prev_exc;
             stack_pointer[0] = new_exc;
             stack_pointer += 1;
@@ -1579,7 +1687,9 @@
             DEBUG_PRINTF(owner);
             DECREF(owner);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             self = UNKNOWN();
+            if (self == NULL) goto fail;
             stack_pointer[-1] = attr;
             if (1) stack_pointer[0] = self;
             stack_pointer += ((1) ? 1 : 0);
@@ -1594,7 +1704,9 @@
             DEBUG_PRINTF(owner);
             DECREF(owner);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             self = UNKNOWN();
+            if (self == NULL) goto fail;
             stack_pointer[-1] = attr;
             if (1) stack_pointer[0] = self;
             stack_pointer += ((1) ? 1 : 0);
@@ -1608,6 +1720,7 @@
             DEBUG_PRINTF(owner);
             DECREF(owner);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             stack_pointer[-1] = attr;
             stack_pointer += ((0) ? 1 : 0);
             break;
@@ -1620,6 +1733,7 @@
             DEBUG_PRINTF(owner);
             DECREF(owner);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             stack_pointer[-1] = attr;
             stack_pointer += ((0) ? 1 : 0);
             break;
@@ -1638,7 +1752,9 @@
             DEBUG_PRINTF(owner);
             DECREF(owner);
             attr = UNKNOWN();
+            if (attr == NULL) goto fail;
             self = UNKNOWN();
+            if (self == NULL) goto fail;
             stack_pointer[-1] = attr;
             if (1) stack_pointer[0] = self;
             stack_pointer += ((1) ? 1 : 0);
@@ -1662,7 +1778,9 @@
             DEBUG_PRINTF(callable, unused);
             DECREF(callable);
             func = UNKNOWN();
+            if (func == NULL) goto fail;
             self = UNKNOWN();
+            if (self == NULL) goto fail;
             stack_pointer[-2] = func;
             stack_pointer[-1] = self;
             break;
@@ -1728,6 +1846,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1748,6 +1867,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1768,6 +1888,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1799,6 +1920,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1819,6 +1941,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1839,6 +1962,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1859,6 +1983,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1879,6 +2004,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1899,6 +2025,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1919,6 +2046,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1939,6 +2067,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1959,6 +2088,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1979,6 +2109,7 @@
                 DECREF(args[_i]);
             }
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2 - oparg] = res;
             stack_pointer += -1 - oparg;
             break;
@@ -1999,6 +2130,7 @@
             DEBUG_PRINTF(codeobj);
             DECREF(codeobj);
             func = UNKNOWN();
+            if (func == NULL) goto fail;
             stack_pointer[-1] = func;
             break;
         }
@@ -2012,6 +2144,7 @@
             DECREF(attr);
             DECREF(func);
             func = UNKNOWN();
+            if (func == NULL) goto fail;
             stack_pointer[-2] = func;
             stack_pointer += -1;
             break;
@@ -2030,6 +2163,7 @@
             DECREF(stop);
             if (step != NULL) DECREF(step);
             slice = UNKNOWN();
+            if (slice == NULL) goto fail;
             stack_pointer[-2 - ((oparg == 3) ? 1 : 0)] = slice;
             stack_pointer += -1 - ((oparg == 3) ? 1 : 0);
             break;
@@ -2042,6 +2176,7 @@
             DEBUG_PRINTF(value);
             DECREF(value);
             result = UNKNOWN();
+            if (result == NULL) goto fail;
             stack_pointer[-1] = result;
             break;
         }
@@ -2053,6 +2188,7 @@
             DEBUG_PRINTF(value);
             DECREF(value);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-1] = res;
             break;
         }
@@ -2067,6 +2203,7 @@
             DECREF(value);
             DECREF(fmt_spec);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -2094,6 +2231,7 @@
             DECREF(lhs);
             DECREF(rhs);
             res = UNKNOWN();
+            if (res == NULL) goto fail;
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
@@ -2182,36 +2320,37 @@
             break;
         }
 
-        case _INSERT: {
-            SpecializerValue *top;
-            top = stack_pointer[-1];
-            DEBUG_PRINTF(unused, top);
-            DECREF(top);
-            top = UNKNOWN();
-            stack_pointer[-1 - oparg] = top;
-            break;
-        }
-
         case _CHECK_VALIDITY: {
             DEBUG_PRINTF();
             break;
         }
 
-        case _LOAD_INLINE_CONST: {
-            SpecializerValue *res;
+        case _LOAD_CONST_INLINE: {
+            SpecializerValue *value;
             DEBUG_PRINTF();
-            res = UNKNOWN();
-            stack_pointer[0] = res;
+            value = UNKNOWN();
+            if (value == NULL) goto fail;
+            stack_pointer[0] = value;
             stack_pointer += 1;
             break;
         }
 
-        case _LOAD_INLINE_IMMORTAL_CONST: {
-            SpecializerValue *res;
+        case _LOAD_CONST_INLINE_BORROW: {
+            SpecializerValue *value;
             DEBUG_PRINTF();
-            res = UNKNOWN();
-            stack_pointer[0] = res;
+            value = UNKNOWN();
+            if (value == NULL) goto fail;
+            stack_pointer[0] = value;
             stack_pointer += 1;
+            break;
+        }
+
+        case _INTERNAL_INCREMENT_OPT_COUNTER: {
+            SpecializerValue *opt;
+            opt = stack_pointer[-1];
+            DEBUG_PRINTF(opt);
+            DECREF(opt);
+            stack_pointer += -1;
             break;
         }
 

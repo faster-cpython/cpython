@@ -97,7 +97,7 @@ dump_uops(_PyUOpInstruction *buffer, int n)
         int opcode = buffer[i].opcode;
         int oparg = buffer[i].oparg;
         int operand = buffer[i].operand;
-        printf("    %s oparg: %d, operand: %d\n",
+        printf("%d: %s oparg: %d, operand: %d\n", i,
                _PyOpcode_uop_name[opcode],
                oparg, operand);
         if (opcode == _EXIT_TRACE || opcode == _JUMP_TO_TOP) {
@@ -116,13 +116,13 @@ _Py_uop_analyze_and_optimize(
     _PyBloomFilter* dependencies
 )
 {
-    dump_uops(buffer, buffer_size);
-    peephole_opt(co, buffer, buffer_size);
+    // dump_uops(buffer, buffer_size);
     int mod = _Py_Tier2_Specialize(co, buffer, buffer_size, curr_stackdepth, dependencies);
     if (mod) {
-        printf("MODIFIED ");
-        dump_uops(buffer, buffer_size);
+        // printf("MODIFIED ");
+        // dump_uops(buffer, buffer_size);
     }
+    peephole_opt(co, buffer, buffer_size);
     remove_unneeded_uops(buffer, buffer_size);
     return 0;
 }

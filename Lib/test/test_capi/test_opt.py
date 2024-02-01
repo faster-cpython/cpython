@@ -291,7 +291,7 @@ class TestUops(unittest.TestCase):
 
         opt = _testinternalcapi.get_uop_optimizer()
         with temporary_optimizer(opt):
-            testfunc(range(20))
+            testfunc(list(range(20)))
 
         ex = get_first_executor(testfunc)
         self.assertIsNotNone(ex)
@@ -301,13 +301,12 @@ class TestUops(unittest.TestCase):
     def test_pop_jump_if_not_none(self):
         def testfunc(a):
             for x in a:
-                x = None
                 if x is not None:
                     x = 0
 
         opt = _testinternalcapi.get_uop_optimizer()
         with temporary_optimizer(opt):
-            testfunc(range(20))
+            testfunc([None] * 20)
 
         ex = get_first_executor(testfunc)
         self.assertIsNotNone(ex)
