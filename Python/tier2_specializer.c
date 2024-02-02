@@ -33,7 +33,7 @@ extern void promote_to_type(SpecializerValue *o, PyTypeObject *t);
 extern SpecializerSpace *initialize_space(void *memory, int size);
 
 
-static void
+static int
 dummy_func(void) {
 
     PyCodeObject *code;
@@ -97,6 +97,35 @@ dummy_func(void) {
         if (value == NULL) {
             goto fail;
         }
+    }
+
+    op(_LOAD_CONST_INLINE, (ptr/4 -- value)) {
+        PyObject *k = ptr;
+        value = new_constant(k, space);
+        if (value == NULL) goto fail;
+    }
+
+    op(_LOAD_CONST_INLINE_BORROW, (ptr/4 -- value)) {
+
+        PyObject *k = ptr;
+        value = new_constant(k, space);
+        if (value == NULL) goto fail;
+    }
+
+    op(_LOAD_CONST_INLINE_WITH_NULL, (ptr/4 -- value, null)) {
+        PyObject *k = ptr;
+        value = new_constant(k, space);
+        if (value == NULL) goto fail;
+        null = new_null(space);
+        if (null == NULL) goto fail;
+    }
+
+    op(_LOAD_CONST_INLINE_BORROW_WITH_NULL, (ptr/4 -- value, null)) {
+        PyObject *k = ptr;
+        value = new_constant(k, space);
+        if (value == NULL) goto fail;
+        null = new_null(space);
+        if (null == NULL) goto fail;
     }
 
     op(_TO_BOOL_BOOL, (value -- value)) {
@@ -217,14 +246,6 @@ dummy_func(void) {
         if (b == NULL) goto fail;
     }
 
-    op(_JUMP_TO_TOP, (--)) {
-        return modified;
-    }
-
-    op(_EXIT_TRACE, (--)) {
-        return modified;
-    }
-
     op(_ITER_NEXT_RANGE, (iter -- iter, next)) {
         next = new_from_type(&PyLong_Type, space);
         if (next == NULL) goto fail;
@@ -257,6 +278,45 @@ dummy_func(void) {
                 goto fail;
             }
         }
+    }
+
+    op(_CHECK_ATTR_CLASS, (type_version/2, owner -- owner)) {
+        if (is_constant(owner)) {
+            PyObject *tp = get_constant(owner);
+            if (PyType_Check(tp) && ((PyTypeObject *)tp)->tp_version_tag == type_version) {
+                if (PyType_Watch(TYPE_WATCHER_ID, tp)) {
+                    return -1;
+                }
+                _Py_BloomFilter_Add(dependencies, tp);
+                this_instr[-1].opcode = _NOP;
+            }
+        }
+    }
+
+    op(_LOAD_ATTR_CLASS, (descr/4, owner -- attr, null if (oparg & 1))) {
+        if (this_instr[-1].opcode == _NOP) {
+            this_instr[-1].opcode = _POP_TOP;
+            global_to_const(this_instr, descr);
+            attr = new_constant(descr, space);
+        }
+        else {
+            // We don't know if descr is still a valid object,
+            // so we cannot treat it as a constant,
+            // even though it would be if we reached this point.
+            attr = new_unknown(space);
+        }
+        if (attr == NULL) goto fail;
+        null = new_null(space);
+        if (null == NULL) goto fail;
+    }
+
+
+    op(_JUMP_TO_TOP, (--)) {
+        return modified;
+    }
+
+    op(_EXIT_TRACE, (--)) {
+        return modified;
     }
 
 

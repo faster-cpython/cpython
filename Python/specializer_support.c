@@ -1,5 +1,6 @@
 #include "Python.h"
 #include "opcode.h"
+#include "pycore_dict.h"
 #include "pycore_object.h"
 #include "pycore_uop_ids.h"
 #include "pycore_uop_metadata.h"
@@ -349,6 +350,39 @@ guard_none(_PyUOpInstruction *this_instr, SpecializerValue *flag, int test_is_no
 
 #define DECREF(VAL) ((void)(VAL))
 
+/* Copied from optimizer analysis. TO DO -- DRY. */
+static void
+global_to_const(_PyUOpInstruction *inst, PyObject *obj)
+{
+    assert(inst->opcode == _LOAD_GLOBAL_MODULE || inst->opcode == _LOAD_GLOBAL_BUILTINS);
+    assert(PyDict_CheckExact(obj));
+    PyDictObject *dict = (PyDictObject *)obj;
+    assert(dict->ma_keys->dk_kind == DICT_KEYS_UNICODE);
+    PyDictUnicodeEntry *entries = DK_UNICODE_ENTRIES(dict->ma_keys);
+    assert(inst->operand <= UINT16_MAX);
+    PyObject *res = entries[inst->operand].me_value;
+    if (res == NULL) {
+        return;
+    }
+    if (_Py_IsImmortal(res)) {
+        inst->opcode = (inst->oparg & 1) ? _LOAD_CONST_INLINE_BORROW_WITH_NULL : _LOAD_CONST_INLINE_BORROW;
+    }
+    else {
+        inst->opcode = (inst->oparg & 1) ? _LOAD_CONST_INLINE_WITH_NULL : _LOAD_CONST_INLINE;
+    }
+    inst->operand = (uint64_t)res;
+}
+
+
+static int
+type_callback(PyTypeObject * t)
+{
+    _Py_Executors_InvalidateDependency(_PyInterpreterState_GET(), t);
+    return 0;
+}
+
+#define TYPE_WATCHER_ID 0
+
 int
 _Py_Tier2_Specialize(PyCodeObject *code, _PyUOpInstruction *buffer,
            int buffer_size, int curr_stackdepth,
@@ -363,6 +397,7 @@ _Py_Tier2_Specialize(PyCodeObject *code, _PyUOpInstruction *buffer,
     if (frame == NULL) {
         return 0;
     }
+    _PyInterpreterState_GET()->type_watchers[TYPE_WATCHER_ID] = type_callback;
     SpecializerValue **stack_pointer = get_stack_pointer(frame) + curr_stackdepth;
     int modified = 0;
     for (_PyUOpInstruction *this_instr = buffer; ; this_instr++) {

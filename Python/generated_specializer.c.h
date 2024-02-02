@@ -1239,7 +1239,20 @@
         }
 
         case _CHECK_ATTR_CLASS: {
-            DEBUG_PRINTF();
+            SpecializerValue *owner;
+            owner = stack_pointer[-1];
+            DEBUG_PRINTF(owner);
+            uint32_t type_version = (uint32_t)this_instr->operand;
+            if (is_constant(owner)) {
+                PyObject *tp = get_constant(owner);
+                if (PyType_Check(tp) && ((PyTypeObject *)tp)->tp_version_tag == type_version) {
+                    if (PyType_Watch(TYPE_WATCHER_ID, tp)) {
+                        return -1;
+                    }
+                    _Py_BloomFilter_Add(dependencies, tp);
+                    this_instr[-1].opcode = _NOP;
+                }
+            }
             break;
         }
 
@@ -1249,10 +1262,19 @@
             SpecializerValue *null = NULL;
             owner = stack_pointer[-1];
             DEBUG_PRINTF(owner);
-            DECREF(owner);
-            attr = UNKNOWN();
+            PyObject *descr = (PyObject *)this_instr->operand;
+            if (this_instr[-1].opcode == _NOP) {
+                this_instr[-1].opcode = _POP_TOP;
+                global_to_const(this_instr, descr);
+                attr = new_constant(descr, space);
+            }
+            else {
+                // We don't know if descr is still a valid object, so we cannot treat it as a constant,
+                // even though it would be if we reached this point.
+                attr = new_unknown(space);
+            }
             if (attr == NULL) goto fail;
-            null = NULL_VALUE();
+            null = new_null(space);
             if (null == NULL) goto fail;
             stack_pointer[-1] = attr;
             if (oparg & 1) stack_pointer[0] = null;
@@ -2328,7 +2350,9 @@
         case _LOAD_CONST_INLINE: {
             SpecializerValue *value;
             DEBUG_PRINTF();
-            value = UNKNOWN();
+            PyObject *ptr = (PyObject *)this_instr->operand;
+            PyObject *k = ptr;
+            value = new_constant(k, space);
             if (value == NULL) goto fail;
             stack_pointer[0] = value;
             stack_pointer += 1;
@@ -2338,10 +2362,54 @@
         case _LOAD_CONST_INLINE_BORROW: {
             SpecializerValue *value;
             DEBUG_PRINTF();
-            value = UNKNOWN();
+            PyObject *ptr = (PyObject *)this_instr->operand;
+            PyObject *k = ptr;
+            value = new_constant(k, space);
             if (value == NULL) goto fail;
             stack_pointer[0] = value;
             stack_pointer += 1;
+            break;
+        }
+
+        case _LOAD_CONST_INLINE_WITH_NULL: {
+            SpecializerValue *value;
+            SpecializerValue *null;
+            DEBUG_PRINTF();
+            PyObject *ptr = (PyObject *)this_instr->operand;
+            PyObject *k = ptr;
+            value = new_constant(k, space);
+            if (value == NULL) goto fail;
+            null = new_null(space);
+            if (null == NULL) goto fail;
+            stack_pointer[0] = value;
+            stack_pointer[1] = null;
+            stack_pointer += 2;
+            break;
+        }
+
+        case _LOAD_CONST_INLINE_BORROW_WITH_NULL: {
+            SpecializerValue *value;
+            SpecializerValue *null;
+            DEBUG_PRINTF();
+            PyObject *ptr = (PyObject *)this_instr->operand;
+            PyObject *k = ptr;
+            value = new_constant(k, space);
+            if (value == NULL) goto fail;
+            null = new_null(space);
+            if (null == NULL) goto fail;
+            stack_pointer[0] = value;
+            stack_pointer[1] = null;
+            stack_pointer += 2;
+            break;
+        }
+
+        case _CHECK_GLOBALS: {
+            DEBUG_PRINTF();
+            break;
+        }
+
+        case _CHECK_BUILTINS: {
+            DEBUG_PRINTF();
             break;
         }
 

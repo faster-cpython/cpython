@@ -146,6 +146,10 @@ def write_uop(
             for i, var in enumerate(prototype.stack.outputs):
                 if not var.peek or peeks:
                     out.emit(stack.push(var))
+        #for i, var in enumerate(prototype.stack.outputs):
+        #    if not var.peek or peeks:
+        #        if var.name != "unused":
+        #            out.emit(f"assert({var.name} != NULL);\n")
         out.start_line()
         stack.flush(out)
     except SizeMismatch as ex:

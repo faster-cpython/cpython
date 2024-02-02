@@ -709,7 +709,7 @@ PyType_AddWatcher(PyType_WatchCallback callback)
 {
     PyInterpreterState *interp = _PyInterpreterState_GET();
 
-    for (int i = 0; i < TYPE_MAX_WATCHERS; i++) {
+    for (int i = 1; i < TYPE_MAX_WATCHERS; i++) {
         if (!interp->type_watchers[i]) {
             interp->type_watchers[i] = callback;
             return i;
