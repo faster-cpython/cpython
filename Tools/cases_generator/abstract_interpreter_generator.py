@@ -23,7 +23,7 @@ from generators_common import (
     write_header,
     emit_tokens,
     emit_to,
-    REPLACEMENT_FUNCTIONS,
+    replace_sync_sp,
 )
 from cwriter import CWriter
 from typing import TextIO, Iterator
@@ -139,7 +139,11 @@ def write_uop(
                         type = f"uint{cache.size*16}_t "
                         cast = f"uint{cache.size*16}_t"
                     out.emit(f"{type}{cache.name} = ({cast})this_instr->operand;\n")
-            emit_tokens(out, override, stack, None, {"DECREF_INPUTS": decref_inputs})
+            replacement_funcs = {
+                "DECREF_INPUTS": decref_inputs,
+                "SYNC_SP": replace_sync_sp
+            }
+            emit_tokens(out, override, stack, None, replacement_funcs)
         else:
             emit_default(out, uop)
         if prototype.properties.stores_sp:

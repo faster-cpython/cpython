@@ -92,7 +92,7 @@ dummy_func(void) {
     }
 
     op(_LOAD_CONST, (-- value)) {
-        PyObject *k = PyTuple_GET_ITEM(code->co_consts, oparg);
+        PyObject *k = PyTuple_GET_ITEM(frame->code->co_consts, oparg);
         value = new_constant(k, space);
         if (value == NULL) {
             goto fail;
@@ -106,7 +106,6 @@ dummy_func(void) {
     }
 
     op(_LOAD_CONST_INLINE_BORROW, (ptr/4 -- value)) {
-
         PyObject *k = ptr;
         value = new_constant(k, space);
         if (value == NULL) goto fail;
@@ -251,22 +250,65 @@ dummy_func(void) {
         if (next == NULL) goto fail;
     }
 
-    // Because this has type annotations we need to override it
-    op(_INIT_CALL_PY_EXACT_ARGS, (callable, self_or_null, args[oparg] -- new_frame)) {
-        (void)callable;
-        (void)self_or_null;
-        (void)args;
-        return modified;
+    op(_CHECK_FUNCTION_EXACT_ARGS, (func_version/2, callable, self_or_null, unused[oparg] -- callable, self_or_null, unused[oparg])) {
+        promote_to_type(callable, &PyFunction_Type);
+        /* Is this safe? */
+        if (is_constant(callable)) {
+            PyFunctionObject *func = (PyFunctionObject *)get_constant(callable);
+            if (func->func_version != func_version) {
+                return 0;
+            }
+            if (PyFunction_Check(func)) {
+                PyCodeObject *code = (PyCodeObject *)func->func_code;
+                if (code->co_argcount == oparg) {
+                    promote_to_null(self_or_null);
+                }
+                else if (code->co_argcount == oparg + 1) {
+                    promote_to_not_null(self_or_null);
+                }
+            }
+        }
     }
 
-    op(_POP_FRAME, (retval --)) {
-        (void)retval;
-        return modified;
+    op(_INIT_CALL_PY_EXACT_ARGS, (callable, self_or_null, args[oparg] -- new_frame: SpecializerFrame *)) {
+        if (!is_constant(callable)) {
+            return modified;
+        }
+        if (is_null(self_or_null)) {
+            /* pass */
+        }
+        else if (is_not_null(self_or_null)) {
+            args--;
+            oparg++;
+        }
+        else {
+            return modified;
+        }
+        /* Is this safe? */
+        PyFunctionObject *func = (PyFunctionObject *)get_constant(callable);
+        if (!PyFunction_Check(func)) {
+            return modified;
+        }
+        PyCodeObject *code = (PyCodeObject *)func->func_code;
+        new_frame = make_frame(code, space, 0);
+        for (int i = 0; i < oparg; i++) {
+            set_local(new_frame, i, args[i]);
+        }
     }
 
-    op(_PUSH_FRAME, (new_frame -- unused if (0))) {
-        (void)new_frame;
-        return modified;
+    op(_POP_FRAME, (retval -- res)) {
+        SYNC_SP();
+        frame = pop_frame(frame, space);
+        stack_pointer = get_stack_pointer(frame);
+        res = retval;
+    }
+
+    op(_PUSH_FRAME, (new_frame: SpecializerFrame * -- unused if (0))) {
+        SYNC_SP();
+        set_stack_pointer(frame, stack_pointer);
+        new_frame->previous = frame;
+        frame = new_frame;
+        stack_pointer = get_stack_pointer(new_frame);
     }
 
     op(_UNPACK_EX, (seq -- values[oparg & 0xFF], unused, unused[oparg >> 8])) {
@@ -288,7 +330,7 @@ dummy_func(void) {
                     return -1;
                 }
                 _Py_BloomFilter_Add(dependencies, tp);
-                this_instr[-1].opcode = _NOP;
+                this_instr->opcode = _NOP;
             }
         }
     }
@@ -310,6 +352,44 @@ dummy_func(void) {
         if (null == NULL) goto fail;
     }
 
+    op(_CHECK_ATTR_MODULE, (type_version/2, owner -- owner)) {
+        promote_to_type(owner, &PyModule_Type);
+        if (is_constant(owner)) {
+            PyModuleObject *mod = (PyModuleObject *)get_constant(owner);
+            assert(PyModule_Check(mod));
+            PyObject *dict = mod->md_dict;
+            if (PyDict_Watch(1, dict)) {
+                return -1;
+            }
+            _Py_BloomFilter_Add(dependencies, dict);
+            this_instr->opcode = _NOP;
+        }
+    }
+
+    op(_LOAD_ATTR_MODULE, (index/1, owner -- attr, null if (oparg & 1))) {
+        if (this_instr[-1].opcode == _NOP) {
+            assert(is_constant(owner));
+            PyModuleObject *mod = (PyModuleObject *)get_constant(owner);
+            assert(PyModule_Check(mod));
+            PyDictObject *dict = (PyDictObject *)mod->md_dict;
+            PyDictUnicodeEntry *ep = DK_UNICODE_ENTRIES(dict->ma_keys) + index;
+            PyObject *val = ep->me_value;
+            if (val != NULL) {
+                this_instr[-1].opcode = _POP_TOP;
+                global_to_const(this_instr, val);
+                attr = new_constant(val, space);
+            }
+            else {
+                attr = new_unknown(space);
+            }
+        }
+        else {
+           attr = new_unknown(space);
+        }
+        if (attr == NULL) goto fail;
+        null = new_null(space);
+        if (null == NULL) goto fail;
+    }
 
     op(_JUMP_TO_TOP, (--)) {
         return modified;

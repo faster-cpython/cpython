@@ -49,7 +49,7 @@
         case _LOAD_CONST: {
             SpecializerValue *value;
             DEBUG_PRINTF();
-            PyObject *k = PyTuple_GET_ITEM(code->co_consts, oparg);
+            PyObject *k = PyTuple_GET_ITEM(frame->code->co_consts, oparg);
             value = new_constant(k, space);
             if (value == NULL) {
                 goto fail;
@@ -600,11 +600,15 @@
 
         case _POP_FRAME: {
             SpecializerValue *retval;
+            SpecializerValue *res;
             retval = stack_pointer[-1];
             DEBUG_PRINTF(retval);
-            (void)retval;
-            return modified;
             stack_pointer += -1;
+            frame = pop_frame(frame, space);
+            stack_pointer = get_stack_pointer(frame);
+            res = retval;
+            stack_pointer[0] = res;
+            stack_pointer += 1;
             break;
         }
 
@@ -1178,7 +1182,21 @@
         }
 
         case _CHECK_ATTR_MODULE: {
-            DEBUG_PRINTF();
+            SpecializerValue *owner;
+            owner = stack_pointer[-1];
+            DEBUG_PRINTF(owner);
+            uint32_t type_version = (uint32_t)this_instr->operand;
+            promote_to_type(owner, &PyModule_Type);
+            if (is_constant(owner)) {
+                PyModuleObject *mod = (PyModuleObject *)get_constant(owner);
+                assert(PyModule_Check(mod));
+                PyObject *dict = mod->md_dict;
+                if (PyDict_Watch(1, dict)) {
+                    return -1;
+                }
+                _Py_BloomFilter_Add(dependencies, dict);
+                this_instr->opcode = _NOP;
+            }
             break;
         }
 
@@ -1188,10 +1206,28 @@
             SpecializerValue *null = NULL;
             owner = stack_pointer[-1];
             DEBUG_PRINTF(owner);
-            DECREF(owner);
-            attr = UNKNOWN();
+            uint16_t index = (uint16_t)this_instr->operand;
+            if (this_instr[-1].opcode == _NOP) {
+                assert(is_constant(owner));
+                PyModuleObject *mod = (PyModuleObject *)get_constant(owner);
+                assert(PyModule_Check(mod));
+                PyDictObject *dict = (PyDictObject *)mod->md_dict;
+                PyDictUnicodeEntry *ep = DK_UNICODE_ENTRIES(dict->ma_keys) + index;
+                PyObject *val = ep->me_value;
+                if (val != NULL) {
+                    this_instr[-1].opcode = _POP_TOP;
+                    global_to_const(this_instr, val);
+                    attr = new_constant(val, space);
+                }
+                else {
+                    attr = new_unknown(space);
+                }
+            }
+            else {
+                attr = new_unknown(space);
+            }
             if (attr == NULL) goto fail;
-            null = NULL_VALUE();
+            null = new_null(space);
             if (null == NULL) goto fail;
             stack_pointer[-1] = attr;
             if (oparg & 1) stack_pointer[0] = null;
@@ -1250,7 +1286,7 @@
                         return -1;
                     }
                     _Py_BloomFilter_Add(dependencies, tp);
-                    this_instr[-1].opcode = _NOP;
+                    this_instr->opcode = _NOP;
                 }
             }
             break;
@@ -1269,7 +1305,8 @@
                 attr = new_constant(descr, space);
             }
             else {
-                // We don't know if descr is still a valid object, so we cannot treat it as a constant,
+                // We don't know if descr is still a valid object,
+                // so we cannot treat it as a constant,
                 // even though it would be if we reached this point.
                 attr = new_unknown(space);
             }
@@ -1814,7 +1851,29 @@
         }
 
         case _CHECK_FUNCTION_EXACT_ARGS: {
-            DEBUG_PRINTF();
+            SpecializerValue *self_or_null;
+            SpecializerValue *callable;
+            self_or_null = stack_pointer[-1 - oparg];
+            callable = stack_pointer[-2 - oparg];
+            DEBUG_PRINTF(callable, self_or_null, unused);
+            uint32_t func_version = (uint32_t)this_instr->operand;
+            promote_to_type(callable, &PyFunction_Type);
+            /* Is this safe? */
+            if (is_constant(callable)) {
+                PyFunctionObject *func = (PyFunctionObject *)get_constant(callable);
+                if (func->func_version != func_version) {
+                    return 0;
+                }
+                if (PyFunction_Check(func)) {
+                    PyCodeObject *code = (PyCodeObject *)func->func_code;
+                    if (code->co_argcount == oparg) {
+                        promote_to_null(self_or_null);
+                    }
+                    else if (code->co_argcount == oparg + 1) {
+                        promote_to_not_null(self_or_null);
+                    }
+                }
+            }
             break;
         }
 
@@ -1827,27 +1886,49 @@
             SpecializerValue **args;
             SpecializerValue *self_or_null;
             SpecializerValue *callable;
-            SpecializerValue *new_frame;
+            SpecializerFrame *new_frame;
             args = &stack_pointer[-oparg];
             self_or_null = stack_pointer[-1 - oparg];
             callable = stack_pointer[-2 - oparg];
             DEBUG_PRINTF(callable, self_or_null, args);
-            (void)callable;
-            (void)self_or_null;
-            (void)args;
-            return modified;
-            stack_pointer[-2 - oparg] = new_frame;
+            if (!is_constant(callable)) {
+                return modified;
+            }
+            if (is_null(self_or_null)) {
+                /* pass */
+            }
+            else if (is_not_null(self_or_null)) {
+                args--;
+                oparg++;
+            }
+            else {
+                return modified;
+            }
+            /* Is this safe? */
+            PyFunctionObject *func = (PyFunctionObject *)get_constant(callable);
+            if (!PyFunction_Check(func)) {
+                return modified;
+            }
+            PyCodeObject *code = (PyCodeObject *)func->func_code;
+            new_frame = make_frame(code, space, 0);
+            for (int i = 0; i < oparg; i++) {
+                set_local(new_frame, i, args[i]);
+            }
+            stack_pointer[-2 - oparg] = (PyObject *)new_frame;
             stack_pointer += -1 - oparg;
             break;
         }
 
         case _PUSH_FRAME: {
-            SpecializerValue *new_frame;
-            new_frame = stack_pointer[-1];
+            SpecializerFrame *new_frame;
+            new_frame = (SpecializerFrame *)stack_pointer[-1];
             DEBUG_PRINTF(new_frame);
-            (void)new_frame;
-            return modified;
-            stack_pointer += -1 + ((0) ? 1 : 0);
+            stack_pointer += -1;
+            set_stack_pointer(frame, stack_pointer);
+            new_frame->previous = frame;
+            frame = new_frame;
+            stack_pointer = get_stack_pointer(new_frame);
+            stack_pointer += ((0) ? 1 : 0);
             break;
         }
 

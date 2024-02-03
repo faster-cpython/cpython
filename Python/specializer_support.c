@@ -29,6 +29,8 @@ struct _SpecializerValue {
 };
 
 struct _SpecializerFrame {
+    struct _SpecializerFrame *previous;
+    PyCodeObject *code;
     int stack_top;
     int nlocals;
     SpecializerValue *localsplus[1];
@@ -64,18 +66,34 @@ new_unknown(SpecializerSpace *buffer)
 static SpecializerValue *
 new_null(SpecializerSpace *buffer)
 {
-    return new_value(NULL, 1, buffer);
+    return new_value(NULL, IS_CONSTANT, buffer);
 }
 
 static int
 is_null(SpecializerValue *o)
 {
-    return o->flags == 1 && o->object == NULL;
+    return o->flags == IS_CONSTANT && o->object == NULL;
+}
+
+static int
+is_not_null(SpecializerValue *o)
+{
+    return o->flags != IS_CONSTANT || o->object != NULL;
+}
+
+static void
+to_top(SpecializerValue *o)
+{
+    o->flags = TOP;
+    o->object = NULL;
 }
 
 static void
 promote_to_not_null(SpecializerValue *o)
 {
+    if (is_null(o)) {
+        to_top(o);
+    }
     if (o->object == NULL) {
         if (o->flags == 0) {
             o->flags = NOT_NULL;
@@ -83,8 +101,21 @@ promote_to_not_null(SpecializerValue *o)
     }
 }
 
+static void
+promote_to_null(SpecializerValue *o)
+{
+    if (is_not_null(o)) {
+        to_top(o);
+    }
+    if (o->object == NULL) {
+        if (o->flags == 0) {
+            o->flags = IS_CONSTANT;
+        }
+    }
+}
+
 static SpecializerFrame *
-new_frame(PyCodeObject *code, SpecializerSpace *space, int unknowns)
+make_frame(PyCodeObject *code, SpecializerSpace *space, int unknowns)
 {
     int nlocalsplus = code->co_nlocals + code->co_stacksize;
     size_t size = sizeof(SpecializerFrame) + sizeof(SpecializerValue *) * nlocalsplus;
@@ -92,6 +123,8 @@ new_frame(PyCodeObject *code, SpecializerSpace *space, int unknowns)
         return NULL;
     }
     SpecializerFrame *frame = (SpecializerFrame *)space->stack_pointer;
+    frame->previous = NULL;
+    frame->code = code;
     space->stack_pointer += size;
     frame->stack_top = code->co_nlocals;
     for (int i = 0; i < unknowns; i++) {
@@ -102,6 +135,14 @@ new_frame(PyCodeObject *code, SpecializerSpace *space, int unknowns)
         frame->localsplus[i] = val;
     }
     return frame;
+}
+
+static SpecializerFrame *
+pop_frame(SpecializerFrame *frame, SpecializerSpace *space)
+{
+    assert(frame->previous != NULL);
+    space->stack_pointer = (char *)frame;
+    return frame->previous;
 }
 
 SpecializerValue **
@@ -148,12 +189,15 @@ get_constant(SpecializerValue *o)
 static int
 is_constant(SpecializerValue *o)
 {
-    return (o->flags & IS_CONSTANT) != 0;
+    return (o->flags & IS_CONSTANT) != 0 && o->object != NULL;
 }
 
 static PyTypeObject *
 get_type(SpecializerValue *o)
 {
+    if (o->flags & (NOT_NULL | NOT_NONE | TOP)) {
+        return NULL;
+    }
     if (o->flags & IS_CONSTANT) {
         return Py_TYPE(o->object);
     }
@@ -194,14 +238,20 @@ promote_to_const(SpecializerValue *o, PyObject *k)
         return;
     }
     if (o->flags & IS_CONSTANT) {
-        assert(o->object == k);
+        if (o->object != k) {
+            to_top(o);
+            return;
+        }
     }
     else {
         if (o->object != NULL) {
-            assert(Py_TYPE(k) == (PyTypeObject *)o->object);
+            if (Py_TYPE(k) != (PyTypeObject *)o->object) {
+                to_top(o);
+                return;
+            }
         }
+        o->flags = IS_CONSTANT;
     }
-    o->flags = IS_CONSTANT;
     o->object = k;
 }
 
@@ -213,13 +263,16 @@ promote_to_type(SpecializerValue *o, PyTypeObject *t)
     }
     if (o->flags & IS_CONSTANT) {
         if (Py_TYPE(o->object) != t) {
-            o->flags = TOP;
-            o->object = NULL;
+            to_top(o);
+            return;
         }
     }
     else {
         if (o->object != NULL) {
-            assert((PyTypeObject *)o->object == t);
+            if (t != (PyTypeObject *)o->object) {
+                to_top(o);
+                return;
+            }
         }
         else {
             o->object = (PyObject *)t;
@@ -239,7 +292,6 @@ is_none(SpecializerValue *o)
     return 0;
 }
 
-
 static int
 is_not_none(SpecializerValue *o)
 {
@@ -250,12 +302,7 @@ is_not_none(SpecializerValue *o)
         return (o->object != Py_None);
     }
     else {
-        if (o->object != NULL) {
-            return ((PyTypeObject *)o->object != &_PyNone_Type);
-        }
-        else {
-            return (o->flags & NOT_NONE) != 0;
-        }
+        return (o->flags & NOT_NONE) != 0;
     }
 }
 
@@ -266,7 +313,9 @@ promote_to_not_none(SpecializerValue *o)
         return;
     }
     if (o->flags & IS_CONSTANT) {
-        assert(o->object != Py_None);
+        if (o->object != Py_None) {
+            to_top(o);
+        }
     }
     else {
         if (o->object != NULL) {
@@ -352,25 +401,18 @@ guard_none(_PyUOpInstruction *this_instr, SpecializerValue *flag, int test_is_no
 
 /* Copied from optimizer analysis. TO DO -- DRY. */
 static void
-global_to_const(_PyUOpInstruction *inst, PyObject *obj)
+global_to_const(_PyUOpInstruction *inst, PyObject *val)
 {
-    assert(inst->opcode == _LOAD_GLOBAL_MODULE || inst->opcode == _LOAD_GLOBAL_BUILTINS);
-    assert(PyDict_CheckExact(obj));
-    PyDictObject *dict = (PyDictObject *)obj;
-    assert(dict->ma_keys->dk_kind == DICT_KEYS_UNICODE);
-    PyDictUnicodeEntry *entries = DK_UNICODE_ENTRIES(dict->ma_keys);
-    assert(inst->operand <= UINT16_MAX);
-    PyObject *res = entries[inst->operand].me_value;
-    if (res == NULL) {
+    if (val == NULL) {
         return;
     }
-    if (_Py_IsImmortal(res)) {
+    if (_Py_IsImmortal(val)) {
         inst->opcode = (inst->oparg & 1) ? _LOAD_CONST_INLINE_BORROW_WITH_NULL : _LOAD_CONST_INLINE_BORROW;
     }
     else {
         inst->opcode = (inst->oparg & 1) ? _LOAD_CONST_INLINE_WITH_NULL : _LOAD_CONST_INLINE;
     }
-    inst->operand = (uint64_t)res;
+    inst->operand = (uint64_t)val;
 }
 
 
@@ -393,7 +435,7 @@ _Py_Tier2_Specialize(PyCodeObject *code, _PyUOpInstruction *buffer,
     SpecializerSpace allocated_space;
     SpecializerSpace *space = &allocated_space;
     initialize_space(space, memory, buffer_size * sizeof(SpecializerValue));
-    SpecializerFrame *frame = new_frame(code, space, code->co_nlocals + curr_stackdepth);
+    SpecializerFrame *frame = make_frame(code, space, code->co_nlocals + curr_stackdepth);
     if (frame == NULL) {
         return 0;
     }
