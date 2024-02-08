@@ -304,10 +304,10 @@ _Py_uop_analyze_and_optimize(
     _PyBloomFilter *dependencies
 )
 {
-    int err = remove_globals(frame, buffer, buffer_size, dependencies);
-    if (err <= 0) {
-        return err;
-    }
+    //int err = remove_globals(frame, buffer, buffer_size, dependencies);
+    //if (err <= 0) {
+    //    return err;
+    //}
     peephole_opt(frame, buffer, buffer_size);
     remove_unneeded_uops(buffer, buffer_size);
     return 1;
