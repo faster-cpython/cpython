@@ -4045,10 +4045,9 @@ dummy_func(
             CHECK_EVAL_BREAKER();
         }
 
-        op(_SET_IP, (--)) {
+        op(_SET_IP, (instr_ptr/4 --)) {
             TIER_TWO_ONLY
-            // TODO: Put the code pointer in `operand` to avoid indirection via `frame`
-            frame->instr_ptr = _PyCode_CODE(_PyFrame_GetCode(frame)) + oparg;
+            frame->instr_ptr = (_Py_CODEUNIT *)instr_ptr;
         }
 
         op(_SAVE_RETURN_OFFSET, (--)) {
