@@ -986,6 +986,15 @@
         }
 
         case _CHECK_MANAGED_OBJECT_HAS_VALUES: {
+            _Py_UopsSymbol *owner;
+            owner = stack_pointer[-1];
+            int last_checked = sym_get_previous_values_check(owner);
+            if (last_checked > last_escaping_instruction) {
+                REPLACE_OP(this_instr, _NOP, 0 ,0);
+            }
+            else {
+                sym_set_previous_values_check(owner, this_instr-trace);
+            }
             break;
         }
 
@@ -1114,6 +1123,15 @@
         /* _LOAD_ATTR_GETATTRIBUTE_OVERRIDDEN is not a viable micro-op for tier 2 */
 
         case _GUARD_DORV_VALUES: {
+            _Py_UopsSymbol *owner;
+            owner = stack_pointer[-1];
+            int last_checked = sym_get_previous_values_check(owner);
+            if (last_checked > last_escaping_instruction) {
+                REPLACE_OP(this_instr, _NOP, 0 ,0);
+            }
+            else {
+                sym_set_previous_values_check(owner, this_instr-trace);
+            }
             break;
         }
 

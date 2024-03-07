@@ -31,6 +31,7 @@ extern PyTypeObject _PyUOpOptimizer_Type;
 
 struct _Py_UopsSymbol {
     int flags;  // 0 bits: Top; 2 or more bits: Bottom
+    int previous_values_check;
     PyTypeObject *typ;  // Borrowed reference
     PyObject *const_val;  // Owned reference (!)
 };
@@ -98,7 +99,8 @@ extern bool _Py_uop_sym_set_type(_Py_UopsSymbol *sym, PyTypeObject *typ);
 extern bool _Py_uop_sym_set_const(_Py_UopsSymbol *sym, PyObject *const_val);
 extern bool _Py_uop_sym_is_bottom(_Py_UopsSymbol *sym);
 extern int _Py_uop_sym_truthiness(_Py_UopsSymbol *sym);
-
+extern int _Py_uop_sym_get_previous_values_check(_Py_UopsSymbol *sym);
+extern void _Py_uop_sym_set_previous_values_check(_Py_UopsSymbol *sym, int last);
 
 extern int _Py_uop_abstractcontext_init(_Py_UOpsContext *ctx);
 extern void _Py_uop_abstractcontext_fini(_Py_UOpsContext *ctx);

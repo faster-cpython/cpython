@@ -29,6 +29,8 @@ typedef struct _Py_UOpsAbstractFrame _Py_UOpsAbstractFrame;
 #define sym_is_bottom _Py_uop_sym_is_bottom
 #define frame_new _Py_uop_frame_new
 #define frame_pop _Py_uop_frame_pop
+#define sym_get_previous_values_check _Py_uop_sym_get_previous_values_check
+#define sym_set_previous_values_check _Py_uop_sym_set_previous_values_check
 
 extern int
 optimize_to_bool(
@@ -626,6 +628,26 @@ dummy_func(void) {
         else if (sym_has_type(flag)) {
             assert(!sym_matches_type(flag, &_PyNone_Type));
             eliminate_pop_guard(this_instr, false);
+        }
+    }
+
+    op(_GUARD_DORV_VALUES, (owner -- owner)) {
+        int last_checked = sym_get_previous_values_check(owner);
+        if (last_checked > last_escaping_instruction) {
+            REPLACE_OP(this_instr, _NOP, 0 ,0);
+        }
+        else {
+            sym_set_previous_values_check(owner, this_instr-trace);
+        }
+    }
+
+    op(_CHECK_MANAGED_OBJECT_HAS_VALUES, (owner -- owner)) {
+        int last_checked = sym_get_previous_values_check(owner);
+        if (last_checked > last_escaping_instruction) {
+            REPLACE_OP(this_instr, _NOP, 0 ,0);
+        }
+        else {
+            sym_set_previous_values_check(owner, this_instr-trace);
         }
     }
 

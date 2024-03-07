@@ -307,6 +307,8 @@ remove_globals(_PyInterpreterFrame *frame, _PyUOpInstruction *buffer,
 #define sym_truthiness _Py_uop_sym_truthiness
 #define frame_new _Py_uop_frame_new
 #define frame_pop _Py_uop_frame_pop
+#define sym_get_previous_values_check _Py_uop_sym_get_previous_values_check
+#define sym_set_previous_values_check _Py_uop_sym_set_previous_values_check
 
 static int
 optimize_to_bool(
@@ -363,6 +365,7 @@ optimize_uops(
     }
     ctx->curr_frame_depth++;
     ctx->frame = frame;
+    int32_t last_escaping_instruction = -1;
 
     for (_PyUOpInstruction *this_instr = trace;
          this_instr < trace + trace_len && !op_is_end(this_instr->opcode);
@@ -370,6 +373,9 @@ optimize_uops(
 
         int oparg = this_instr->oparg;
         uint32_t opcode = this_instr->opcode;
+        if (_PyUop_Flags[opcode] & HAS_ESCAPES_FLAG) {
+            last_escaping_instruction = this_instr - trace;
+        }
 
         _Py_UopsSymbol **stack_pointer = ctx->frame->stack_pointer;
 

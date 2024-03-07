@@ -58,6 +58,7 @@ sym_new(_Py_UOpsContext *ctx)
     }
     ctx->t_arena.ty_curr_number++;
     self->flags = 0;
+    self->previous_values_check = -1;
     self->typ = NULL;
     self->const_val = NULL;
 
@@ -282,6 +283,18 @@ _Py_uop_sym_truthiness(_Py_UopsSymbol *sym)
         return value == Py_True;
     }
     return -1;
+}
+
+int
+_Py_uop_sym_get_previous_values_check(_Py_UopsSymbol *sym)
+{
+    return sym->previous_values_check;
+}
+
+void
+_Py_uop_sym_set_previous_values_check(_Py_UopsSymbol *sym, int last)
+{
+    sym->previous_values_check = last;
 }
 
 // 0 on success, -1 on error.
