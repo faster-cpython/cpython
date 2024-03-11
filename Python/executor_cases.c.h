@@ -37,7 +37,7 @@
             break;
         }
 
-        case _LOAD_FAST_0: {
+        case _LOAD_FAST_00: {
             PyObject *value;
             oparg = 0;
             assert(oparg == CURRENT_OPARG());
@@ -49,7 +49,7 @@
             break;
         }
 
-        case _LOAD_FAST_1: {
+        case _LOAD_FAST_01: {
             PyObject *value;
             oparg = 1;
             assert(oparg == CURRENT_OPARG());
@@ -61,7 +61,7 @@
             break;
         }
 
-        case _LOAD_FAST_2: {
+        case _LOAD_FAST_02: {
             PyObject *value;
             oparg = 2;
             assert(oparg == CURRENT_OPARG());
@@ -73,7 +73,7 @@
             break;
         }
 
-        case _LOAD_FAST_3: {
+        case _LOAD_FAST_03: {
             PyObject *value;
             oparg = 3;
             assert(oparg == CURRENT_OPARG());
@@ -85,7 +85,7 @@
             break;
         }
 
-        case _LOAD_FAST_4: {
+        case _LOAD_FAST_04: {
             PyObject *value;
             oparg = 4;
             assert(oparg == CURRENT_OPARG());
@@ -97,7 +97,7 @@
             break;
         }
 
-        case _LOAD_FAST_5: {
+        case _LOAD_FAST_05: {
             PyObject *value;
             oparg = 5;
             assert(oparg == CURRENT_OPARG());
@@ -109,7 +109,7 @@
             break;
         }
 
-        case _LOAD_FAST_6: {
+        case _LOAD_FAST_06: {
             PyObject *value;
             oparg = 6;
             assert(oparg == CURRENT_OPARG());
@@ -121,7 +121,7 @@
             break;
         }
 
-        case _LOAD_FAST_7: {
+        case _LOAD_FAST_07: {
             PyObject *value;
             oparg = 7;
             assert(oparg == CURRENT_OPARG());
@@ -133,7 +133,7 @@
             break;
         }
 
-        case _LOAD_FAST_8: {
+        case _LOAD_FAST_08: {
             PyObject *value;
             oparg = 8;
             assert(oparg == CURRENT_OPARG());
@@ -145,7 +145,7 @@
             break;
         }
 
-        case _LOAD_FAST_9: {
+        case _LOAD_FAST_09: {
             PyObject *value;
             oparg = 9;
             assert(oparg == CURRENT_OPARG());
@@ -549,7 +549,7 @@
             break;
         }
 
-        case _STORE_FAST_0: {
+        case _STORE_FAST_00: {
             PyObject *value;
             oparg = 0;
             assert(oparg == CURRENT_OPARG());
@@ -559,7 +559,7 @@
             break;
         }
 
-        case _STORE_FAST_1: {
+        case _STORE_FAST_01: {
             PyObject *value;
             oparg = 1;
             assert(oparg == CURRENT_OPARG());
@@ -569,7 +569,7 @@
             break;
         }
 
-        case _STORE_FAST_2: {
+        case _STORE_FAST_02: {
             PyObject *value;
             oparg = 2;
             assert(oparg == CURRENT_OPARG());
@@ -579,7 +579,7 @@
             break;
         }
 
-        case _STORE_FAST_3: {
+        case _STORE_FAST_03: {
             PyObject *value;
             oparg = 3;
             assert(oparg == CURRENT_OPARG());
@@ -589,7 +589,7 @@
             break;
         }
 
-        case _STORE_FAST_4: {
+        case _STORE_FAST_04: {
             PyObject *value;
             oparg = 4;
             assert(oparg == CURRENT_OPARG());
@@ -599,7 +599,7 @@
             break;
         }
 
-        case _STORE_FAST_5: {
+        case _STORE_FAST_05: {
             PyObject *value;
             oparg = 5;
             assert(oparg == CURRENT_OPARG());
@@ -609,7 +609,7 @@
             break;
         }
 
-        case _STORE_FAST_6: {
+        case _STORE_FAST_06: {
             PyObject *value;
             oparg = 6;
             assert(oparg == CURRENT_OPARG());
@@ -619,7 +619,7 @@
             break;
         }
 
-        case _STORE_FAST_7: {
+        case _STORE_FAST_07: {
             PyObject *value;
             oparg = 7;
             assert(oparg == CURRENT_OPARG());
@@ -3262,7 +3262,7 @@
             break;
         }
 
-        case _INIT_CALL_PY_EXACT_ARGS_0: {
+        case _INIT_CALL_PY_EXACT_ARGS_00: {
             PyObject **args;
             PyObject *self_or_null;
             PyObject *callable;
@@ -3288,7 +3288,7 @@
             break;
         }
 
-        case _INIT_CALL_PY_EXACT_ARGS_1: {
+        case _INIT_CALL_PY_EXACT_ARGS_01: {
             PyObject **args;
             PyObject *self_or_null;
             PyObject *callable;
@@ -3314,7 +3314,7 @@
             break;
         }
 
-        case _INIT_CALL_PY_EXACT_ARGS_2: {
+        case _INIT_CALL_PY_EXACT_ARGS_02: {
             PyObject **args;
             PyObject *self_or_null;
             PyObject *callable;
@@ -3340,7 +3340,7 @@
             break;
         }
 
-        case _INIT_CALL_PY_EXACT_ARGS_3: {
+        case _INIT_CALL_PY_EXACT_ARGS_03: {
             PyObject **args;
             PyObject *self_or_null;
             PyObject *callable;
@@ -3366,7 +3366,7 @@
             break;
         }
 
-        case _INIT_CALL_PY_EXACT_ARGS_4: {
+        case _INIT_CALL_PY_EXACT_ARGS_04: {
             PyObject **args;
             PyObject *self_or_null;
             PyObject *callable;

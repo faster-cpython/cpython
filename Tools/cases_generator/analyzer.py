@@ -552,7 +552,7 @@ def make_uop(name: str, op: parser.InstDef, inputs: list[parser.InputEffect], uo
     else:
         return result
     for oparg in range(result.replicated):
-        name_x = name + "_" + str(oparg)
+        name_x = f"{name}_{oparg:02d}"
         properties = compute_properties(op)
         properties.oparg = False
         properties.const_oparg = oparg
