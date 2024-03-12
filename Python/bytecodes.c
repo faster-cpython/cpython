@@ -236,7 +236,7 @@ dummy_func(
             Py_INCREF(value);
         }
 
-        replicate(8) inst(STORE_FAST, (value --)) {
+        replicate(40) inst(STORE_FAST, (value --)) {
             SETLOCAL(oparg, value);
         }
 
