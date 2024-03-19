@@ -187,11 +187,6 @@ _Py_SetOptimizer(PyInterpreterState *interp, _PyOptimizerObject *optimizer)
     interp->optimizer_backedge_threshold = shift_and_offset_threshold(optimizer->backedge_threshold);
     interp->optimizer_resume_threshold = shift_and_offset_threshold(optimizer->resume_threshold);
     interp->optimizer_side_threshold = optimizer->side_threshold;
-    interp->optimizer_backoff = 1;
-    while ((1 << interp->optimizer_backoff) < optimizer->side_threshold &&
-        interp->optimizer_backoff < TEMPERATURE_VALUE_BITS-1) {
-        interp->optimizer_backoff++;
-    }
     if (optimizer == &_PyOptimizer_Default) {
         assert(interp->optimizer_backedge_threshold > (1 << 16));
         assert(interp->optimizer_resume_threshold > (1 << 16));
@@ -933,7 +928,6 @@ make_executor_from_uops(_PyUOpInstruction *buffer, const _PyBloomFilter *depende
         _PyExitData *exit = &executor->exits[i];
         exit->executor = &COLD_EXITS[i];
         exit->temperature.value = 0;
-        exit->temperature.backoff = 0;
     }
     int next_exit = exit_count-1;
     _PyUOpInstruction *dest = (_PyUOpInstruction *)&executor->trace[length-1];
@@ -1356,7 +1350,6 @@ _Py_ExecutorClear(_PyExecutorObject *executor)
         Py_DECREF(executor->exits[i].executor);
         executor->exits[i].executor = &COLD_EXITS[i];
         executor->exits[i].temperature.value = -(1<<(TEMPERATURE_VALUE_BITS-1));
-        executor->exits[i].temperature.backoff = TEMPERATURE_VALUE_BITS-1;
     }
     _Py_CODEUNIT *instruction = &_PyCode_CODE(code)[executor->vm_data.index];
     assert(instruction->op.code == ENTER_EXECUTOR);

@@ -44,7 +44,7 @@ typedef struct {
 
 typedef struct {
     int16_t value:TEMPERATURE_VALUE_BITS;
-    uint16_t backoff:(16-TEMPERATURE_VALUE_BITS);
+    uint16_t retries:(16-TEMPERATURE_VALUE_BITS);
 } _PyTemperature;
 
 typedef struct _exit_data {

@@ -3833,16 +3833,16 @@
             } else {
                 int optimized = _PyOptimizer_Optimize(frame, target, stack_pointer, &executor);
                 if (optimized <= 0) {
-                    if (exit->temperature.backoff == 0) {
-                        exit->temperature.backoff = tstate->interp->optimizer_backoff;
-                    }
-                    else if (exit->temperature.backoff >= TEMPERATURE_VALUE_BITS-1) {
-                        exit->temperature.backoff = TEMPERATURE_VALUE_BITS-1;
+                    int neg_temp = tstate->interp->optimizer_side_threshold << exit->temperature.retries;
+                    if (neg_temp > (1 << (TEMPERATURE_VALUE_BITS-1))) {
+                        exit->temperature.value = -(1 << (TEMPERATURE_VALUE_BITS-1));
                     }
                     else {
-                        exit->temperature.backoff++;
+                        exit->temperature.value = -neg_temp;
                     }
-                    exit->temperature.value = -(1 << exit->temperature.backoff);
+                    if (exit->temperature.retries < 15) {
+                        exit->temperature.retries++;
+                    }
                     if (optimized < 0) {
                         Py_DECREF(previous);
                         tstate->previous_executor = Py_None;
