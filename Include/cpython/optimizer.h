@@ -40,9 +40,16 @@ typedef struct {
     uint64_t operand;  // A cache entry
 } _PyUOpInstruction;
 
+#define TEMPERATURE_VALUE_BITS 12
+
+typedef struct {
+    int16_t value:TEMPERATURE_VALUE_BITS;
+    uint16_t backoff:(16-TEMPERATURE_VALUE_BITS);
+} _PyTemperature;
+
 typedef struct _exit_data {
     uint32_t target;
-    int16_t temperature;
+    _PyTemperature temperature;
     const struct _PyExecutorObject *executor;
 } _PyExitData;
 
@@ -109,8 +116,8 @@ PyAPI_FUNC(PyObject *)PyUnstable_Optimizer_NewUOpOptimizer(void);
 #define MIN_TIER2_BACKOFF 4
 #define MAX_TIER2_BACKOFF (15 - OPTIMIZER_BITS_IN_COUNTER)
 #define OPTIMIZER_BITS_MASK ((1 << OPTIMIZER_BITS_IN_COUNTER) - 1)
-/* A value <= UINT16_MAX but large enough that when shifted is > UINT16_MAX */
-#define OPTIMIZER_UNREACHABLE_THRESHOLD UINT16_MAX
+/* A value <= UINT16_MAX but larger than any _PyTemperature.value */
+#define OPTIMIZER_UNREACHABLE_THRESHOLD INT16_MAX
 
 #define _Py_MAX_ALLOWED_BUILTINS_MODIFICATIONS 3
 #define _Py_MAX_ALLOWED_GLOBALS_MODIFICATIONS 6

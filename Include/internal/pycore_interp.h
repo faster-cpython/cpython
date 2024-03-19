@@ -242,8 +242,8 @@ struct _is {
     /* These two values are shifted and offset to speed up check in JUMP_BACKWARD */
     uint32_t optimizer_resume_threshold;
     uint32_t optimizer_backedge_threshold;
-
     uint16_t optimizer_side_threshold;
+    uint16_t optimizer_backoff;
 
     _rare_events rare_events;
     PyDict_WatchCallback builtins_dict_watcher;

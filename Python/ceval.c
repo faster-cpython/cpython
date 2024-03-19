@@ -1117,7 +1117,7 @@ side_exit:
         printf("SIDE EXIT: [UOp ");
         _PyUOpPrint(&next_uop[-1]);
         printf(", exit %u, temp %d, target %d -> %s]\n",
-               exit_index, exit->temperature, exit->target,
+               exit_index, exit->temperature.value, exit->target,
                _PyOpcode_OpName[_PyCode_CODE(_PyFrame_GetCode(frame))[exit->target].op.code]);
     }
 #endif
