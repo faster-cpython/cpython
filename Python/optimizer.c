@@ -1519,7 +1519,7 @@ _Py_ExecutorClear(_PyExecutorObject *executor)
     }
     for (uint32_t i = 0; i < executor->exit_count; i++) {
         Py_DECREF(executor->exits[i].executor);
-        assert(cold_exits_initialized[i]);
+        assert(cold_exits_initialized > i);
         executor->exits[i].executor = &COLD_EXITS[i];
         executor->exits[i].temperature = INT16_MIN;
     }
