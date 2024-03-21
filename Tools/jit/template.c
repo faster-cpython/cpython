@@ -87,7 +87,7 @@ _JIT_ENTRY(_PyInterpreterFrame *frame, PyObject **stack_pointer, PyThreadState *
     PATCH_VALUE(uint16_t, _oparg, _JIT_OPARG)
     PATCH_VALUE(uint64_t, _operand, _JIT_OPERAND)
     PATCH_VALUE(uint32_t, _target, _JIT_TARGET)
-    PATCH_VALUE(uint16_t, _exit_index, _JIT_EXIT_INDEX)
+    PATCH_VALUE(uint64_t, _exit, _JIT_EXIT)
     // The actual instruction definitions (only one will be used):
     if (opcode == _JUMP_TO_TOP) {
         CHECK_EVAL_BREAKER();
@@ -109,7 +109,7 @@ exit_to_tier1:
     GOTO_TIER_ONE(_PyCode_CODE(_PyFrame_GetCode(frame)) + _target);
 exit_to_trace:
     {
-        _PyExitData *exit = &current_executor->exits[_exit_index];
+        _PyExitData *exit = (_PyExitData *)_exit;
         tstate->previous_executor = (PyObject *)current_executor;
         GOTO_TIER_TWO(exit->executor);
     }
