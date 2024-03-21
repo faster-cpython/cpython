@@ -2369,6 +2369,7 @@ dummy_func(
                 if (optimized) {
                     assert(tstate->previous_executor == NULL);
                     tstate->previous_executor = Py_None;
+                    Py_DECREF(executor);
                     GOTO_TIER_TWO(executor);
                 }
                 else {
@@ -2405,7 +2406,6 @@ dummy_func(
             assert(executor->vm_data.valid);
             assert(tstate->previous_executor == NULL);
             tstate->previous_executor = Py_None;
-            Py_INCREF(executor);
             GOTO_TIER_TWO(executor);
         }
 
@@ -4182,14 +4182,12 @@ dummy_func(
                     GOTO_TIER_ONE(target);
                 }
             }
-            /* We need two references. One to store in exit->executor and
-             * one to keep the executor alive when executing. */
-            Py_INCREF(executor);
             exit->executor = executor;
             GOTO_TIER_TWO(executor);
         }
 
         tier2 op(_START_EXECUTOR, (executor/4 --)) {
+            Py_INCREF(executor);
             Py_DECREF(tstate->previous_executor);
             tstate->previous_executor = NULL;
 #ifndef _Py_JIT

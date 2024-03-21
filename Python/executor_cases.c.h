@@ -323,7 +323,7 @@
         case _TO_BOOL_BOOL: {
             PyObject *value;
             value = stack_pointer[-1];
-            if (!PyBool_Check(value)) JUMP_TO_JUMP_TARGET();
+            if (!PyBool_Check(value)) EXIT_TO_TRACE();
             STAT_INC(TO_BOOL, hit);
             break;
         }
@@ -332,7 +332,7 @@
             PyObject *value;
             PyObject *res;
             value = stack_pointer[-1];
-            if (!PyLong_CheckExact(value)) JUMP_TO_JUMP_TARGET();
+            if (!PyLong_CheckExact(value)) EXIT_TO_TRACE();
             STAT_INC(TO_BOOL, hit);
             if (_PyLong_IsZero((PyLongObject *)value)) {
                 assert(_Py_IsImmortal(value));
@@ -350,7 +350,7 @@
             PyObject *value;
             PyObject *res;
             value = stack_pointer[-1];
-            if (!PyList_CheckExact(value)) JUMP_TO_JUMP_TARGET();
+            if (!PyList_CheckExact(value)) EXIT_TO_TRACE();
             STAT_INC(TO_BOOL, hit);
             res = Py_SIZE(value) ? Py_True : Py_False;
             Py_DECREF(value);
@@ -363,7 +363,7 @@
             PyObject *res;
             value = stack_pointer[-1];
             // This one is a bit weird, because we expect *some* failures:
-            if (!Py_IsNone(value)) JUMP_TO_JUMP_TARGET();
+            if (!Py_IsNone(value)) EXIT_TO_TRACE();
             STAT_INC(TO_BOOL, hit);
             res = Py_False;
             stack_pointer[-1] = res;
@@ -374,7 +374,7 @@
             PyObject *value;
             PyObject *res;
             value = stack_pointer[-1];
-            if (!PyUnicode_CheckExact(value)) JUMP_TO_JUMP_TARGET();
+            if (!PyUnicode_CheckExact(value)) EXIT_TO_TRACE();
             STAT_INC(TO_BOOL, hit);
             if (value == &_Py_STR(empty)) {
                 assert(_Py_IsImmortal(value));
@@ -415,8 +415,8 @@
             PyObject *left;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            if (!PyLong_CheckExact(left)) JUMP_TO_JUMP_TARGET();
-            if (!PyLong_CheckExact(right)) JUMP_TO_JUMP_TARGET();
+            if (!PyLong_CheckExact(left)) EXIT_TO_TRACE();
+            if (!PyLong_CheckExact(right)) EXIT_TO_TRACE();
             break;
         }
 
@@ -473,8 +473,8 @@
             PyObject *left;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            if (!PyFloat_CheckExact(left)) JUMP_TO_JUMP_TARGET();
-            if (!PyFloat_CheckExact(right)) JUMP_TO_JUMP_TARGET();
+            if (!PyFloat_CheckExact(left)) EXIT_TO_TRACE();
+            if (!PyFloat_CheckExact(right)) EXIT_TO_TRACE();
             break;
         }
 
@@ -531,8 +531,8 @@
             PyObject *left;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            if (!PyUnicode_CheckExact(left)) JUMP_TO_JUMP_TARGET();
-            if (!PyUnicode_CheckExact(right)) JUMP_TO_JUMP_TARGET();
+            if (!PyUnicode_CheckExact(left)) EXIT_TO_TRACE();
+            if (!PyUnicode_CheckExact(right)) EXIT_TO_TRACE();
             break;
         }
 
@@ -1750,7 +1750,7 @@
             uint32_t type_version = (uint32_t)CURRENT_OPERAND();
             PyTypeObject *tp = Py_TYPE(owner);
             assert(type_version != 0);
-            if (tp->tp_version_tag != type_version) JUMP_TO_JUMP_TARGET();
+            if (tp->tp_version_tag != type_version) EXIT_TO_TRACE();
             break;
         }
 
@@ -3553,7 +3553,7 @@
             PyObject *flag;
             flag = stack_pointer[-1];
             stack_pointer += -1;
-            if (!Py_IsTrue(flag)) JUMP_TO_JUMP_TARGET();
+            if (!Py_IsTrue(flag)) EXIT_TO_TRACE();
             assert(Py_IsTrue(flag));
             break;
         }
@@ -3562,7 +3562,7 @@
             PyObject *flag;
             flag = stack_pointer[-1];
             stack_pointer += -1;
-            if (!Py_IsFalse(flag)) JUMP_TO_JUMP_TARGET();
+            if (!Py_IsFalse(flag)) EXIT_TO_TRACE();
             assert(Py_IsFalse(flag));
             break;
         }
@@ -3573,7 +3573,7 @@
             stack_pointer += -1;
             if (!Py_IsNone(val)) {
                 Py_DECREF(val);
-                if (1) JUMP_TO_JUMP_TARGET();
+                if (1) EXIT_TO_TRACE();
             }
             break;
         }
@@ -3582,7 +3582,7 @@
             PyObject *val;
             val = stack_pointer[-1];
             stack_pointer += -1;
-            if (Py_IsNone(val)) JUMP_TO_JUMP_TARGET();
+            if (Py_IsNone(val)) EXIT_TO_TRACE();
             Py_DECREF(val);
             break;
         }
@@ -3613,7 +3613,7 @@
         }
 
         case _EXIT_TRACE: {
-            if (1) JUMP_TO_JUMP_TARGET();
+            if (1) EXIT_TO_TRACE();
             break;
         }
 
@@ -3718,9 +3718,6 @@
                     GOTO_TIER_ONE(target);
                 }
             }
-            /* We need two references. One to store in exit->executor and
-             * one to keep the executor alive when executing. */
-            Py_INCREF(executor);
             exit->executor = executor;
             GOTO_TIER_TWO(executor);
             break;
@@ -3728,6 +3725,7 @@
 
         case _START_EXECUTOR: {
             PyObject *executor = (PyObject *)CURRENT_OPERAND();
+            Py_INCREF(executor);
             Py_DECREF(tstate->previous_executor);
             tstate->previous_executor = NULL;
             #ifndef _Py_JIT

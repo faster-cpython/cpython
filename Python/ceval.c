@@ -1104,7 +1104,6 @@ exit_to_trace:
                _PyOpcode_OpName[_PyCode_CODE(_PyFrame_GetCode(frame))[exit->target].op.code]);
     }
 #endif
-    Py_INCREF(exit->executor);
     tstate->previous_executor = (PyObject *)current_executor;
     GOTO_TIER_TWO(exit->executor);
 

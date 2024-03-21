@@ -115,7 +115,7 @@ def tier2_replace_exit_if(
     out.emit(next(tkn_iter))
     emit_to(out, tkn_iter, "RPAREN")
     next(tkn_iter)  # Semi colon
-    out.emit(") JUMP_TO_JUMP_TARGET();\n")
+    out.emit(") EXIT_TO_TRACE();\n")
 
 
 def tier2_replace_oparg(

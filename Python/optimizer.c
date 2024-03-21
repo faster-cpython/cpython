@@ -898,7 +898,8 @@ count_exits(_PyUOpInstruction *buffer, int length)
     int exit_count = 0;
     for (int i = 0; i < length; i++) {
         int opcode = buffer[i].opcode;
-        if (opcode == _SIDE_EXIT) {
+        if (_PyUop_Flags[opcode] & HAS_EXIT_FLAG) {
+            assert(buffer[i].format = UOP_FORMAT_EXIT);
             exit_count++;
         }
     }
@@ -940,10 +941,9 @@ prepare_for_execution(_PyUOpInstruction *buffer, int length)
         _PyUOpInstruction *inst = &buffer[i];
         int opcode = inst->opcode;
         int32_t target = (int32_t)uop_get_target(inst);
-        if (_PyUop_Flags[opcode] & (HAS_EXIT_FLAG | HAS_DEOPT_FLAG)) {
+        if (_PyUop_Flags[opcode] & HAS_DEOPT_FLAG) {
             if (target != current_jump_target) {
-                uint16_t exit_op = (_PyUop_Flags[opcode] & HAS_EXIT_FLAG) ? _SIDE_EXIT : _DEOPT;
-                make_exit(&buffer[next_spare], exit_op, target);
+                make_exit(&buffer[next_spare], _DEOPT, target);
                 current_jump_target = target;
                 current_jump = next_spare;
                 next_spare++;
@@ -1022,7 +1022,6 @@ sanity_check(_PyExecutorObject *executor)
                 CHECK(target_unused(opcode));
                 break;
             case UOP_FORMAT_EXIT:
-                CHECK(opcode == _SIDE_EXIT);
                 CHECK(inst->exit_index < executor->exit_count);
                 break;
             case UOP_FORMAT_JUMP:
@@ -1088,7 +1087,7 @@ make_executor_from_uops(_PyUOpInstruction *buffer, int length, const _PyBloomFil
         dest--;
         *dest = buffer[i];
         assert(opcode != _POP_JUMP_IF_FALSE && opcode != _POP_JUMP_IF_TRUE);
-        if (opcode == _SIDE_EXIT) {
+        if (_PyUop_Flags[opcode] & HAS_EXIT_FLAG) {
             executor->exits[next_exit].target = buffer[i].target;
             dest->exit_index = next_exit;
             dest->format = UOP_FORMAT_EXIT;
@@ -1311,8 +1310,8 @@ counter_optimize(
         { .opcode = _START_EXECUTOR },
         { .opcode = _LOAD_CONST_INLINE_BORROW, .operand = (uintptr_t)self },
         { .opcode = _INTERNAL_INCREMENT_OPT_COUNTER },
-        { .opcode = _EXIT_TRACE, .jump_target = 4, .format=UOP_FORMAT_JUMP },
-        { .opcode = _SIDE_EXIT, .target = (uint32_t)(target - _PyCode_CODE(code)), .format=UOP_FORMAT_TARGET }
+        { .opcode = _DEOPT, .target = (uint32_t)(target - _PyCode_CODE(code)), .format=UOP_FORMAT_TARGET },
+        { .opcode = _COLD_EXIT } /* End marker -- unreachable */
     };
     _PyExecutorObject *executor = make_executor_from_uops(buffer, 5, &EMPTY_FILTER);
     if (executor == NULL) {

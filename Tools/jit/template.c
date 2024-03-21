@@ -110,7 +110,6 @@ exit_to_tier1:
 exit_to_trace:
     {
         _PyExitData *exit = &current_executor->exits[_exit_index];
-        Py_INCREF(exit->executor);
         tstate->previous_executor = (PyObject *)current_executor;
         GOTO_TIER_TWO(exit->executor);
     }

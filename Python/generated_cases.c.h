@@ -2509,7 +2509,6 @@
             assert(executor->vm_data.valid);
             assert(tstate->previous_executor == NULL);
             tstate->previous_executor = Py_None;
-            Py_INCREF(executor);
             GOTO_TIER_TWO(executor);
             DISPATCH();
         }
@@ -3437,6 +3436,7 @@
                 if (optimized) {
                     assert(tstate->previous_executor == NULL);
                     tstate->previous_executor = Py_None;
+                    Py_DECREF(executor);
                     GOTO_TIER_TWO(executor);
                 }
                 else {
