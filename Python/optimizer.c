@@ -173,14 +173,6 @@ _Py_SetOptimizer(PyInterpreterState *interp, _PyOptimizerObject *optimizer)
     if (optimizer == NULL) {
         optimizer = &_PyOptimizer_Default;
     }
-    else if (cold_exits_initialized == 0) {
-        cold_exits_initialized = 1;
-        for (int i = 0; i < COLD_EXIT_COUNT; i++) {
-            if (init_cold_exit_executor(&COLD_EXITS[i], i)) {
-                return NULL;
-            }
-        }
-    }
     _PyOptimizerObject *old = interp->optimizer;
     if (old == NULL) {
         old = &_PyOptimizer_Default;
@@ -1075,6 +1067,12 @@ make_executor_from_uops(_PyUOpInstruction *buffer, int length, const _PyBloomFil
 
     /* Initialize exits */
     assert(exit_count < COLD_EXIT_COUNT);
+    while (cold_exits_initialized < exit_count) {
+        if (init_cold_exit_executor(&COLD_EXITS[cold_exits_initialized], cold_exits_initialized) < 0) {
+            return NULL;
+        }
+        cold_exits_initialized++;
+    }
     for (int i = 0; i < exit_count; i++) {
         executor->exits[i].executor = &COLD_EXITS[i];
         executor->exits[i].temperature = 0;
@@ -1521,6 +1519,7 @@ _Py_ExecutorClear(_PyExecutorObject *executor)
     }
     for (uint32_t i = 0; i < executor->exit_count; i++) {
         Py_DECREF(executor->exits[i].executor);
+        assert(cold_exits_initialized[i]);
         executor->exits[i].executor = &COLD_EXITS[i];
         executor->exits[i].temperature = INT16_MIN;
     }
