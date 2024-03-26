@@ -345,6 +345,20 @@
             break;
         }
 
+        case _BINARY_OP_MULTIPLY_FLOAT_L1: {
+            stack_pointer += -1;
+            break;
+        }
+
+        case _BINARY_OP_MULTIPLY_FLOAT_R1: {
+            _Py_UopsSymbol *right;
+            right = sym_new_not_null(ctx);
+            if (right == NULL) goto out_of_space;
+            stack_pointer[-2] = right;
+            stack_pointer += -1;
+            break;
+        }
+
         case _BINARY_OP_MULTIPLY_FLOAT: {
             _Py_UopsSymbol *right;
             _Py_UopsSymbol *left;

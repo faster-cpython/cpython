@@ -411,6 +411,8 @@ dummy_func(
             BINARY_OP_ADD_INT,
             BINARY_OP_SUBTRACT_INT,
             BINARY_OP_MULTIPLY_FLOAT,
+            BINARY_OP_MULTIPLY_FLOAT_L1,
+            BINARY_OP_MULTIPLY_FLOAT_R1,
             BINARY_OP_ADD_FLOAT,
             BINARY_OP_SUBTRACT_FLOAT,
             BINARY_OP_ADD_UNICODE,
@@ -458,12 +460,35 @@ dummy_func(
             EXIT_IF(!PyFloat_CheckExact(right));
         }
 
+        pure op(_BINARY_OP_MULTIPLY_FLOAT_L1, (left, right -- left)) {
+            DEOPT_IF(Py_REFCNT(left) != 1);
+            STAT_INC(BINARY_OP, hit);
+            double dres =
+                ((PyFloatObject *)left)->ob_fval *
+                ((PyFloatObject *)right)->ob_fval;
+            ((PyFloatObject *)left)->ob_fval = dres;
+            _Py_DECREF_SPECIALIZED(right, _PyFloat_ExactDealloc);
+        }
+
+        pure op(_BINARY_OP_MULTIPLY_FLOAT_R1, (left, right -- right)) {
+            DEOPT_IF(Py_REFCNT(left) != 1);
+            STAT_INC(BINARY_OP, hit);
+            double dres =
+                ((PyFloatObject *)left)->ob_fval *
+                ((PyFloatObject *)right)->ob_fval;
+            ((PyFloatObject *)right)->ob_fval = dres;
+            _Py_DECREF_SPECIALIZED(left, _PyFloat_ExactDealloc);
+        }
+
         pure op(_BINARY_OP_MULTIPLY_FLOAT, (left, right -- res)) {
             STAT_INC(BINARY_OP, hit);
             double dres =
                 ((PyFloatObject *)left)->ob_fval *
                 ((PyFloatObject *)right)->ob_fval;
-            DECREF_INPUTS_AND_REUSE_FLOAT(left, right, dres, res);
+            res = PyFloat_FromDouble(dres);
+            ERROR_IF(res == NULL, error);
+            _Py_DECREF_SPECIALIZED(left, _PyFloat_ExactDealloc);
+            _Py_DECREF_SPECIALIZED(right, _PyFloat_ExactDealloc);
         }
 
         pure op(_BINARY_OP_ADD_FLOAT, (left, right -- res)) {
@@ -482,6 +507,10 @@ dummy_func(
             DECREF_INPUTS_AND_REUSE_FLOAT(left, right, dres, res);
         }
 
+        macro(BINARY_OP_MULTIPLY_FLOAT_L1) =
+            _GUARD_BOTH_FLOAT + unused/1 + _BINARY_OP_MULTIPLY_FLOAT_L1;
+        macro(BINARY_OP_MULTIPLY_FLOAT_R1) =
+            _GUARD_BOTH_FLOAT + unused/1 + _BINARY_OP_MULTIPLY_FLOAT_R1;
         macro(BINARY_OP_MULTIPLY_FLOAT) =
             _GUARD_BOTH_FLOAT + unused/1 + _BINARY_OP_MULTIPLY_FLOAT;
         macro(BINARY_OP_ADD_FLOAT) =

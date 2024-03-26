@@ -53,6 +53,10 @@ int _PyOpcode_num_popped(int opcode, int oparg)  {
             return 2;
         case BINARY_OP_MULTIPLY_FLOAT:
             return 2;
+        case BINARY_OP_MULTIPLY_FLOAT_L1:
+            return 2;
+        case BINARY_OP_MULTIPLY_FLOAT_R1:
+            return 2;
         case BINARY_OP_MULTIPLY_INT:
             return 2;
         case BINARY_OP_SUBTRACT_FLOAT:
@@ -481,6 +485,10 @@ int _PyOpcode_num_pushed(int opcode, int oparg)  {
         case BINARY_OP_INPLACE_ADD_UNICODE:
             return 0;
         case BINARY_OP_MULTIPLY_FLOAT:
+            return 1;
+        case BINARY_OP_MULTIPLY_FLOAT_L1:
+            return 1;
+        case BINARY_OP_MULTIPLY_FLOAT_R1:
             return 1;
         case BINARY_OP_MULTIPLY_INT:
             return 1;
@@ -963,7 +971,9 @@ const struct opcode_metadata _PyOpcode_opcode_metadata[268] = {
     [BINARY_OP_ADD_INT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG | HAS_ERROR_FLAG },
     [BINARY_OP_ADD_UNICODE] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG | HAS_ERROR_FLAG },
     [BINARY_OP_INPLACE_ADD_UNICODE] = { true, INSTR_FMT_IXC, HAS_LOCAL_FLAG | HAS_DEOPT_FLAG | HAS_EXIT_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
-    [BINARY_OP_MULTIPLY_FLOAT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG },
+    [BINARY_OP_MULTIPLY_FLOAT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
+    [BINARY_OP_MULTIPLY_FLOAT_L1] = { true, INSTR_FMT_IXC, HAS_DEOPT_FLAG | HAS_EXIT_FLAG | HAS_ESCAPES_FLAG },
+    [BINARY_OP_MULTIPLY_FLOAT_R1] = { true, INSTR_FMT_IXC, HAS_DEOPT_FLAG | HAS_EXIT_FLAG | HAS_ESCAPES_FLAG },
     [BINARY_OP_MULTIPLY_INT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG | HAS_ERROR_FLAG },
     [BINARY_OP_SUBTRACT_FLOAT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG },
     [BINARY_OP_SUBTRACT_INT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG | HAS_ERROR_FLAG },
@@ -1195,6 +1205,8 @@ _PyOpcode_macro_expansion[256] = {
     [BINARY_OP_ADD_INT] = { .nuops = 2, .uops = { { _GUARD_BOTH_INT, 0, 0 }, { _BINARY_OP_ADD_INT, 0, 0 } } },
     [BINARY_OP_ADD_UNICODE] = { .nuops = 2, .uops = { { _GUARD_BOTH_UNICODE, 0, 0 }, { _BINARY_OP_ADD_UNICODE, 0, 0 } } },
     [BINARY_OP_MULTIPLY_FLOAT] = { .nuops = 2, .uops = { { _GUARD_BOTH_FLOAT, 0, 0 }, { _BINARY_OP_MULTIPLY_FLOAT, 0, 0 } } },
+    [BINARY_OP_MULTIPLY_FLOAT_L1] = { .nuops = 2, .uops = { { _GUARD_BOTH_FLOAT, 0, 0 }, { _BINARY_OP_MULTIPLY_FLOAT_L1, 0, 0 } } },
+    [BINARY_OP_MULTIPLY_FLOAT_R1] = { .nuops = 2, .uops = { { _GUARD_BOTH_FLOAT, 0, 0 }, { _BINARY_OP_MULTIPLY_FLOAT_R1, 0, 0 } } },
     [BINARY_OP_MULTIPLY_INT] = { .nuops = 2, .uops = { { _GUARD_BOTH_INT, 0, 0 }, { _BINARY_OP_MULTIPLY_INT, 0, 0 } } },
     [BINARY_OP_SUBTRACT_FLOAT] = { .nuops = 2, .uops = { { _GUARD_BOTH_FLOAT, 0, 0 }, { _BINARY_OP_SUBTRACT_FLOAT, 0, 0 } } },
     [BINARY_OP_SUBTRACT_INT] = { .nuops = 2, .uops = { { _GUARD_BOTH_INT, 0, 0 }, { _BINARY_OP_SUBTRACT_INT, 0, 0 } } },
@@ -1359,6 +1371,8 @@ const char *_PyOpcode_OpName[268] = {
     [BINARY_OP_ADD_UNICODE] = "BINARY_OP_ADD_UNICODE",
     [BINARY_OP_INPLACE_ADD_UNICODE] = "BINARY_OP_INPLACE_ADD_UNICODE",
     [BINARY_OP_MULTIPLY_FLOAT] = "BINARY_OP_MULTIPLY_FLOAT",
+    [BINARY_OP_MULTIPLY_FLOAT_L1] = "BINARY_OP_MULTIPLY_FLOAT_L1",
+    [BINARY_OP_MULTIPLY_FLOAT_R1] = "BINARY_OP_MULTIPLY_FLOAT_R1",
     [BINARY_OP_MULTIPLY_INT] = "BINARY_OP_MULTIPLY_INT",
     [BINARY_OP_SUBTRACT_FLOAT] = "BINARY_OP_SUBTRACT_FLOAT",
     [BINARY_OP_SUBTRACT_INT] = "BINARY_OP_SUBTRACT_INT",
@@ -1612,6 +1626,8 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [BINARY_OP_ADD_UNICODE] = BINARY_OP,
     [BINARY_OP_INPLACE_ADD_UNICODE] = BINARY_OP,
     [BINARY_OP_MULTIPLY_FLOAT] = BINARY_OP,
+    [BINARY_OP_MULTIPLY_FLOAT_L1] = BINARY_OP,
+    [BINARY_OP_MULTIPLY_FLOAT_R1] = BINARY_OP,
     [BINARY_OP_MULTIPLY_INT] = BINARY_OP,
     [BINARY_OP_SUBTRACT_FLOAT] = BINARY_OP,
     [BINARY_OP_SUBTRACT_INT] = BINARY_OP,
@@ -1849,8 +1865,6 @@ const uint8_t _PyOpcode_Deopt[256] = {
     case 146: \
     case 147: \
     case 148: \
-    case 221: \
-    case 222: \
     case 223: \
     case 224: \
     case 225: \

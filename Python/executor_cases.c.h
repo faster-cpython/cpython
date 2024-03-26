@@ -478,6 +478,39 @@
             break;
         }
 
+        case _BINARY_OP_MULTIPLY_FLOAT_L1: {
+            PyObject *right;
+            PyObject *left;
+            right = stack_pointer[-1];
+            left = stack_pointer[-2];
+            if (Py_REFCNT(left) != 1) JUMP_TO_JUMP_TARGET();
+            STAT_INC(BINARY_OP, hit);
+            double dres =
+            ((PyFloatObject *)left)->ob_fval *
+            ((PyFloatObject *)right)->ob_fval;
+            ((PyFloatObject *)left)->ob_fval = dres;
+            _Py_DECREF_SPECIALIZED(right, _PyFloat_ExactDealloc);
+            stack_pointer += -1;
+            break;
+        }
+
+        case _BINARY_OP_MULTIPLY_FLOAT_R1: {
+            PyObject *right;
+            PyObject *left;
+            right = stack_pointer[-1];
+            left = stack_pointer[-2];
+            if (Py_REFCNT(left) != 1) JUMP_TO_JUMP_TARGET();
+            STAT_INC(BINARY_OP, hit);
+            double dres =
+            ((PyFloatObject *)left)->ob_fval *
+            ((PyFloatObject *)right)->ob_fval;
+            ((PyFloatObject *)right)->ob_fval = dres;
+            _Py_DECREF_SPECIALIZED(left, _PyFloat_ExactDealloc);
+            stack_pointer[-2] = right;
+            stack_pointer += -1;
+            break;
+        }
+
         case _BINARY_OP_MULTIPLY_FLOAT: {
             PyObject *right;
             PyObject *left;
@@ -488,7 +521,10 @@
             double dres =
             ((PyFloatObject *)left)->ob_fval *
             ((PyFloatObject *)right)->ob_fval;
-            DECREF_INPUTS_AND_REUSE_FLOAT(left, right, dres, res);
+            res = PyFloat_FromDouble(dres);
+            if (res == NULL) JUMP_TO_ERROR();
+            _Py_DECREF_SPECIALIZED(left, _PyFloat_ExactDealloc);
+            _Py_DECREF_SPECIALIZED(right, _PyFloat_ExactDealloc);
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;

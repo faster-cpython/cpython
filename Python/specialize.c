@@ -2176,7 +2176,15 @@ _Py_Specialize_BinaryOp(PyObject *lhs, PyObject *rhs, _Py_CODEUNIT *instr,
                 goto success;
             }
             if (PyFloat_CheckExact(lhs)) {
-                instr->op.code = BINARY_OP_MULTIPLY_FLOAT;
+                if (Py_REFCNT(lhs) == 1) {
+                    instr->op.code = BINARY_OP_MULTIPLY_FLOAT_L1;
+                }
+                else if (Py_REFCNT(rhs) == 1) {
+                    instr->op.code = BINARY_OP_MULTIPLY_FLOAT_R1;
+                }
+                else {
+                    instr->op.code = BINARY_OP_MULTIPLY_FLOAT;
+                }
                 goto success;
             }
             break;
