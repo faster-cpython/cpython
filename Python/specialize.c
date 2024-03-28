@@ -407,6 +407,7 @@ do { \
 #  define SPECIALIZATION_FAIL(opcode, kind) ((void)0)
 #endif
 
+
 // Initialize warmup counters and insert superinstructions. This cannot fail.
 void
 _PyCode_Quicken(PyCodeObject *code)
@@ -423,7 +424,7 @@ _PyCode_Quicken(PyCodeObject *code)
             int initial_value;
             switch (opcode) {
                 case JUMP_BACKWARD:
-                    initial_value = 0;
+                    initial_value = (TIER2_WARMUP << OPTIMIZER_BITS_IN_COUNTER) | TIER2_BACKOFF;
                     break;
                 case POP_JUMP_IF_FALSE:
                 case POP_JUMP_IF_TRUE:

@@ -3416,15 +3416,10 @@
             JUMPBY(-oparg);
             #if ENABLE_SPECIALIZATION
             uint16_t counter = this_instr[1].cache;
-            this_instr[1].cache = counter + (1 << OPTIMIZER_BITS_IN_COUNTER);
-            /* We are using unsigned values, but we really want signed values, so
-             * do the 2s complement adjustment manually */
-            uint32_t offset_counter = counter ^ (1 << 15);
-            uint32_t threshold = tstate->interp->optimizer_backedge_threshold;
-            assert((threshold & OPTIMIZER_BITS_MASK) == 0);
-            // Use '>=' not '>' so that the optimizer/backoff bits do not effect the result.
+            this_instr[1].cache = counter - (1 << OPTIMIZER_BITS_IN_COUNTER);
+            uint32_t offset_counter = counter >> OPTIMIZER_BITS_IN_COUNTER;
             // Double-check that the opcode isn't instrumented or something:
-            if (offset_counter >= threshold && this_instr->op.code == JUMP_BACKWARD) {
+            if (offset_counter == 0 && this_instr->op.code == JUMP_BACKWARD) {
                 _Py_CODEUNIT *start = this_instr;
                 /* Back up over EXTENDED_ARGs so optimizer sees the whole instruction */
                 while (oparg > 255) {
@@ -3448,7 +3443,7 @@
                     else if (backoff > MAX_TIER2_BACKOFF) {
                         backoff = MAX_TIER2_BACKOFF;
                     }
-                    this_instr[1].cache = ((UINT16_MAX << OPTIMIZER_BITS_IN_COUNTER) << backoff) | backoff;
+                    this_instr[1].cache = ((1 << OPTIMIZER_BITS_IN_COUNTER) << backoff) | backoff;
                 }
             }
             #endif  /* ENABLE_SPECIALIZATION */

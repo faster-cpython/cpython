@@ -3695,10 +3695,10 @@
             oparg = CURRENT_OPARG();
             _PyExecutorObject *previous = (_PyExecutorObject *)tstate->previous_executor;
             _PyExitData *exit = &previous->exits[oparg];
-            exit->temperature++;
+            exit->temperature -= (1 << OPTIMIZER_BITS_IN_COUNTER);
             PyCodeObject *code = _PyFrame_GetCode(frame);
             _Py_CODEUNIT *target = _PyCode_CODE(code) + exit->target;
-            if (exit->temperature < (int32_t)tstate->interp->optimizer_side_threshold) {
+            if (exit->temperature < (1 << OPTIMIZER_BITS_IN_COUNTER)) {
                 GOTO_TIER_ONE(target);
             }
             _PyExecutorObject *executor;
@@ -3708,8 +3708,15 @@
             } else {
                 int optimized = _PyOptimizer_Optimize(frame, target, stack_pointer, &executor);
                 if (optimized <= 0) {
-                    int32_t new_temp = -1 * tstate->interp->optimizer_side_threshold;
-                    exit->temperature = (new_temp < INT16_MIN) ? INT16_MIN : new_temp;
+                    uint16_t backoff = exit->temperature & OPTIMIZER_BITS_MASK;
+                    backoff++;
+                    if (backoff < MIN_TIER2_BACKOFF) {
+                        backoff = MIN_TIER2_BACKOFF;
+                    }
+                    else if (backoff > MAX_TIER2_BACKOFF) {
+                        backoff = MAX_TIER2_BACKOFF;
+                    }
+                    exit->temperature = ((1 << OPTIMIZER_BITS_IN_COUNTER) << backoff) | backoff;
                     if (optimized < 0) {
                         Py_DECREF(previous);
                         tstate->previous_executor = Py_None;

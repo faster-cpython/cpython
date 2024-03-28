@@ -536,6 +536,12 @@ extern int _Py_GetBaseOpcode(PyCodeObject *code, int offset);
 
 extern int _PyInstruction_GetLength(PyCodeObject *code, int offset);
 
+// Need a few iterations to settle specializations,
+// and to ammortize the cost of optimization.
+#define TIER2_WARMUP 16
+#define TIER2_BACKOFF 4
+
+
 #ifdef __cplusplus
 }
 #endif

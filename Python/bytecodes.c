@@ -2348,15 +2348,10 @@ dummy_func(
             JUMPBY(-oparg);
             #if ENABLE_SPECIALIZATION
             uint16_t counter = this_instr[1].cache;
-            this_instr[1].cache = counter + (1 << OPTIMIZER_BITS_IN_COUNTER);
-            /* We are using unsigned values, but we really want signed values, so
-             * do the 2s complement adjustment manually */
-            uint32_t offset_counter = counter ^ (1 << 15);
-            uint32_t threshold = tstate->interp->optimizer_backedge_threshold;
-            assert((threshold & OPTIMIZER_BITS_MASK) == 0);
-            // Use '>=' not '>' so that the optimizer/backoff bits do not effect the result.
+            this_instr[1].cache = counter - (1 << OPTIMIZER_BITS_IN_COUNTER);
+            uint32_t offset_counter = counter >> OPTIMIZER_BITS_IN_COUNTER;
             // Double-check that the opcode isn't instrumented or something:
-            if (offset_counter >= threshold && this_instr->op.code == JUMP_BACKWARD) {
+            if (offset_counter == 0 && this_instr->op.code == JUMP_BACKWARD) {
                 _Py_CODEUNIT *start = this_instr;
                 /* Back up over EXTENDED_ARGs so optimizer sees the whole instruction */
                 while (oparg > 255) {
@@ -2380,7 +2375,7 @@ dummy_func(
                     else if (backoff > MAX_TIER2_BACKOFF) {
                         backoff = MAX_TIER2_BACKOFF;
                     }
-                    this_instr[1].cache = ((UINT16_MAX << OPTIMIZER_BITS_IN_COUNTER) << backoff) | backoff;
+                    this_instr[1].cache = ((1 << OPTIMIZER_BITS_IN_COUNTER) << backoff) | backoff;
                 }
             }
             #endif  /* ENABLE_SPECIALIZATION */
@@ -4159,10 +4154,10 @@ dummy_func(
         tier2 op(_COLD_EXIT, (--)) {
             _PyExecutorObject *previous = (_PyExecutorObject *)tstate->previous_executor;
             _PyExitData *exit = &previous->exits[oparg];
-            exit->temperature++;
+            exit->temperature -= (1 << OPTIMIZER_BITS_IN_COUNTER);
             PyCodeObject *code = _PyFrame_GetCode(frame);
             _Py_CODEUNIT *target = _PyCode_CODE(code) + exit->target;
-            if (exit->temperature < (int32_t)tstate->interp->optimizer_side_threshold) {
+            if (exit->temperature < (1 << OPTIMIZER_BITS_IN_COUNTER)) {
                 GOTO_TIER_ONE(target);
             }
             _PyExecutorObject *executor;
@@ -4172,8 +4167,15 @@ dummy_func(
             } else {
                 int optimized = _PyOptimizer_Optimize(frame, target, stack_pointer, &executor);
                 if (optimized <= 0) {
-                    int32_t new_temp = -1 * tstate->interp->optimizer_side_threshold;
-                    exit->temperature = (new_temp < INT16_MIN) ? INT16_MIN : new_temp;
+                    uint16_t backoff = exit->temperature & OPTIMIZER_BITS_MASK;
+                    backoff++;
+                    if (backoff < MIN_TIER2_BACKOFF) {
+                        backoff = MIN_TIER2_BACKOFF;
+                    }
+                    else if (backoff > MAX_TIER2_BACKOFF) {
+                        backoff = MAX_TIER2_BACKOFF;
+                    }
+                    exit->temperature = ((1 << OPTIMIZER_BITS_IN_COUNTER) << backoff) | backoff;
                     if (optimized < 0) {
                         Py_DECREF(previous);
                         tstate->previous_executor = Py_None;
