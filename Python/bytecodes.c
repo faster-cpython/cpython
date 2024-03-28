@@ -4157,7 +4157,7 @@ dummy_func(
             exit->temperature -= (1 << OPTIMIZER_BITS_IN_COUNTER);
             PyCodeObject *code = _PyFrame_GetCode(frame);
             _Py_CODEUNIT *target = _PyCode_CODE(code) + exit->target;
-            if (exit->temperature < (1 << OPTIMIZER_BITS_IN_COUNTER)) {
+            if (exit->temperature >= (1 << OPTIMIZER_BITS_IN_COUNTER)) {
                 GOTO_TIER_ONE(target);
             }
             _PyExecutorObject *executor;
