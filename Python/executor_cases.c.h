@@ -3392,6 +3392,136 @@
             break;
         }
 
+        case _INIT_CALL_PY_EXACT_ARGS_05: {
+            PyObject **args;
+            PyObject *self_or_null;
+            PyObject *callable;
+            _PyInterpreterFrame *new_frame;
+            oparg = 5;
+            assert(oparg == CURRENT_OPARG());
+            args = &stack_pointer[-oparg];
+            self_or_null = stack_pointer[-1 - oparg];
+            callable = stack_pointer[-2 - oparg];
+            int argcount = oparg;
+            if (self_or_null != NULL) {
+                args--;
+                argcount++;
+            }
+            STAT_INC(CALL, hit);
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            new_frame = _PyFrame_PushUnchecked(tstate, func, argcount);
+            for (int i = 0; i < argcount; i++) {
+                new_frame->localsplus[i] = args[i];
+            }
+            stack_pointer[-2 - oparg] = (PyObject *)new_frame;
+            stack_pointer += -1 - oparg;
+            break;
+        }
+
+        case _INIT_CALL_PY_EXACT_ARGS_06: {
+            PyObject **args;
+            PyObject *self_or_null;
+            PyObject *callable;
+            _PyInterpreterFrame *new_frame;
+            oparg = 6;
+            assert(oparg == CURRENT_OPARG());
+            args = &stack_pointer[-oparg];
+            self_or_null = stack_pointer[-1 - oparg];
+            callable = stack_pointer[-2 - oparg];
+            int argcount = oparg;
+            if (self_or_null != NULL) {
+                args--;
+                argcount++;
+            }
+            STAT_INC(CALL, hit);
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            new_frame = _PyFrame_PushUnchecked(tstate, func, argcount);
+            for (int i = 0; i < argcount; i++) {
+                new_frame->localsplus[i] = args[i];
+            }
+            stack_pointer[-2 - oparg] = (PyObject *)new_frame;
+            stack_pointer += -1 - oparg;
+            break;
+        }
+
+        case _INIT_CALL_PY_EXACT_ARGS_07: {
+            PyObject **args;
+            PyObject *self_or_null;
+            PyObject *callable;
+            _PyInterpreterFrame *new_frame;
+            oparg = 7;
+            assert(oparg == CURRENT_OPARG());
+            args = &stack_pointer[-oparg];
+            self_or_null = stack_pointer[-1 - oparg];
+            callable = stack_pointer[-2 - oparg];
+            int argcount = oparg;
+            if (self_or_null != NULL) {
+                args--;
+                argcount++;
+            }
+            STAT_INC(CALL, hit);
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            new_frame = _PyFrame_PushUnchecked(tstate, func, argcount);
+            for (int i = 0; i < argcount; i++) {
+                new_frame->localsplus[i] = args[i];
+            }
+            stack_pointer[-2 - oparg] = (PyObject *)new_frame;
+            stack_pointer += -1 - oparg;
+            break;
+        }
+
+        case _INIT_CALL_PY_EXACT_ARGS_08: {
+            PyObject **args;
+            PyObject *self_or_null;
+            PyObject *callable;
+            _PyInterpreterFrame *new_frame;
+            oparg = 8;
+            assert(oparg == CURRENT_OPARG());
+            args = &stack_pointer[-oparg];
+            self_or_null = stack_pointer[-1 - oparg];
+            callable = stack_pointer[-2 - oparg];
+            int argcount = oparg;
+            if (self_or_null != NULL) {
+                args--;
+                argcount++;
+            }
+            STAT_INC(CALL, hit);
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            new_frame = _PyFrame_PushUnchecked(tstate, func, argcount);
+            for (int i = 0; i < argcount; i++) {
+                new_frame->localsplus[i] = args[i];
+            }
+            stack_pointer[-2 - oparg] = (PyObject *)new_frame;
+            stack_pointer += -1 - oparg;
+            break;
+        }
+
+        case _INIT_CALL_PY_EXACT_ARGS_09: {
+            PyObject **args;
+            PyObject *self_or_null;
+            PyObject *callable;
+            _PyInterpreterFrame *new_frame;
+            oparg = 9;
+            assert(oparg == CURRENT_OPARG());
+            args = &stack_pointer[-oparg];
+            self_or_null = stack_pointer[-1 - oparg];
+            callable = stack_pointer[-2 - oparg];
+            int argcount = oparg;
+            if (self_or_null != NULL) {
+                args--;
+                argcount++;
+            }
+            STAT_INC(CALL, hit);
+            PyFunctionObject *func = (PyFunctionObject *)callable;
+            new_frame = _PyFrame_PushUnchecked(tstate, func, argcount);
+            for (int i = 0; i < argcount; i++) {
+                new_frame->localsplus[i] = args[i];
+            }
+            stack_pointer[-2 - oparg] = (PyObject *)new_frame;
+            stack_pointer += -1 - oparg;
+            break;
+        }
+
         case _INIT_CALL_PY_EXACT_ARGS: {
             PyObject **args;
             PyObject *self_or_null;
@@ -4027,6 +4157,136 @@
             break;
         }
 
+        case _COPY_00: {
+            PyObject *bottom;
+            PyObject *top;
+            oparg = 0;
+            assert(oparg == CURRENT_OPARG());
+            bottom = stack_pointer[-1 - (oparg-1)];
+            assert(oparg > 0);
+            top = Py_NewRef(bottom);
+            stack_pointer[0] = top;
+            stack_pointer += 1;
+            break;
+        }
+
+        case _COPY_01: {
+            PyObject *bottom;
+            PyObject *top;
+            oparg = 1;
+            assert(oparg == CURRENT_OPARG());
+            bottom = stack_pointer[-1 - (oparg-1)];
+            assert(oparg > 0);
+            top = Py_NewRef(bottom);
+            stack_pointer[0] = top;
+            stack_pointer += 1;
+            break;
+        }
+
+        case _COPY_02: {
+            PyObject *bottom;
+            PyObject *top;
+            oparg = 2;
+            assert(oparg == CURRENT_OPARG());
+            bottom = stack_pointer[-1 - (oparg-1)];
+            assert(oparg > 0);
+            top = Py_NewRef(bottom);
+            stack_pointer[0] = top;
+            stack_pointer += 1;
+            break;
+        }
+
+        case _COPY_03: {
+            PyObject *bottom;
+            PyObject *top;
+            oparg = 3;
+            assert(oparg == CURRENT_OPARG());
+            bottom = stack_pointer[-1 - (oparg-1)];
+            assert(oparg > 0);
+            top = Py_NewRef(bottom);
+            stack_pointer[0] = top;
+            stack_pointer += 1;
+            break;
+        }
+
+        case _COPY_04: {
+            PyObject *bottom;
+            PyObject *top;
+            oparg = 4;
+            assert(oparg == CURRENT_OPARG());
+            bottom = stack_pointer[-1 - (oparg-1)];
+            assert(oparg > 0);
+            top = Py_NewRef(bottom);
+            stack_pointer[0] = top;
+            stack_pointer += 1;
+            break;
+        }
+
+        case _COPY_05: {
+            PyObject *bottom;
+            PyObject *top;
+            oparg = 5;
+            assert(oparg == CURRENT_OPARG());
+            bottom = stack_pointer[-1 - (oparg-1)];
+            assert(oparg > 0);
+            top = Py_NewRef(bottom);
+            stack_pointer[0] = top;
+            stack_pointer += 1;
+            break;
+        }
+
+        case _COPY_06: {
+            PyObject *bottom;
+            PyObject *top;
+            oparg = 6;
+            assert(oparg == CURRENT_OPARG());
+            bottom = stack_pointer[-1 - (oparg-1)];
+            assert(oparg > 0);
+            top = Py_NewRef(bottom);
+            stack_pointer[0] = top;
+            stack_pointer += 1;
+            break;
+        }
+
+        case _COPY_07: {
+            PyObject *bottom;
+            PyObject *top;
+            oparg = 7;
+            assert(oparg == CURRENT_OPARG());
+            bottom = stack_pointer[-1 - (oparg-1)];
+            assert(oparg > 0);
+            top = Py_NewRef(bottom);
+            stack_pointer[0] = top;
+            stack_pointer += 1;
+            break;
+        }
+
+        case _COPY_08: {
+            PyObject *bottom;
+            PyObject *top;
+            oparg = 8;
+            assert(oparg == CURRENT_OPARG());
+            bottom = stack_pointer[-1 - (oparg-1)];
+            assert(oparg > 0);
+            top = Py_NewRef(bottom);
+            stack_pointer[0] = top;
+            stack_pointer += 1;
+            break;
+        }
+
+        case _COPY_09: {
+            PyObject *bottom;
+            PyObject *top;
+            oparg = 9;
+            assert(oparg == CURRENT_OPARG());
+            bottom = stack_pointer[-1 - (oparg-1)];
+            assert(oparg > 0);
+            top = Py_NewRef(bottom);
+            stack_pointer[0] = top;
+            stack_pointer += 1;
+            break;
+        }
+
         case _COPY: {
             PyObject *bottom;
             PyObject *top;
@@ -4053,6 +4313,136 @@
             if (res == NULL) goto pop_2_error_tier_two;
             stack_pointer[-2] = res;
             stack_pointer += -1;
+            break;
+        }
+
+        case _SWAP_00: {
+            PyObject *top;
+            PyObject *bottom;
+            oparg = 0;
+            assert(oparg == CURRENT_OPARG());
+            top = stack_pointer[-1];
+            bottom = stack_pointer[-2 - (oparg-2)];
+            assert(oparg >= 2);
+            stack_pointer[-2 - (oparg-2)] = top;
+            stack_pointer[-1] = bottom;
+            break;
+        }
+
+        case _SWAP_01: {
+            PyObject *top;
+            PyObject *bottom;
+            oparg = 1;
+            assert(oparg == CURRENT_OPARG());
+            top = stack_pointer[-1];
+            bottom = stack_pointer[-2 - (oparg-2)];
+            assert(oparg >= 2);
+            stack_pointer[-2 - (oparg-2)] = top;
+            stack_pointer[-1] = bottom;
+            break;
+        }
+
+        case _SWAP_02: {
+            PyObject *top;
+            PyObject *bottom;
+            oparg = 2;
+            assert(oparg == CURRENT_OPARG());
+            top = stack_pointer[-1];
+            bottom = stack_pointer[-2 - (oparg-2)];
+            assert(oparg >= 2);
+            stack_pointer[-2 - (oparg-2)] = top;
+            stack_pointer[-1] = bottom;
+            break;
+        }
+
+        case _SWAP_03: {
+            PyObject *top;
+            PyObject *bottom;
+            oparg = 3;
+            assert(oparg == CURRENT_OPARG());
+            top = stack_pointer[-1];
+            bottom = stack_pointer[-2 - (oparg-2)];
+            assert(oparg >= 2);
+            stack_pointer[-2 - (oparg-2)] = top;
+            stack_pointer[-1] = bottom;
+            break;
+        }
+
+        case _SWAP_04: {
+            PyObject *top;
+            PyObject *bottom;
+            oparg = 4;
+            assert(oparg == CURRENT_OPARG());
+            top = stack_pointer[-1];
+            bottom = stack_pointer[-2 - (oparg-2)];
+            assert(oparg >= 2);
+            stack_pointer[-2 - (oparg-2)] = top;
+            stack_pointer[-1] = bottom;
+            break;
+        }
+
+        case _SWAP_05: {
+            PyObject *top;
+            PyObject *bottom;
+            oparg = 5;
+            assert(oparg == CURRENT_OPARG());
+            top = stack_pointer[-1];
+            bottom = stack_pointer[-2 - (oparg-2)];
+            assert(oparg >= 2);
+            stack_pointer[-2 - (oparg-2)] = top;
+            stack_pointer[-1] = bottom;
+            break;
+        }
+
+        case _SWAP_06: {
+            PyObject *top;
+            PyObject *bottom;
+            oparg = 6;
+            assert(oparg == CURRENT_OPARG());
+            top = stack_pointer[-1];
+            bottom = stack_pointer[-2 - (oparg-2)];
+            assert(oparg >= 2);
+            stack_pointer[-2 - (oparg-2)] = top;
+            stack_pointer[-1] = bottom;
+            break;
+        }
+
+        case _SWAP_07: {
+            PyObject *top;
+            PyObject *bottom;
+            oparg = 7;
+            assert(oparg == CURRENT_OPARG());
+            top = stack_pointer[-1];
+            bottom = stack_pointer[-2 - (oparg-2)];
+            assert(oparg >= 2);
+            stack_pointer[-2 - (oparg-2)] = top;
+            stack_pointer[-1] = bottom;
+            break;
+        }
+
+        case _SWAP_08: {
+            PyObject *top;
+            PyObject *bottom;
+            oparg = 8;
+            assert(oparg == CURRENT_OPARG());
+            top = stack_pointer[-1];
+            bottom = stack_pointer[-2 - (oparg-2)];
+            assert(oparg >= 2);
+            stack_pointer[-2 - (oparg-2)] = top;
+            stack_pointer[-1] = bottom;
+            break;
+        }
+
+        case _SWAP_09: {
+            PyObject *top;
+            PyObject *bottom;
+            oparg = 9;
+            assert(oparg == CURRENT_OPARG());
+            top = stack_pointer[-1];
+            bottom = stack_pointer[-2 - (oparg-2)];
+            assert(oparg >= 2);
+            stack_pointer[-2 - (oparg-2)] = top;
+            stack_pointer[-1] = bottom;
             break;
         }
 

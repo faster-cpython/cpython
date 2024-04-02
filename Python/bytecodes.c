@@ -3147,7 +3147,7 @@ dummy_func(
             DEOPT_IF(tstate->py_recursion_remaining <= 1);
         }
 
-        replicate(5) pure op(_INIT_CALL_PY_EXACT_ARGS, (callable, self_or_null, args[oparg] -- new_frame: _PyInterpreterFrame*)) {
+        replicate(10) pure op(_INIT_CALL_PY_EXACT_ARGS, (callable, self_or_null, args[oparg] -- new_frame: _PyInterpreterFrame*)) {
             int argcount = oparg;
             if (self_or_null != NULL) {
                 args--;
@@ -3884,7 +3884,7 @@ dummy_func(
             ERROR_IF(res == NULL, error);
         }
 
-        pure inst(COPY, (bottom, unused[oparg-1] -- bottom, unused[oparg-1], top)) {
+        replicate(10) pure inst(COPY, (bottom, unused[oparg-1] -- bottom, unused[oparg-1], top)) {
             assert(oparg > 0);
             top = Py_NewRef(bottom);
         }
@@ -3912,7 +3912,7 @@ dummy_func(
 
         macro(BINARY_OP) = _SPECIALIZE_BINARY_OP + _BINARY_OP;
 
-        pure inst(SWAP, (bottom, unused[oparg-2], top --
+        replicate(10) pure inst(SWAP, (bottom, unused[oparg-2], top --
                     top, unused[oparg-2], bottom)) {
             assert(oparg >= 2);
         }
