@@ -691,6 +691,13 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
 {
     _Py_EnsureTstateNotNULL(tstate);
     CALL_STAT_INC(pyeval_calls);
+#ifdef Py_STATS
+    int caller_opcode = tstate->lastopcode;
+    if (caller_opcode >= 0) {
+        assert(tstate->lastopcode < 256);
+        if (_Py_stats) _Py_stats->call_stats.calling_opcode[caller_opcode]++;
+    }
+#endif
 
 #if USE_COMPUTED_GOTOS
 /* Import the static jump table */

@@ -3383,6 +3383,9 @@
             tstate->current_frame = frame->previous;
             assert(!_PyErr_Occurred(tstate));
             tstate->c_recursion_remaining += PY_EVAL_C_STACK_UNITS;
+            #ifdef Py_STATS
+            tstate->lastopcode = caller_opcode;
+            #endif
             return retval;
         }
 

@@ -176,6 +176,11 @@ print_call_stats(FILE *out, CallStats *stats)
     for (int i = 0; i < EVAL_CALL_KINDS; i++) {
         fprintf(out, "Calls via PyEval_EvalFrame[%d] : %" PRIu64 "\n", i, stats->eval_calls[i]);
     }
+    for (int i = 0; i < 256; i++) {
+        if (stats->calling_opcode[i]) {
+            fprintf(out, "Calls from opcode[%s] : %" PRIu64 "\n", _PyOpcode_OpName[i], stats->calling_opcode[i]);
+        }
+    }
 }
 
 static void

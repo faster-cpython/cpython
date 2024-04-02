@@ -384,7 +384,10 @@ class Stats:
                 result[key] = value
             elif key.startswith("Calls "):
                 name, index = key[:-1].split("[")
-                label = f"{name} ({pretty(defines[int(index)][0])})"
+                try:
+                    label = f"{name} ({pretty(defines[int(index)][0])})"
+                except:
+                    label = f"{name} {index}"
                 result[label] = value
 
         for key, value in sorted(self._data.items()):

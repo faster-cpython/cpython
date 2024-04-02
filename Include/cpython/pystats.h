@@ -63,6 +63,7 @@ typedef struct _call_stats {
     uint64_t frames_pushed;
     uint64_t frame_objects_created;
     uint64_t eval_calls[EVAL_CALL_KINDS];
+    uint64_t calling_opcode[256];
 } CallStats;
 
 typedef struct _object_stats {

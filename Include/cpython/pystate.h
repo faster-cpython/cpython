@@ -192,6 +192,7 @@ struct _ts {
     _PyErr_StackItem exc_state;
 
     PyObject *previous_executor;
+    int lastopcode;
 
 };
 

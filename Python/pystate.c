@@ -1417,6 +1417,7 @@ init_threadstate(_PyThreadStateImpl *_tstate,
     tstate->datastack_limit = NULL;
     tstate->what_event = -1;
     tstate->previous_executor = NULL;
+    tstate->lastopcode = -1;
 
     llist_init(&_tstate->mem_free_queue);
 
