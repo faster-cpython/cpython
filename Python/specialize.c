@@ -1525,6 +1525,31 @@ type_get_version(PyTypeObject *t, int opcode)
     return version;
 }
 
+#ifdef Py_STATS
+static void
+binary_specialization_fail(int lv, int rv, int kind, int oparg)
+{
+    /* Gather stats per op, not family */
+    if (lv >= 8) {
+        lv = 0;
+    }
+    if (rv >= 8) {
+        rv = 0;
+    }
+    assert(kind < 4);
+    assert(oparg < 32);
+    int hash = (oparg << 10) | (kind << 8) | (lv << 4) | rv;
+    assert(hash < (1 << 15));
+    _Py_stats->binary_specialization_failure[hash]++;
+}
+#endif   // Py_STATS
+
+enum Kinds {
+    KIND_1X = 1,
+    KIND_X1 = 2,
+    KIND_XX = 3,
+};
+
 void
 _Py_Specialize_BinarySubscr(
      PyObject *container, PyObject *sub, _Py_CODEUNIT *instr)
@@ -1534,6 +1559,11 @@ _Py_Specialize_BinarySubscr(
            INLINE_CACHE_ENTRIES_BINARY_SUBSCR);
     _PyBinarySubscrCache *cache = (_PyBinarySubscrCache *)(instr + 1);
     PyTypeObject *container_type = Py_TYPE(container);
+#ifdef Py_STATS
+    int left_version =  container_type->tp_version_tag;
+    int right_version = Py_TYPE(sub)->tp_version_tag;
+    BINARY_SPECIALIZATION_FAIL(left_version, right_version, KIND_XX, NB_OPARG_LAST + 1);
+#endif
     if (container_type == &PyList_Type) {
         if (PyLong_CheckExact(sub)) {
             if (_PyLong_IsNonNegativeCompact((PyLongObject *)sub)) {
@@ -2077,32 +2107,6 @@ _Py_Specialize_Call(PyObject *callable, _Py_CODEUNIT *instr, int nargs)
     }
 }
 
-#ifdef Py_STATS
-static void
-binary_specialization_fail(int lv, int rv, int kind, int oparg)
-{
-    /* Gather stats per op, not family */
-    if (lv >= 8) {
-        lv = 0;
-    }
-    if (rv >= 8) {
-        rv = 0;
-    }
-    assert(kind < 4);
-    assert(oparg < 32);
-    int hash = (oparg << 10) | (kind << 8) | (lv << 4) | rv;
-    assert(hash < (1 << 15));
-    _Py_stats->binary_specialization_failure[hash]++;
-}
-#endif   // Py_STATS
-
-
-enum Kinds {
-    KIND_1X = 1,
-    KIND_X1 = 2,
-    KIND_XX = 3,
-};
-
 typedef struct {
     uint16_t hash;
     uint8_t index;
@@ -2290,6 +2294,11 @@ _Py_Specialize_CompareOp(PyObject *lhs, PyObject *rhs, _Py_CODEUNIT *instr,
     // All of these specializations compute boolean values, so they're all valid
     // regardless of the fifth-lowest oparg bit.
     _PyCompareOpCache *cache = (_PyCompareOpCache *)(instr + 1);
+#ifdef Py_STATS
+    int left_version = Py_TYPE(lhs)->tp_version_tag;
+    int right_version = Py_TYPE(rhs)->tp_version_tag;
+    BINARY_SPECIALIZATION_FAIL(left_version, right_version, KIND_XX, NB_OPARG_LAST + 2);
+#endif
     if (Py_TYPE(lhs) != Py_TYPE(rhs)) {
         SPECIALIZATION_FAIL(COMPARE_OP, compare_op_fail_kind(lhs, rhs));
         goto failure;
