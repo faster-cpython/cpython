@@ -701,7 +701,8 @@ PyTypeObject PySlice_Type = {
     PyObject_GenericGetAttr,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,    /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
+        Py_TPFLAGS_VALID_VERSION_TAG,           /* tp_flags */
     slice_doc,                                  /* tp_doc */
     (traverseproc)slice_traverse,               /* tp_traverse */
     0,                                          /* tp_clear */
@@ -720,4 +721,5 @@ PyTypeObject PySlice_Type = {
     0,                                          /* tp_init */
     0,                                          /* tp_alloc */
     slice_new,                                  /* tp_new */
+    .tp_version_tag = _Py_TYPE_VERSION_SLICE,
 };

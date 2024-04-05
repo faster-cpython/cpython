@@ -1530,10 +1530,10 @@ static void
 binary_specialization_fail(int lv, int rv, int kind, int oparg)
 {
     /* Gather stats per op, not family */
-    if (lv >= 8) {
+    if (lv >= 16) {
         lv = 0;
     }
-    if (rv >= 8) {
+    if (rv >= 16) {
         rv = 0;
     }
     assert(kind < 4);
