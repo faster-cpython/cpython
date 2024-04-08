@@ -1178,7 +1178,7 @@ load_attr_fail_kind(DescriptorClassification kind)
         case METHOD:
             return SPEC_FAIL_ATTR_METHOD;
         case PROPERTY:
-            return SPEC_FAIL_ATTR_PROPERTY;
+            return SPEC_FAIL_OTHER;
         case OBJECT_SLOT:
             return SPEC_FAIL_ATTR_OBJECT_SLOT;
         case OTHER_SLOT:
@@ -1287,7 +1287,7 @@ PyObject *descr, DescriptorClassification kind, bool is_method)
                 SPECIALIZATION_FAIL(LOAD_ATTR,
                                     (owner_cls->tp_flags & Py_TPFLAGS_MANAGED_DICT) ?
                                     SPEC_FAIL_ATTR_METHOD_WITH_MANAGED_DICT :
-                                    SPEC_FAIL_ATTR_METHOD_WITHICT);
+                                    SPEC_FAIL_ATTR_METHOD_WITH_DICT);
                 return 0;
             }
             /* Cache entries must be unsigned values, so we offset the
