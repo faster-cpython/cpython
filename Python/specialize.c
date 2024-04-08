@@ -469,7 +469,7 @@ _PyCode_Quicken(PyCodeObject *code)
 #define SPEC_FAIL_ATTR_NOT_DESCRIPTOR 11
 #define SPEC_FAIL_ATTR_METHOD 12
 #define SPEC_FAIL_ATTR_MUTABLE_CLASS 13
-#define SPEC_FAIL_ATTR_PROPERTY 14
+#define SPEC_FAIL_ATTR_METHOD_WITH_MANAGED_DICT
 #define SPEC_FAIL_ATTR_NON_OBJECT_SLOT 15
 #define SPEC_FAIL_ATTR_READ_ONLY 16
 #define SPEC_FAIL_ATTR_AUDITED_SLOT 17
@@ -481,7 +481,7 @@ _PyCode_Quicken(PyCodeObject *code)
 #define SPEC_FAIL_ATTR_CLASS_METHOD_OBJ 23
 #define SPEC_FAIL_ATTR_OBJECT_SLOT 24
 
-#define SPEC_FAIL_ATTR_INSTANCE_ATTRIBUTE 26
+#define SPEC_FAIL_ATTR_METHOD_WITH_DICT 26
 #define SPEC_FAIL_ATTR_METACLASS_ATTRIBUTE 27
 #define SPEC_FAIL_ATTR_PROPERTY_NOT_PY_FUNCTION 28
 #define SPEC_FAIL_ATTR_NOT_IN_KEYS 29
@@ -489,6 +489,7 @@ _PyCode_Quicken(PyCodeObject *code)
 #define SPEC_FAIL_ATTR_CLASS_ATTR_SIMPLE 31
 #define SPEC_FAIL_ATTR_CLASS_ATTR_DESCRIPTOR 32
 #define SPEC_FAIL_ATTR_BUILTIN_CLASS_METHOD_OBJ 33
+#define SPEC_FAIL_ATTR_NON_DESCRIPTOR_MANAGED_DICT 34
 
 /* Binary subscr and store subscr */
 
@@ -1036,10 +1037,7 @@ _Py_Specialize_LoadAttr(PyObject *owner, _Py_CODEUNIT *instr, PyObject *name)
             SPECIALIZATION_FAIL(LOAD_ATTR, SPEC_FAIL_ATTR_CLASS_METHOD_OBJ);
             goto fail;
         case NON_OVERRIDING:
-            SPECIALIZATION_FAIL(LOAD_ATTR,
-                                (type->tp_flags & Py_TPFLAGS_MANAGED_DICT) ?
-                                SPEC_FAIL_ATTR_CLASS_ATTR_DESCRIPTOR :
-                                SPEC_FAIL_ATTR_NOT_MANAGED_DICT);
+            SPECIALIZATION_FAIL(LOAD_ATTR, SPEC_FAIL_ATTR_CLASS_ATTR_DESCRIPTOR);
             goto fail;
         case NON_DESCRIPTOR:
             if ((instr->op.arg & 1) == 0) {
@@ -1101,7 +1099,7 @@ _Py_Specialize_StoreAttr(PyObject *owner, _Py_CODEUNIT *instr, PyObject *name)
             SPECIALIZATION_FAIL(STORE_ATTR, SPEC_FAIL_ATTR_METHOD);
             goto fail;
         case PROPERTY:
-            SPECIALIZATION_FAIL(STORE_ATTR, SPEC_FAIL_ATTR_PROPERTY);
+            SPECIALIZATION_FAIL(STORE_ATTR, SPEC_FAIL_OTHER);
             goto fail;
         case OBJECT_SLOT:
         {
@@ -1201,7 +1199,7 @@ load_attr_fail_kind(DescriptorClassification kind)
         case NON_DESCRIPTOR:
             return SPEC_FAIL_ATTR_NOT_DESCRIPTOR;
         case ABSENT:
-            return SPEC_FAIL_ATTR_INSTANCE_ATTRIBUTE;
+            return SPEC_FAIL_OTHER;
     }
     Py_UNREACHABLE();
 }
@@ -1286,7 +1284,10 @@ PyObject *descr, DescriptorClassification kind, bool is_method)
         else if (is_method) {
             PyObject *dict = *(PyObject **) ((char *)owner + dictoffset);
             if (dict) {
-                SPECIALIZATION_FAIL(LOAD_ATTR, SPEC_FAIL_ATTR_NOT_MANAGED_DICT);
+                SPECIALIZATION_FAIL(LOAD_ATTR,
+                                    (owner_cls->tp_flags & Py_TPFLAGS_MANAGED_DICT) ?
+                                    SPEC_FAIL_ATTR_METHOD_WITH_MANAGED_DICT :
+                                    SPEC_FAIL_ATTR_METHOD_WITHICT);
                 return 0;
             }
             /* Cache entries must be unsigned values, so we offset the
@@ -1298,7 +1299,11 @@ PyObject *descr, DescriptorClassification kind, bool is_method)
             instr->op.code = LOAD_ATTR_METHOD_LAZY_DICT;
         }
         else {
-            SPECIALIZATION_FAIL(LOAD_ATTR, SPEC_FAIL_ATTR_CLASS_ATTR_SIMPLE);
+            SPECIALIZATION_FAIL(LOAD_ATTR,
+                                (owner_cls->tp_flags & Py_TPFLAGS_MANAGED_DICT) ?
+                                SPEC_FAIL_ATTR_NON_DESCRIPTOR_MANAGED_DICT :
+                                SPEC_FAIL_ATTR_NOT_MANAGED_DICT
+            );
             return 0;
         }
     }
