@@ -117,6 +117,8 @@ int _PyOpcode_num_popped(int opcode, int oparg)  {
             return 2 + oparg;
         case CALL_LIST_APPEND:
             return 3;
+        case CALL_METHOD_CMETHOD:
+            return 2 + oparg;
         case CALL_METHOD_DESCRIPTOR_FAST:
             return 2 + oparg;
         case CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS:
@@ -545,6 +547,8 @@ int _PyOpcode_num_pushed(int opcode, int oparg)  {
         case CALL_LEN:
             return 1;
         case CALL_LIST_APPEND:
+            return 1;
+        case CALL_METHOD_CMETHOD:
             return 1;
         case CALL_METHOD_DESCRIPTOR_FAST:
             return 1;
@@ -996,6 +1000,7 @@ const struct opcode_metadata _PyOpcode_opcode_metadata[268] = {
     [CALL_KW] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_EVAL_BREAK_FLAG | HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG | HAS_ESCAPES_FLAG },
     [CALL_LEN] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_DEOPT_FLAG | HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG | HAS_ESCAPES_FLAG },
     [CALL_LIST_APPEND] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_DEOPT_FLAG | HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG },
+    [CALL_METHOD_CMETHOD] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_EVAL_BREAK_FLAG | HAS_DEOPT_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [CALL_METHOD_DESCRIPTOR_FAST] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_EVAL_BREAK_FLAG | HAS_DEOPT_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_EVAL_BREAK_FLAG | HAS_DEOPT_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [CALL_METHOD_DESCRIPTOR_NOARGS] = { true, INSTR_FMT_IBC00, HAS_ARG_FLAG | HAS_EVAL_BREAK_FLAG | HAS_DEOPT_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
@@ -1219,6 +1224,7 @@ _PyOpcode_macro_expansion[256] = {
     [CALL_INTRINSIC_2] = { .nuops = 1, .uops = { { _CALL_INTRINSIC_2, 0, 0 } } },
     [CALL_ISINSTANCE] = { .nuops = 1, .uops = { { _CALL_ISINSTANCE, 0, 0 } } },
     [CALL_LEN] = { .nuops = 1, .uops = { { _CALL_LEN, 0, 0 } } },
+    [CALL_METHOD_CMETHOD] = { .nuops = 2, .uops = { { _CALL_METHOD_CMETHOD, 0, 0 }, { _CHECK_PERIODIC, 0, 0 } } },
     [CALL_METHOD_DESCRIPTOR_FAST] = { .nuops = 2, .uops = { { _CALL_METHOD_DESCRIPTOR_FAST, 0, 0 }, { _CHECK_PERIODIC, 0, 0 } } },
     [CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS] = { .nuops = 2, .uops = { { _CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS, 0, 0 }, { _CHECK_PERIODIC, 0, 0 } } },
     [CALL_METHOD_DESCRIPTOR_NOARGS] = { .nuops = 2, .uops = { { _CALL_METHOD_DESCRIPTOR_NOARGS, 0, 0 }, { _CHECK_PERIODIC, 0, 0 } } },
@@ -1391,6 +1397,7 @@ const char *_PyOpcode_OpName[268] = {
     [CALL_KW] = "CALL_KW",
     [CALL_LEN] = "CALL_LEN",
     [CALL_LIST_APPEND] = "CALL_LIST_APPEND",
+    [CALL_METHOD_CMETHOD] = "CALL_METHOD_CMETHOD",
     [CALL_METHOD_DESCRIPTOR_FAST] = "CALL_METHOD_DESCRIPTOR_FAST",
     [CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS] = "CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS",
     [CALL_METHOD_DESCRIPTOR_NOARGS] = "CALL_METHOD_DESCRIPTOR_NOARGS",
@@ -1644,6 +1651,7 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [CALL_KW] = CALL_KW,
     [CALL_LEN] = CALL,
     [CALL_LIST_APPEND] = CALL,
+    [CALL_METHOD_CMETHOD] = CALL,
     [CALL_METHOD_DESCRIPTOR_FAST] = CALL,
     [CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS] = CALL,
     [CALL_METHOD_DESCRIPTOR_NOARGS] = CALL,
@@ -1849,7 +1857,6 @@ const uint8_t _PyOpcode_Deopt[256] = {
     case 146: \
     case 147: \
     case 148: \
-    case 221: \
     case 222: \
     case 223: \
     case 224: \

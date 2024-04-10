@@ -3012,6 +3012,7 @@ dummy_func(
             CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS,
             CALL_METHOD_DESCRIPTOR_NOARGS,
             CALL_METHOD_DESCRIPTOR_FAST,
+            CALL_METHOD_CMETHOD,
             CALL_ALLOC_AND_ENTER_INIT,
         };
 
@@ -3583,6 +3584,39 @@ dummy_func(
             unused/1 +
             unused/2 +
             _CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS +
+            _CHECK_PERIODIC;
+
+        op(_CALL_METHOD_CMETHOD, (callable, self_or_null, args[oparg] -- res)) {
+            int total_args = oparg;
+            if (self_or_null != NULL) {
+                args--;
+                total_args++;
+            }
+            PyMethodDescrObject *method = (PyMethodDescrObject *)callable;
+            DEOPT_IF(!Py_IS_TYPE(method, &PyMethodDescr_Type));
+            PyMethodDef *meth = method->d_method;
+            DEOPT_IF(meth->ml_flags != (METH_METHOD|METH_FASTCALL|METH_KEYWORDS));
+            PyTypeObject *d_type = method->d_common.d_type;
+            PyObject *self = args[0];
+            DEOPT_IF(!Py_IS_TYPE(self, d_type));
+            STAT_INC(CALL, hit);
+            int nargs = total_args - 1;
+            PyCMethod cfunc = (PyCMethod)(void(*)(void))meth->ml_meth;
+            res = cfunc(self, d_type, args + 1, nargs, NULL);
+            assert((res != NULL) ^ (_PyErr_Occurred(tstate) != NULL));
+
+            /* Free the arguments. */
+            for (int i = 0; i < total_args; i++) {
+                Py_DECREF(args[i]);
+            }
+            Py_DECREF(callable);
+            ERROR_IF(res == NULL, error);
+        }
+
+        macro(CALL_METHOD_CMETHOD) =
+            unused/1 +
+            unused/2 +
+            _CALL_METHOD_CMETHOD +
             _CHECK_PERIODIC;
 
         op(_CALL_METHOD_DESCRIPTOR_NOARGS, (callable, self_or_null, args[oparg] -- res)) {

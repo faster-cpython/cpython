@@ -1721,6 +1721,15 @@
             break;
         }
 
+        case _CALL_METHOD_CMETHOD: {
+            _Py_UopsSymbol *res;
+            res = sym_new_not_null(ctx);
+            if (res == NULL) goto out_of_space;
+            stack_pointer[-2 - oparg] = res;
+            stack_pointer += -1 - oparg;
+            break;
+        }
+
         case _CALL_METHOD_DESCRIPTOR_NOARGS: {
             _Py_UopsSymbol *res;
             res = sym_new_not_null(ctx);
