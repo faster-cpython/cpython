@@ -1890,6 +1890,10 @@ specialize_method_descriptor(PyMethodDescrObject *descr, _Py_CODEUNIT *instr,
             instr->op.code = CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS;
             return 0;
         }
+        case METH_METHOD | METH_FASTCALL | METH_KEYWORDS: {
+            instr->op.code = CALL_METHOD_CMETHOD;
+            return 0;
+        }
     }
     SPECIALIZATION_FAIL(CALL, meth_descr_call_fail_kind(descr->d_method->ml_flags));
     return -1;
