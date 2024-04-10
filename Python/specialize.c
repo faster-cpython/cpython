@@ -444,13 +444,13 @@ _PyCode_Quicken(PyCodeObject *code)
 /* Common */
 
 #define SPEC_FAIL_OTHER 0
-#define SPEC_FAIL_NO_DICT 1
+#define SPEC_FAIL_CODE_VARARGS 1
 #define SPEC_FAIL_OVERRIDDEN 2
 #define SPEC_FAIL_OUT_OF_VERSIONS 3
 #define SPEC_FAIL_OUT_OF_RANGE 4
 #define SPEC_FAIL_EXPECTED_ERROR 5
 #define SPEC_FAIL_WRONG_NUMBER_ARGUMENTS 6
-#define SPEC_FAIL_CODE_COMPLEX_PARAMETERS 7
+#define SPEC_FAIL_CODE_VARKEYWORDS 7
 #define SPEC_FAIL_CODE_NOT_OPTIMIZED 8
 
 
@@ -489,6 +489,7 @@ _PyCode_Quicken(PyCodeObject *code)
 #define SPEC_FAIL_ATTR_CLASS_ATTR_SIMPLE 31
 #define SPEC_FAIL_ATTR_CLASS_ATTR_DESCRIPTOR 32
 #define SPEC_FAIL_ATTR_BUILTIN_CLASS_METHOD_OBJ 33
+#define SPEC_FAIL_ATTR_NO_DICT 34
 
 /* Binary subscr and store subscr */
 
@@ -629,7 +630,7 @@ specialize_module_load_attr(
     assert((owner->ob_type->tp_flags & Py_TPFLAGS_MANAGED_DICT) == 0);
     PyDictObject *dict = (PyDictObject *)m->md_dict;
     if (dict == NULL) {
-        SPECIALIZATION_FAIL(LOAD_ATTR, SPEC_FAIL_NO_DICT);
+        SPECIALIZATION_FAIL(LOAD_ATTR, SPEC_FAIL_ATTR_NO_DICT);
         return -1;
     }
     if (dict->ma_keys->dk_kind != DICT_KEYS_UNICODE) {
@@ -846,7 +847,7 @@ specialize_dict_access(
         PyManagedDictPointer *managed_dict = _PyObject_ManagedDictPointer(owner);
         PyDictObject *dict = managed_dict->dict;
         if (dict == NULL || !PyDict_CheckExact(dict)) {
-            SPECIALIZATION_FAIL(base_op, SPEC_FAIL_NO_DICT);
+            SPECIALIZATION_FAIL(base_op, SPEC_FAIL_ATTR_NO_DICT);
             return 0;
         }
         // We found an instance with a __dict__.
@@ -1455,8 +1456,11 @@ binary_subscr_fail_kind(PyTypeObject *container_type, PyObject *sub)
 static int
 function_kind(PyCodeObject *code) {
     int flags = code->co_flags;
-    if ((flags & (CO_VARKEYWORDS | CO_VARARGS)) || code->co_kwonlyargcount) {
-        return SPEC_FAIL_CODE_COMPLEX_PARAMETERS;
+    if ((flags & CO_VARKEYWORDS) || code->co_kwonlyargcount) {
+        return SPEC_FAIL_CODE_VARKEYWORDS;
+    }
+    if (flags & CO_VARARGS) {
+        return SPEC_FAIL_CODE_VARARGS;
     }
     if ((flags & CO_OPTIMIZED) == 0) {
         return SPEC_FAIL_CODE_NOT_OPTIMIZED;
