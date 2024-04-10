@@ -2000,7 +2000,11 @@ dummy_func(
             DEOPT_IF(!PyType_Check(owner));
             assert(type_version != 0);
             DEOPT_IF(((PyTypeObject *)owner)->tp_version_tag != type_version);
+        }
 
+        op(_CHECK_ATTR_METACLASS, (type_version/2, owner -- owner)) {
+            assert(type_version != 0);
+            DEOPT_IF(Py_TYPE(owner)->tp_version_tag != type_version);
         }
 
         split op(_LOAD_ATTR_CLASS, (descr/4, owner -- attr, null if (oparg & 1))) {
@@ -2014,7 +2018,7 @@ dummy_func(
         macro(LOAD_ATTR_CLASS) =
             unused/1 +
             _CHECK_ATTR_CLASS +
-            unused/2 +
+            _CHECK_ATTR_METACLASS +
             _LOAD_ATTR_CLASS;
 
         inst(LOAD_ATTR_PROPERTY, (unused/1, type_version/2, func_version/2, fget/4, owner -- unused, unused if (0))) {

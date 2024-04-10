@@ -3597,7 +3597,12 @@
                 assert(type_version != 0);
                 DEOPT_IF(((PyTypeObject *)owner)->tp_version_tag != type_version, LOAD_ATTR);
             }
-            /* Skip 2 cache entries */
+            // _CHECK_ATTR_METACLASS
+            {
+                uint32_t type_version = read_u32(&this_instr[4].cache);
+                assert(type_version != 0);
+                DEOPT_IF(Py_TYPE(owner)->tp_version_tag != type_version, LOAD_ATTR);
+            }
             // _LOAD_ATTR_CLASS
             {
                 PyObject *descr = read_obj(&this_instr[6].cache);

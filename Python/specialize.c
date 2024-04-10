@@ -706,7 +706,8 @@ typedef enum {
     BUILTIN_CLASSMETHOD, /* Builtin methods with METH_CLASS */
     PYTHON_CLASSMETHOD, /* Python classmethod(func) object */
     NON_DESCRIPTOR, /* Is not a descriptor, and is an instance of an immutable class */
-    MUTABLE,   /* Instance of a mutable class; might, or might not, be a descriptor */
+    MUTABLE_DESCRIPTOR,   /* Instance of a mutable class; currently is a descriptor */
+    MUTABLE_NON_DESCRIPTOR,   /* Instance of a mutable class; currently is not a descriptor */
     ABSENT, /* Attribute is not present on the class */
     DUNDER_CLASS, /* __class__ attribute */
     GETSET_OVERRIDDEN, /* __getattribute__ or __setattr__ has been overridden */
@@ -772,7 +773,12 @@ analyze_descriptor(PyTypeObject *type, PyObject *name, PyObject **descr, int sto
     }
     PyTypeObject *desc_cls = Py_TYPE(descriptor);
     if (!(desc_cls->tp_flags & Py_TPFLAGS_IMMUTABLETYPE)) {
-        return MUTABLE;
+        if (desc_cls->tp_descr_set || desc_cls->tp_descr_get) {
+            return MUTABLE_DESCRIPTOR;
+        }
+        else {
+            return MUTABLE_NON_DESCRIPTOR;
+        }
     }
     if (desc_cls->tp_descr_set) {
         if (desc_cls == &PyMemberDescr_Type) {
@@ -873,7 +879,7 @@ specialize_dict_access(
 
 static int specialize_attr_loadclassattr(PyObject* owner, _Py_CODEUNIT* instr, PyObject* name,
     PyObject* descr, DescriptorClassification kind, bool is_method);
-static int specialize_class_load_attr(PyObject* owner, _Py_CODEUNIT* instr, PyObject* name);
+static int specialize_class_load_attr(PyTypeObject* owner, _Py_CODEUNIT* instr, PyObject* name);
 
 void
 _Py_Specialize_LoadAttr(PyObject *owner, _Py_CODEUNIT *instr, PyObject *name)
@@ -897,7 +903,7 @@ _Py_Specialize_LoadAttr(PyObject *owner, _Py_CODEUNIT *instr, PyObject *name)
         goto success;
     }
     if (PyType_Check(owner)) {
-        if (specialize_class_load_attr(owner, instr, name)) {
+        if (specialize_class_load_attr((PyTypeObject *)owner, instr, name)) {
             goto fail;
         }
         goto success;
@@ -997,7 +1003,8 @@ _Py_Specialize_LoadAttr(PyObject *owner, _Py_CODEUNIT *instr, PyObject *name)
         case OTHER_SLOT:
             SPECIALIZATION_FAIL(LOAD_ATTR, SPEC_FAIL_ATTR_NON_OBJECT_SLOT);
             goto fail;
-        case MUTABLE:
+        case MUTABLE_NON_DESCRIPTOR:
+        case MUTABLE_DESCRIPTOR:
             SPECIALIZATION_FAIL(LOAD_ATTR, SPEC_FAIL_ATTR_MUTABLE_CLASS);
             goto fail;
         case GETSET_OVERRIDDEN:
@@ -1129,7 +1136,8 @@ _Py_Specialize_StoreAttr(PyObject *owner, _Py_CODEUNIT *instr, PyObject *name)
         case OTHER_SLOT:
             SPECIALIZATION_FAIL(STORE_ATTR, SPEC_FAIL_ATTR_NON_OBJECT_SLOT);
             goto fail;
-        case MUTABLE:
+        case MUTABLE_DESCRIPTOR:
+        case MUTABLE_NON_DESCRIPTOR:
             SPECIALIZATION_FAIL(STORE_ATTR, SPEC_FAIL_ATTR_MUTABLE_CLASS);
             goto fail;
         case GETATTRIBUTE_IS_PYTHON_FUNCTION:
@@ -1185,7 +1193,8 @@ load_attr_fail_kind(DescriptorClassification kind)
             return SPEC_FAIL_ATTR_NON_OBJECT_SLOT;
         case DUNDER_CLASS:
             return SPEC_FAIL_OTHER;
-        case MUTABLE:
+        case MUTABLE_DESCRIPTOR:
+        case MUTABLE_NON_DESCRIPTOR:
             return SPEC_FAIL_ATTR_MUTABLE_CLASS;
         case GETSET_OVERRIDDEN:
         case GETATTRIBUTE_IS_PYTHON_FUNCTION:
@@ -1206,24 +1215,42 @@ load_attr_fail_kind(DescriptorClassification kind)
 #endif   // Py_STATS
 
 static int
-specialize_class_load_attr(PyObject *owner, _Py_CODEUNIT *instr,
+specialize_class_load_attr(PyTypeObject *cls, _Py_CODEUNIT *instr,
                              PyObject *name)
 {
     _PyLoadMethodCache *cache = (_PyLoadMethodCache *)(instr + 1);
-    if (!PyType_CheckExact(owner) || _PyType_Lookup(Py_TYPE(owner), name)) {
+    PyTypeObject *metaclass = Py_TYPE(cls);
+    if (_PyType_Lookup(metaclass, name)) {
         SPECIALIZATION_FAIL(LOAD_ATTR, SPEC_FAIL_ATTR_METACLASS_ATTRIBUTE);
+        return -1;
+    }
+    if (metaclass->tp_getattro != _Py_type_getattro) {
+        SPECIALIZATION_FAIL(LOAD_ATTR, GETSET_OVERRIDDEN);
         return -1;
     }
     PyObject *descr = NULL;
     DescriptorClassification kind = 0;
-    kind = analyze_descriptor((PyTypeObject *)owner, name, &descr, 0);
-    if (type_get_version((PyTypeObject *)owner, LOAD_ATTR) == 0) {
+    kind = analyze_descriptor(cls, name, &descr, 0);
+    if (type_get_version(cls, LOAD_ATTR) == 0) {
+        return -1;
+    }
+    if (type_get_version(metaclass, LOAD_ATTR) == 0) {
         return -1;
     }
     switch (kind) {
+        case MUTABLE_NON_DESCRIPTOR:
+            /* Generally we cannot specialize for mutable attributes, as
+             * they might become descriptors. However, if we are aleady
+             * guarding the class of the attribute, then we are safe */
+            if (Py_TYPE(descr) != cls || Py_TYPE(descr) != metaclass) {
+                SPECIALIZATION_FAIL(LOAD_ATTR, load_attr_fail_kind(kind));
+                return -1;
+            }
+            /* fall through */
         case METHOD:
         case NON_DESCRIPTOR:
-            write_u32(cache->type_version, ((PyTypeObject *)owner)->tp_version_tag);
+            write_u32(cache->type_version, cls->tp_version_tag);
+            write_u32(cache->keys_version, metaclass->tp_version_tag);
             write_obj(cache->descr, descr);
             instr->op.code = LOAD_ATTR_CLASS;
             return 0;

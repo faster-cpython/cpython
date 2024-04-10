@@ -142,6 +142,7 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_LOAD_ATTR_SLOT_1] = HAS_DEOPT_FLAG,
     [_LOAD_ATTR_SLOT] = HAS_ARG_FLAG | HAS_DEOPT_FLAG | HAS_OPARG_AND_1_FLAG,
     [_CHECK_ATTR_CLASS] = HAS_DEOPT_FLAG,
+    [_CHECK_ATTR_METACLASS] = HAS_DEOPT_FLAG,
     [_LOAD_ATTR_CLASS_0] = 0,
     [_LOAD_ATTR_CLASS_1] = 0,
     [_LOAD_ATTR_CLASS] = HAS_ARG_FLAG | HAS_OPARG_AND_1_FLAG,
@@ -291,6 +292,7 @@ const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_CALL_TUPLE_1] = "_CALL_TUPLE_1",
     [_CALL_TYPE_1] = "_CALL_TYPE_1",
     [_CHECK_ATTR_CLASS] = "_CHECK_ATTR_CLASS",
+    [_CHECK_ATTR_METACLASS] = "_CHECK_ATTR_METACLASS",
     [_CHECK_ATTR_METHOD_LAZY_DICT] = "_CHECK_ATTR_METHOD_LAZY_DICT",
     [_CHECK_ATTR_MODULE] = "_CHECK_ATTR_MODULE",
     [_CHECK_ATTR_WITH_HINT] = "_CHECK_ATTR_WITH_HINT",
@@ -731,6 +733,8 @@ int _PyUop_num_popped(int opcode, int oparg)
         case _LOAD_ATTR_SLOT:
             return 1;
         case _CHECK_ATTR_CLASS:
+            return 1;
+        case _CHECK_ATTR_METACLASS:
             return 1;
         case _LOAD_ATTR_CLASS_0:
             return 1;

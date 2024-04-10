@@ -2114,6 +2114,18 @@
             break;
         }
 
+        case _CHECK_ATTR_METACLASS: {
+            PyObject *owner;
+            owner = stack_pointer[-1];
+            uint32_t type_version = (uint32_t)CURRENT_OPERAND();
+            assert(type_version != 0);
+            if (Py_TYPE(owner)->tp_version_tag != type_version) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            break;
+        }
+
         case _LOAD_ATTR_CLASS_0: {
             PyObject *owner;
             PyObject *attr;

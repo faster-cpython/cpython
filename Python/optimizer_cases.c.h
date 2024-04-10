@@ -1085,6 +1085,10 @@
             break;
         }
 
+        case _CHECK_ATTR_METACLASS: {
+            break;
+        }
+
         case _LOAD_ATTR_CLASS: {
             _Py_UopsSymbol *owner;
             _Py_UopsSymbol *attr;
