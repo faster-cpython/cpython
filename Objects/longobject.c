@@ -154,7 +154,7 @@ _PyLong_New(Py_ssize_t size)
        sizeof() instead of the offsetof, but this risks being
        incorrect in the presence of padding between the header
        and the digits. */
-    result = PyObject_Malloc(offsetof(PyLongObject, long_value.ob_digit) +
+    result = _PyObject_MallocFast(offsetof(PyLongObject, long_value.ob_digit) +
                              ndigits*sizeof(digit));
     if (!result) {
         PyErr_NoMemory();
@@ -206,7 +206,7 @@ _PyLong_FromMedium(sdigit x)
     assert(!IS_SMALL_INT(x));
     assert(is_medium_int(x));
     /* We could use a freelist here */
-    PyLongObject *v = PyObject_Malloc(sizeof(PyLongObject));
+    PyLongObject *v = _PyObject_MallocFast(sizeof(PyLongObject));
     if (v == NULL) {
         PyErr_NoMemory();
         return NULL;
@@ -3553,7 +3553,13 @@ long_dealloc(PyObject *self)
             }
         }
     }
-    Py_TYPE(self)->tp_free(self);
+    if (PyLong_CheckExact(self)) {
+        assert(Py_TYPE(self)->tp_free == PyObject_Free);
+        _PyObject_FreeFast(self);
+    }
+    else {
+        Py_TYPE(self)->tp_free(self);
+    }
 }
 
 static Py_hash_t

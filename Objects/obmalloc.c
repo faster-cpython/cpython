@@ -3446,4 +3446,47 @@ _PyObject_DebugMallocStats(FILE *out)
     }
 }
 
+void *
+_PyObject_MallocFast(size_t size)
+{
+    assert(size != 0);
+    OBJECT_STAT_INC_COND(allocations512, size < 512);
+    OBJECT_STAT_INC_COND(allocations4k, size >= 512 && size < 4094);
+    OBJECT_STAT_INC_COND(allocations_big, size >= 4094);
+    OBJECT_STAT_INC(allocations);
+    if (_PyObject.malloc == _PyObject_Malloc) {
+        OMState *state = get_state();
+        void* ptr = pymalloc_alloc(state, NULL, size);
+        if (LIKELY(ptr != NULL)) {
+            return ptr;
+        }
+        ptr = PyMem_RawMalloc(size);
+        if (ptr != NULL) {
+            raw_allocated_blocks++;
+        }
+        return ptr;
+    }
+    return _PyObject.malloc(_PyObject.ctx, size);
+}
+
+void
+_PyObject_FreeFast(void *ptr)
+{
+    /* PyObject_Free(NULL) has no effect */
+    assert(ptr != NULL);
+    OBJECT_STAT_INC(frees);
+    if (_PyObject.free == _PyObject_Free) {
+        OMState *state = get_state();
+        if (UNLIKELY(!pymalloc_free(state, NULL, ptr))) {
+            /* pymalloc didn't allocate this address */
+            PyMem_RawFree(ptr);
+            raw_allocated_blocks--;
+        }
+    }
+    else {
+        _PyObject.free(_PyObject.ctx, ptr);
+    }
+}
+
+
 #endif /* #ifdef WITH_PYMALLOC */

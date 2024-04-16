@@ -1235,7 +1235,7 @@ PyUnicode_New(Py_ssize_t size, Py_UCS4 maxchar)
      * PyObject_New() so we are able to allocate space for the object and
      * it's data buffer.
      */
-    obj = (PyObject *) PyObject_Malloc(struct_size + (size + 1) * char_size);
+    obj = (PyObject *) _PyObject_MallocFast(struct_size + (size + 1) * char_size);
     if (obj == NULL) {
         return PyErr_NoMemory();
     }
@@ -1596,7 +1596,13 @@ unicode_dealloc(PyObject *unicode)
         PyMem_Free(_PyUnicode_DATA_ANY(unicode));
     }
 
-    Py_TYPE(unicode)->tp_free(unicode);
+    if (PyUnicode_CheckExact(unicode)) {
+        assert(Py_TYPE(unicode)->tp_free == PyObject_Free);
+        _PyObject_FreeFast(unicode);
+    }
+    else {
+        Py_TYPE(unicode)->tp_free(unicode);
+    }
 }
 
 #ifdef Py_DEBUG
