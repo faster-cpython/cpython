@@ -448,7 +448,7 @@ PyObject_InitVar(PyVarObject *op, PyTypeObject *tp, Py_ssize_t size)
 PyObject *
 _PyObject_New(PyTypeObject *tp)
 {
-    PyObject *op = (PyObject *) PyObject_Malloc(_PyObject_SIZE(tp));
+    PyObject *op = (PyObject *) _PyObject_MallocFast(_PyObject_SIZE(tp));
     if (op == NULL) {
         return PyErr_NoMemory();
     }
@@ -461,7 +461,7 @@ _PyObject_NewVar(PyTypeObject *tp, Py_ssize_t nitems)
 {
     PyVarObject *op;
     const size_t size = _PyObject_VAR_SIZE(tp, nitems);
-    op = (PyVarObject *) PyObject_Malloc(size);
+    op = (PyVarObject *) _PyObject_MallocFast(size);
     if (op == NULL) {
         return (PyVarObject *)PyErr_NoMemory();
     }

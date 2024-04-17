@@ -1282,19 +1282,6 @@ _PyMem_FiniDelayed(PyInterpreterState *interp)
 /**************************/
 
 void *
-PyObject_Malloc(size_t size)
-{
-    /* see PyMem_RawMalloc() */
-    if (size > (size_t)PY_SSIZE_T_MAX)
-        return NULL;
-    OBJECT_STAT_INC_COND(allocations512, size < 512);
-    OBJECT_STAT_INC_COND(allocations4k, size >= 512 && size < 4094);
-    OBJECT_STAT_INC_COND(allocations_big, size >= 4094);
-    OBJECT_STAT_INC(allocations);
-    return _PyObject.malloc(_PyObject.ctx, size);
-}
-
-void *
 PyObject_Calloc(size_t nelem, size_t elsize)
 {
     /* see PyMem_RawMalloc() */
@@ -1315,14 +1302,6 @@ PyObject_Realloc(void *ptr, size_t new_size)
         return NULL;
     return _PyObject.realloc(_PyObject.ctx, ptr, new_size);
 }
-
-void
-PyObject_Free(void *ptr)
-{
-    OBJECT_STAT_INC(frees);
-    _PyObject.free(_PyObject.ctx, ptr);
-}
-
 
 /* If we're using GCC, use __builtin_expect() to reduce overhead of
    the valgrind checks */
@@ -2084,9 +2063,7 @@ pymalloc_alloc(OMState *state, void *Py_UNUSED(ctx), size_t nbytes)
     }
 #endif
 
-    if (UNLIKELY(nbytes == 0)) {
-        return NULL;
-    }
+    assert(nbytes != 0 && nbytes <= (size_t)PY_SSIZE_T_MAX/2);
     if (UNLIKELY(nbytes > SMALL_REQUEST_THRESHOLD)) {
         return NULL;
     }
@@ -2119,17 +2096,23 @@ pymalloc_alloc(OMState *state, void *Py_UNUSED(ctx), size_t nbytes)
     return (void *)bp;
 }
 
+static inline bool
+zero_or_too_large(size_t nbytes)
+{
+    return (nbytes-1) >= (size_t)PY_SSIZE_T_MAX;
+}
 
 void *
 _PyObject_Malloc(void *ctx, size_t nbytes)
 {
     OMState *state = get_state();
-    void* ptr = pymalloc_alloc(state, ctx, nbytes);
-    if (LIKELY(ptr != NULL)) {
-        return ptr;
+    if (LIKELY(!zero_or_too_large(nbytes))) {
+        void* ptr = pymalloc_alloc(state, ctx, nbytes);
+        if (LIKELY(ptr != NULL)) {
+            return ptr;
+        }
     }
-
-    ptr = PyMem_RawMalloc(nbytes);
+    void* ptr = PyMem_RawMalloc(nbytes);
     if (ptr != NULL) {
         raw_allocated_blocks++;
     }
@@ -2144,13 +2127,14 @@ _PyObject_Calloc(void *ctx, size_t nelem, size_t elsize)
     size_t nbytes = nelem * elsize;
 
     OMState *state = get_state();
-    void* ptr = pymalloc_alloc(state, ctx, nbytes);
-    if (LIKELY(ptr != NULL)) {
-        memset(ptr, 0, nbytes);
-        return ptr;
+    if (LIKELY(!zero_or_too_large(nbytes))) {
+        void *ptr = pymalloc_alloc(state, ctx, nbytes);
+        if (LIKELY(ptr != NULL)) {
+            memset(ptr, 0, nbytes);
+            return ptr;
+        }
     }
-
-    ptr = PyMem_RawCalloc(nelem, elsize);
+    void *ptr = PyMem_RawCalloc(nelem, elsize);
     if (ptr != NULL) {
         raw_allocated_blocks++;
     }
@@ -3449,14 +3433,14 @@ _PyObject_DebugMallocStats(FILE *out)
 void *
 _PyObject_MallocFast(size_t size)
 {
-    assert(size != 0);
+    assert(!zero_or_too_large(size));
     OBJECT_STAT_INC_COND(allocations512, size < 512);
     OBJECT_STAT_INC_COND(allocations4k, size >= 512 && size < 4094);
     OBJECT_STAT_INC_COND(allocations_big, size >= 4094);
     OBJECT_STAT_INC(allocations);
     if (_PyObject.malloc == _PyObject_Malloc) {
         OMState *state = get_state();
-        void* ptr = pymalloc_alloc(state, NULL, size);
+        void *ptr = pymalloc_alloc(state, NULL, size);
         if (LIKELY(ptr != NULL)) {
             return ptr;
         }
@@ -3469,10 +3453,22 @@ _PyObject_MallocFast(size_t size)
     return _PyObject.malloc(_PyObject.ctx, size);
 }
 
+void *
+PyObject_Malloc(size_t size)
+{
+    if (LIKELY(!zero_or_too_large(size))) {
+        return _PyObject_MallocFast(size);
+    }
+    if (size == 0) {
+        return _PyObject.malloc(_PyObject.ctx, 0);
+    }
+    return NULL;
+}
+
 void
 _PyObject_FreeFast(void *ptr)
 {
-    /* PyObject_Free(NULL) has no effect */
+    /* Don't check for NULL */
     assert(ptr != NULL);
     OBJECT_STAT_INC(frees);
     if (_PyObject.free == _PyObject_Free) {
@@ -3486,6 +3482,15 @@ _PyObject_FreeFast(void *ptr)
     else {
         _PyObject.free(_PyObject.ctx, ptr);
     }
+}
+
+void
+PyObject_Free(void *ptr)
+{
+    if (ptr == NULL) {
+        return;
+    }
+    _PyObject_FreeFast(ptr);
 }
 
 

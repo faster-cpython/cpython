@@ -144,7 +144,7 @@ PyFloat_FromDouble(double fval)
     else
 #endif
     {
-        op = PyObject_Malloc(sizeof(PyFloatObject));
+        op = _PyObject_MallocFast(sizeof(PyFloatObject));
         if (!op) {
             return PyErr_NoMemory();
         }
@@ -252,7 +252,7 @@ _PyFloat_ExactDealloc(PyObject *obj)
 #ifdef WITH_FREELISTS
     struct _Py_float_freelist *float_freelist = get_float_freelist();
     if (float_freelist->numfree >= PyFloat_MAXFREELIST || float_freelist->numfree < 0) {
-        PyObject_Free(op);
+        _PyObject_FreeFast(op);
         return;
     }
     float_freelist->numfree++;
@@ -260,7 +260,7 @@ _PyFloat_ExactDealloc(PyObject *obj)
     float_freelist->items = op;
     OBJECT_STAT_INC(to_freelist);
 #else
-    PyObject_Free(op);
+    _PyObject_FreeFast(op);
 #endif
 }
 

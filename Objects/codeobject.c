@@ -1749,7 +1749,7 @@ code_dealloc(PyCodeObject *co)
         PyObject_ClearWeakRefs((PyObject*)co);
     }
     free_monitoring_data(co->_co_monitoring);
-    PyObject_Free(co);
+    _PyObject_FreeFast(co);
 }
 
 static PyObject *

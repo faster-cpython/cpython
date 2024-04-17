@@ -93,7 +93,7 @@ _PyBytes_FromSize(Py_ssize_t size, int use_calloc)
     if (use_calloc)
         op = (PyBytesObject *)PyObject_Calloc(1, PyBytesObject_SIZE + size);
     else
-        op = (PyBytesObject *)PyObject_Malloc(PyBytesObject_SIZE + size);
+        op = (PyBytesObject *)_PyObject_MallocFast(PyBytesObject_SIZE + size);
     if (op == NULL) {
         return PyErr_NoMemory();
     }
@@ -160,7 +160,7 @@ PyBytes_FromString(const char *str)
     }
 
     /* Inline PyObject_NewVar */
-    op = (PyBytesObject *)PyObject_Malloc(PyBytesObject_SIZE + size);
+    op = (PyBytesObject *)_PyObject_MallocFast(PyBytesObject_SIZE + size);
     if (op == NULL) {
         return PyErr_NoMemory();
     }
@@ -1470,7 +1470,7 @@ bytes_repeat(PyBytesObject *a, Py_ssize_t n)
             "repeated bytes are too long");
         return NULL;
     }
-    op = (PyBytesObject *)PyObject_Malloc(PyBytesObject_SIZE + nbytes);
+    op = (PyBytesObject *)_PyObject_MallocFast(PyBytesObject_SIZE + nbytes);
     if (op == NULL) {
         return PyErr_NoMemory();
     }
