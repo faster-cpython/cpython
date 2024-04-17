@@ -643,7 +643,7 @@ dummy_func(
             res = PyTuple_GET_ITEM(tuple, index);
             assert(res != NULL);
             Py_INCREF(res);
-            _Py_DECREF_SPECIALIZED(sub, (destructor)PyObject_Free);
+            _Py_DECREF_SPECIALIZED(sub, (destructor)_PyObject_FreeFast);
             Py_DECREF(tuple);
         }
 
@@ -733,7 +733,7 @@ dummy_func(
             PyList_SET_ITEM(list, index, value);
             assert(old_value != NULL);
             Py_DECREF(old_value);
-            _Py_DECREF_SPECIALIZED(sub, (destructor)PyObject_Free);
+            _Py_DECREF_SPECIALIZED(sub, (destructor)_PyObject_FreeFast);
             Py_DECREF(list);
         }
 
@@ -2214,8 +2214,8 @@ dummy_func(
             Py_ssize_t iright = _PyLong_CompactValue((PyLongObject *)right);
             // 2 if <, 4 if >, 8 if ==; this matches the low 4 bits of the oparg
             int sign_ish = COMPARISON_BIT(ileft, iright);
-            _Py_DECREF_SPECIALIZED(left, (destructor)PyObject_Free);
-            _Py_DECREF_SPECIALIZED(right, (destructor)PyObject_Free);
+            _Py_DECREF_SPECIALIZED(left, (destructor)_PyObject_FreeFast);
+            _Py_DECREF_SPECIALIZED(right, (destructor)_PyObject_FreeFast);
             res = (sign_ish & oparg) ? Py_True : Py_False;
             // It's always a bool, so we don't care about oparg & 16.
         }

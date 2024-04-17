@@ -667,7 +667,8 @@ get_current_allocator_name_unlocked(void)
 #ifdef WITH_PYMALLOC
     if (pymemallocator_eq(&_PyMem_Raw, &malloc_alloc) &&
         pymemallocator_eq(&_PyMem, &pymalloc) &&
-        pymemallocator_eq(&_PyObject, &pymalloc))
+        _PyObject.malloc == NULL &&
+        _PyObject.free == NULL)
     {
         return "pymalloc";
     }
@@ -740,7 +741,7 @@ _PyMem_PymallocEnabled(void)
         return (_PyMem_Debug.obj.alloc.malloc == _PyObject_Malloc);
     }
     else {
-        return (_PyObject.malloc == _PyObject_Malloc);
+        return (_PyObject.malloc == NULL);
     }
 }
 
@@ -843,6 +844,13 @@ get_allocator_unlocked(PyMemAllocatorDomain domain, PyMemAllocatorEx *allocator)
         allocator->calloc = NULL;
         allocator->realloc = NULL;
         allocator->free = NULL;
+        return;
+    }
+    if (allocator->malloc == NULL) {
+        allocator->malloc = _PyObject_Malloc;
+    }
+    if (allocator->free == NULL) {
+        allocator->free = _PyObject_Free;
     }
 }
 
@@ -855,6 +863,13 @@ set_allocator_unlocked(PyMemAllocatorDomain domain, PyMemAllocatorEx *allocator)
     case PYMEM_DOMAIN_MEM: _PyMem = *allocator; break;
     case PYMEM_DOMAIN_OBJ: _PyObject = *allocator; break;
     /* ignore unknown domain */
+    default: return;
+    }
+    if (_PyObject.malloc == _PyObject_Malloc) {
+        _PyObject.malloc = NULL;
+    }
+    if (_PyObject.free == _PyObject_Free) {
+        _PyObject.free = NULL;
     }
 }
 
@@ -3438,7 +3453,7 @@ _PyObject_MallocFast(size_t size)
     OBJECT_STAT_INC_COND(allocations4k, size >= 512 && size < 4094);
     OBJECT_STAT_INC_COND(allocations_big, size >= 4094);
     OBJECT_STAT_INC(allocations);
-    if (_PyObject.malloc == _PyObject_Malloc) {
+    if (_PyObject.malloc == NULL) {
         OMState *state = get_state();
         void *ptr = pymalloc_alloc(state, NULL, size);
         if (LIKELY(ptr != NULL)) {
@@ -3459,10 +3474,10 @@ PyObject_Malloc(size_t size)
     if (LIKELY(!zero_or_too_large(size))) {
         return _PyObject_MallocFast(size);
     }
-    if (size == 0) {
-        return _PyObject.malloc(_PyObject.ctx, 0);
+    if (_PyObject.malloc == NULL) {
+        return _PyObject_Malloc(NULL, size);
     }
-    return NULL;
+    return _PyObject.malloc(_PyObject.ctx, size);
 }
 
 void
@@ -3471,8 +3486,8 @@ _PyObject_FreeFast(void *ptr)
     /* Don't check for NULL */
     assert(ptr != NULL);
     OBJECT_STAT_INC(frees);
-    if (_PyObject.free == _PyObject_Free) {
-        OMState *state = get_state();
+    OMState *state = get_state();
+    if (_PyObject.free == NULL) {
         if (UNLIKELY(!pymalloc_free(state, NULL, ptr))) {
             /* pymalloc didn't allocate this address */
             PyMem_RawFree(ptr);
