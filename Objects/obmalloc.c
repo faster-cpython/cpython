@@ -3493,5 +3493,38 @@ PyObject_Free(void *ptr)
     _PyObject_FreeFast(ptr);
 }
 
+#else
+
+void *
+_PyObject_MallocFast(size_t size)
+{
+    if (size > (size_t)PY_SSIZE_T_MAX)
+        return NULL;
+    OBJECT_STAT_INC_COND(allocations512, size < 512);
+    OBJECT_STAT_INC_COND(allocations4k, size >= 512 && size < 4094);
+    OBJECT_STAT_INC_COND(allocations_big, size >= 4094);
+    OBJECT_STAT_INC(allocations);
+    return _PyObject.malloc(_PyObject.ctx, size);
+}
+
+void *
+PyObject_Malloc(size_t size)
+{
+    return _PyObject_MallocFast(size);
+}
+
+void
+_PyObject_FreeFast(void *ptr)
+{
+    OBJECT_STAT_INC(frees);
+    _PyObject.free(_PyObject.ctx, ptr);
+}
+
+void
+PyObject_Free(void *ptr)
+{
+    OBJECT_STAT_INC(frees);
+    _PyObject.free(_PyObject.ctx, ptr);
+}
 
 #endif /* #ifdef WITH_PYMALLOC */
