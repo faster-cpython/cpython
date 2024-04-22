@@ -1428,6 +1428,7 @@ compiler_call_exit_with_nones(struct compiler *c, location loc)
     ADDOP_LOAD_CONST(c, loc, Py_None);
     ADDOP_LOAD_CONST(c, loc, Py_None);
     ADDOP_I(c, loc, CALL, 2);
+    ADDOP(c, loc, PERIODIC);
     return SUCCESS;
 }
 
@@ -1835,6 +1836,7 @@ compiler_apply_decorators(struct compiler *c, asdl_expr_seq* decos)
     for (Py_ssize_t i = asdl_seq_LEN(decos) - 1; i > -1; i--) {
         location loc = LOC((expr_ty)asdl_seq_GET(decos, i));
         ADDOP_I(c, loc, CALL, 0);
+        ADDOP(c, loc, PERIODIC);
     }
     return SUCCESS;
 }
@@ -2352,10 +2354,12 @@ compiler_function(struct compiler *c, stmt_ty s, int is_async)
         if (num_typeparam_args > 0) {
             ADDOP_I(c, loc, SWAP, num_typeparam_args + 1);
             ADDOP_I(c, loc, CALL, num_typeparam_args - 1);
+            ADDOP(c, loc, PERIODIC);
         }
         else {
             ADDOP(c, loc, PUSH_NULL);
             ADDOP_I(c, loc, CALL, 0);
+            ADDOP(c, loc, PERIODIC);
         }
     }
 
@@ -2599,6 +2603,7 @@ compiler_class(struct compiler *c, stmt_ty s)
         Py_DECREF(co);
         ADDOP(c, loc, PUSH_NULL);
         ADDOP_I(c, loc, CALL, 0);
+        ADDOP(c, loc, PERIODIC);
     } else {
         RETURN_IF_ERROR(compiler_call_helper(c, loc, 2,
                                             s->v.ClassDef.bases,
@@ -2689,6 +2694,7 @@ compiler_typealias(struct compiler *c, stmt_ty s)
         Py_DECREF(co);
         ADDOP(c, loc, PUSH_NULL);
         ADDOP_I(c, loc, CALL, 0);
+        ADDOP(c, loc, PERIODIC);
     }
     RETURN_IF_ERROR(compiler_nameop(c, loc, name, Store));
     return SUCCESS;
@@ -3881,6 +3887,7 @@ compiler_assert(struct compiler *c, stmt_ty s)
     if (s->v.Assert.msg) {
         VISIT(c, expr, s->v.Assert.msg);
         ADDOP_I(c, LOC(s), CALL, 0);
+        ADDOP(c, LOC(s), PERIODIC);
     }
     ADDOP_I(c, LOC(s->v.Assert.test), RAISE_VARARGS, 1);
 
@@ -4894,10 +4901,12 @@ maybe_optimize_method_call(struct compiler *c, expr_ty e)
             compiler_call_simple_kw_helper(c, loc, kwds, kwdsl));
         loc = update_start_location_to_match_attr(c, LOC(e), meth);
         ADDOP_I(c, loc, CALL_KW, argsl + kwdsl);
+        ADDOP(c, loc, PERIODIC);
     }
     else {
         loc = update_start_location_to_match_attr(c, LOC(e), meth);
         ADDOP_I(c, loc, CALL, argsl);
+        ADDOP(c, loc, PERIODIC);
     }
     return 1;
 }
@@ -4962,6 +4971,7 @@ compiler_joined_str(struct compiler *c, expr_ty e)
             ADDOP_I(c, loc, LIST_APPEND, 1);
         }
         ADDOP_I(c, loc, CALL, 1);
+        ADDOP(c, loc, PERIODIC);
     }
     else {
         VISIT_SEQ(c, expr, e->v.JoinedStr.values);
@@ -5129,9 +5139,11 @@ compiler_call_helper(struct compiler *c, location loc,
         RETURN_IF_ERROR(
             compiler_call_simple_kw_helper(c, loc, keywords, nkwelts));
         ADDOP_I(c, loc, CALL_KW, n + nelts + nkwelts);
+        ADDOP(c, loc, PERIODIC);
     }
     else {
         ADDOP_I(c, loc, CALL, n + nelts);
+        ADDOP(c, loc, PERIODIC);
     }
     return SUCCESS;
 
@@ -5185,6 +5197,7 @@ ex_call:
         assert(have_dict);
     }
     ADDOP_I(c, loc, CALL_FUNCTION_EX, nkwelts > 0);
+    ADDOP(c, loc, PERIODIC);
     return SUCCESS;
 }
 
@@ -5782,6 +5795,7 @@ compiler_comprehension(struct compiler *c, expr_ty e, int type,
     }
 
     ADDOP_I(c, loc, CALL, 0);
+    ADDOP(c, loc, PERIODIC);
 
     if (is_async_generator && type != COMP_GENEXP) {
         ADDOP_I(c, loc, GET_AWAITABLE, 0);

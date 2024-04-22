@@ -662,10 +662,11 @@ top:  // Jump here after _PUSH_FRAME or likely branches
             case JUMP_BACKWARD:
             case JUMP_BACKWARD_NO_INTERRUPT:
             {
-                _Py_CODEUNIT *target = instr + 1 + _PyOpcode_Caches[opcode] - (int)oparg;
-                if (target == initial_instr) {
+                _Py_CODEUNIT *jump_target = instr + 1 + _PyOpcode_Caches[opcode] - (int)oparg;
+                if (jump_target == initial_instr) {
                     /* We have looped round to the start */
                     RESERVE(1);
+                    ADD_TO_TRACE(_RESUME_CHECK, 0, 0, target);
                     ADD_TO_TRACE(_JUMP_TO_TOP, 0, 0, 0);
                 }
                 else {

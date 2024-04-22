@@ -146,6 +146,24 @@ dummy_func(
             RESUME_CHECK,
         };
 
+        family(PERIODIC, 0) = {
+            PERIODIC_CHECK,
+        };
+
+        tier1 inst(PERIODIC, (--)) {
+            CHECK_EVAL_BREAKER();
+            this_instr->op.code = PERIODIC_CHECK;
+        }
+
+        inst(PERIODIC_CHECK, (--)) {
+#if defined(__EMSCRIPTEN__)
+            DEOPT_IF(_Py_emscripten_signal_clock == 0);
+            _Py_emscripten_signal_clock -= Py_EMSCRIPTEN_SIGNAL_HANDLING;
+#endif
+            uintptr_t eval_breaker = _Py_atomic_load_uintptr_relaxed(&tstate->eval_breaker);
+            DEOPT_IF((eval_breaker & _PY_EVAL_EVENTS_MASK) != 0);
+        }
+
         tier1 inst(RESUME, (--)) {
             assert(frame == tstate->current_frame);
             uintptr_t global_version =
@@ -3104,11 +3122,7 @@ dummy_func(
             ERROR_IF(res == NULL, error);
         }
 
-        op(_CHECK_PERIODIC, (--)) {
-            CHECK_EVAL_BREAKER();
-        }
-
-        macro(CALL) = _SPECIALIZE_CALL + unused/2 + _CALL + _CHECK_PERIODIC;
+        macro(CALL) = _SPECIALIZE_CALL + unused/2 + _CALL;
 
         op(_CHECK_CALL_BOUND_METHOD_EXACT_ARGS, (callable, null, unused[oparg] -- callable, null, unused[oparg])) {
             DEOPT_IF(null != NULL);
@@ -3254,8 +3268,7 @@ dummy_func(
         macro(CALL_STR_1) =
             unused/1 +
             unused/2 +
-            _CALL_STR_1 +
-            _CHECK_PERIODIC;
+            _CALL_STR_1;
 
         op(_CALL_TUPLE_1, (callable, null, arg -- res)) {
             assert(oparg == 1);
@@ -3270,8 +3283,7 @@ dummy_func(
         macro(CALL_TUPLE_1) =
             unused/1 +
             unused/2 +
-            _CALL_TUPLE_1 +
-            _CHECK_PERIODIC;
+            _CALL_TUPLE_1;
 
         inst(CALL_ALLOC_AND_ENTER_INIT, (unused/1, unused/2, callable, null, args[oparg] -- unused)) {
             /* This instruction does the following:
@@ -3356,8 +3368,7 @@ dummy_func(
         macro(CALL_BUILTIN_CLASS) =
             unused/1 +
             unused/2 +
-            _CALL_BUILTIN_CLASS +
-            _CHECK_PERIODIC;
+            _CALL_BUILTIN_CLASS;
 
         op(_CALL_BUILTIN_O, (callable, self_or_null, args[oparg] -- res)) {
             /* Builtin METH_O functions */
@@ -3387,8 +3398,7 @@ dummy_func(
         macro(CALL_BUILTIN_O) =
             unused/1 +
             unused/2 +
-            _CALL_BUILTIN_O +
-            _CHECK_PERIODIC;
+            _CALL_BUILTIN_O;
 
         op(_CALL_BUILTIN_FAST, (callable, self_or_null, args[oparg] -- res)) {
             /* Builtin METH_FASTCALL functions, without keywords */
@@ -3419,8 +3429,7 @@ dummy_func(
         macro(CALL_BUILTIN_FAST) =
             unused/1 +
             unused/2 +
-            _CALL_BUILTIN_FAST +
-            _CHECK_PERIODIC;
+            _CALL_BUILTIN_FAST;
 
         op(_CALL_BUILTIN_FAST_WITH_KEYWORDS, (callable, self_or_null, args[oparg] -- res)) {
             /* Builtin METH_FASTCALL | METH_KEYWORDS functions */
@@ -3450,8 +3459,7 @@ dummy_func(
         macro(CALL_BUILTIN_FAST_WITH_KEYWORDS) =
             unused/1 +
             unused/2 +
-            _CALL_BUILTIN_FAST_WITH_KEYWORDS +
-            _CHECK_PERIODIC;
+            _CALL_BUILTIN_FAST_WITH_KEYWORDS;
 
         inst(CALL_LEN, (unused/1, unused/2, callable, self_or_null, args[oparg] -- res)) {
             /* len(o) */
@@ -3556,8 +3564,7 @@ dummy_func(
         macro(CALL_METHOD_DESCRIPTOR_O) =
             unused/1 +
             unused/2 +
-            _CALL_METHOD_DESCRIPTOR_O +
-            _CHECK_PERIODIC;
+            _CALL_METHOD_DESCRIPTOR_O;
 
         op(_CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS, (callable, self_or_null, args[oparg] -- res)) {
             int total_args = oparg;
@@ -3590,8 +3597,7 @@ dummy_func(
         macro(CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS) =
             unused/1 +
             unused/2 +
-            _CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS +
-            _CHECK_PERIODIC;
+            _CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS;
 
         op(_CALL_METHOD_DESCRIPTOR_NOARGS, (callable, self_or_null, args[oparg] -- res)) {
             assert(oparg == 0 || oparg == 1);
@@ -3623,8 +3629,7 @@ dummy_func(
         macro(CALL_METHOD_DESCRIPTOR_NOARGS) =
             unused/1 +
             unused/2 +
-            _CALL_METHOD_DESCRIPTOR_NOARGS +
-            _CHECK_PERIODIC;
+            _CALL_METHOD_DESCRIPTOR_NOARGS;
 
         op(_CALL_METHOD_DESCRIPTOR_FAST, (callable, self_or_null, args[oparg] -- res)) {
             int total_args = oparg;
@@ -3656,8 +3661,7 @@ dummy_func(
         macro(CALL_METHOD_DESCRIPTOR_FAST) =
             unused/1 +
             unused/2 +
-            _CALL_METHOD_DESCRIPTOR_FAST +
-            _CHECK_PERIODIC;
+            _CALL_METHOD_DESCRIPTOR_FAST;
 
         inst(INSTRUMENTED_CALL_KW, ( -- )) {
             int is_meth = PEEK(oparg + 2) != NULL;
@@ -3742,7 +3746,6 @@ dummy_func(
                 Py_DECREF(args[i]);
             }
             ERROR_IF(res == NULL, error);
-            CHECK_EVAL_BREAKER();
         }
 
         inst(INSTRUMENTED_CALL_FUNCTION_EX, ( -- )) {
@@ -3816,7 +3819,6 @@ dummy_func(
             DECREF_INPUTS();
             assert(PEEK(2 + (oparg & 1)) == NULL);
             ERROR_IF(result == NULL, error);
-            CHECK_EVAL_BREAKER();
         }
 
         inst(MAKE_FUNCTION, (codeobj -- func)) {
@@ -4082,7 +4084,6 @@ dummy_func(
 #ifndef _Py_JIT
             next_uop = &current_executor->trace[1];
 #endif
-            CHECK_EVAL_BREAKER();
         }
 
         tier2 op(_SET_IP, (instr_ptr/4 --)) {

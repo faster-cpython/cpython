@@ -45,6 +45,7 @@ class IsolatedCodeGenTests(CodegenTestCase):
             ('PUSH_NULL', None, 2),
             ('LOAD_NAME', 1, 2),
             ('CALL', 1, 2),
+            ('PERIODIC', 0, 2),
             ('POP_TOP', None),
             ('JUMP', loop_lbl),
             exit_lbl,

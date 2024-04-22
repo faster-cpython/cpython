@@ -20,6 +20,7 @@ extern int _PyUop_num_popped(int opcode, int oparg);
 #ifdef NEED_OPCODE_METADATA
 const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_NOP] = HAS_PURE_FLAG,
+    [_PERIODIC_CHECK] = HAS_DEOPT_FLAG,
     [_RESUME_CHECK] = HAS_DEOPT_FLAG,
     [_LOAD_FAST_CHECK] = HAS_ARG_FLAG | HAS_LOCAL_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_LOAD_FAST_0] = HAS_LOCAL_FLAG | HAS_PURE_FLAG,
@@ -186,7 +187,6 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_LOAD_ATTR_NONDESCRIPTOR_NO_DICT] = HAS_ARG_FLAG,
     [_CHECK_ATTR_METHOD_LAZY_DICT] = HAS_DEOPT_FLAG,
     [_LOAD_ATTR_METHOD_LAZY_DICT] = HAS_ARG_FLAG,
-    [_CHECK_PERIODIC] = HAS_EVAL_BREAK_FLAG,
     [_CHECK_CALL_BOUND_METHOD_EXACT_ARGS] = HAS_ARG_FLAG | HAS_DEOPT_FLAG,
     [_INIT_CALL_BOUND_METHOD_EXACT_ARGS] = HAS_ARG_FLAG,
     [_CHECK_PEP_523] = HAS_DEOPT_FLAG,
@@ -226,7 +226,7 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_GUARD_IS_FALSE_POP] = HAS_EXIT_FLAG,
     [_GUARD_IS_NONE_POP] = HAS_EXIT_FLAG,
     [_GUARD_IS_NOT_NONE_POP] = HAS_EXIT_FLAG,
-    [_JUMP_TO_TOP] = HAS_EVAL_BREAK_FLAG,
+    [_JUMP_TO_TOP] = 0,
     [_SET_IP] = 0,
     [_CHECK_STACK_SPACE_OPERAND] = HAS_DEOPT_FLAG,
     [_SAVE_RETURN_OFFSET] = HAS_ARG_FLAG,
@@ -301,7 +301,6 @@ const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_CHECK_FUNCTION_EXACT_ARGS] = "_CHECK_FUNCTION_EXACT_ARGS",
     [_CHECK_MANAGED_OBJECT_HAS_VALUES] = "_CHECK_MANAGED_OBJECT_HAS_VALUES",
     [_CHECK_PEP_523] = "_CHECK_PEP_523",
-    [_CHECK_PERIODIC] = "_CHECK_PERIODIC",
     [_CHECK_STACK_SPACE] = "_CHECK_STACK_SPACE",
     [_CHECK_STACK_SPACE_OPERAND] = "_CHECK_STACK_SPACE_OPERAND",
     [_CHECK_VALIDITY] = "_CHECK_VALIDITY",
@@ -428,6 +427,7 @@ const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_MATCH_MAPPING] = "_MATCH_MAPPING",
     [_MATCH_SEQUENCE] = "_MATCH_SEQUENCE",
     [_NOP] = "_NOP",
+    [_PERIODIC_CHECK] = "_PERIODIC_CHECK",
     [_POP_EXCEPT] = "_POP_EXCEPT",
     [_POP_FRAME] = "_POP_FRAME",
     [_POP_TOP] = "_POP_TOP",
@@ -487,6 +487,8 @@ int _PyUop_num_popped(int opcode, int oparg)
 {
     switch(opcode) {
         case _NOP:
+            return 0;
+        case _PERIODIC_CHECK:
             return 0;
         case _RESUME_CHECK:
             return 0;
@@ -820,8 +822,6 @@ int _PyUop_num_popped(int opcode, int oparg)
             return 1;
         case _LOAD_ATTR_METHOD_LAZY_DICT:
             return 1;
-        case _CHECK_PERIODIC:
-            return 0;
         case _CHECK_CALL_BOUND_METHOD_EXACT_ARGS:
             return 2 + oparg;
         case _INIT_CALL_BOUND_METHOD_EXACT_ARGS:

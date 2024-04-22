@@ -12,6 +12,22 @@
             break;
         }
 
+        case _PERIODIC_CHECK: {
+            #if defined(__EMSCRIPTEN__)
+            if (_Py_emscripten_signal_clock == 0) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            _Py_emscripten_signal_clock -= Py_EMSCRIPTEN_SIGNAL_HANDLING;
+            #endif
+            uintptr_t eval_breaker = _Py_atomic_load_uintptr_relaxed(&tstate->eval_breaker);
+            if ((eval_breaker & _PY_EVAL_EVENTS_MASK) != 0) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            break;
+        }
+
         case _RESUME_CHECK: {
             #if defined(__EMSCRIPTEN__)
             if (_Py_emscripten_signal_clock == 0) {
@@ -2928,11 +2944,6 @@
 
         /* _CALL is not a viable micro-op for tier 2 because it uses the 'this_instr' variable */
 
-        case _CHECK_PERIODIC: {
-            CHECK_EVAL_BREAKER();
-            break;
-        }
-
         case _CHECK_CALL_BOUND_METHOD_EXACT_ARGS: {
             PyObject *null;
             PyObject *callable;
@@ -3969,7 +3980,6 @@
             #ifndef _Py_JIT
             next_uop = &current_executor->trace[1];
             #endif
-            CHECK_EVAL_BREAKER();
             break;
         }
 
