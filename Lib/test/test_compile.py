@@ -169,7 +169,7 @@ class TestSpecifics(unittest.TestCase):
         co = compile(s256, 'fn', 'exec')
         self.assertEqual(co.co_firstlineno, 1)
         lines = [line for _, _, line in co.co_lines()]
-        self.assertEqual(lines, [0, 257])
+        self.assertEqual(lines, [None, 0, 257])
 
     def test_literals_with_leading_zeroes(self):
         for arg in ["077787", "0xj", "0x.", "0e",  "090000000000000",
@@ -921,7 +921,7 @@ class TestSpecifics(unittest.TestCase):
 
         for func in funcs:
             opcodes = list(dis.get_instructions(func))
-            self.assertLessEqual(len(opcodes), 3)
+            self.assertLessEqual(len(opcodes), 5)
             self.assertEqual('RETURN_CONST', opcodes[-1].opname)
             self.assertEqual(None, opcodes[-1].argval)
 
@@ -939,8 +939,8 @@ class TestSpecifics(unittest.TestCase):
         # Check that we did not raise but we also don't generate bytecode
         for func in funcs:
             opcodes = list(dis.get_instructions(func))
-            self.assertEqual(2, len(opcodes))
-            self.assertEqual('RETURN_CONST', opcodes[1].opname)
+            self.assertEqual(4, len(opcodes))
+            self.assertEqual('RETURN_CONST', opcodes[-1].opname)
             self.assertEqual(None, opcodes[1].argval)
 
     def test_consts_in_conditionals(self):
@@ -962,7 +962,7 @@ class TestSpecifics(unittest.TestCase):
         for func in funcs:
             with self.subTest(func=func):
                 opcodes = list(dis.get_instructions(func))
-                self.assertLessEqual(len(opcodes), 3)
+                self.assertLessEqual(len(opcodes), 5)
                 self.assertIn('LOAD_', opcodes[-2].opname)
                 self.assertEqual('RETURN_VALUE', opcodes[-1].opname)
 
@@ -1054,8 +1054,8 @@ class TestSpecifics(unittest.TestCase):
                 if func is no_code1 and no_code1.__doc__ is None:
                     continue
                 code = func.__code__
-                [(start, end, line)] = code.co_lines()
-                self.assertEqual(start, 0)
+                *_, last = code.co_lines()
+                start, end, line = last
                 self.assertEqual(end, len(code.co_code))
                 self.assertEqual(line, code.co_firstlineno)
 
@@ -1932,11 +1932,11 @@ class TestSourcePositions(unittest.TestCase):
                 0
             )
         for line, end_line, column, end_column in f.__code__.co_positions():
-            self.assertIsNotNone(line)
-            self.assertIsNotNone(end_line)
-            self.assertIsNotNone(column)
-            self.assertIsNotNone(end_column)
-            self.assertLessEqual((line, column), (end_line, end_column))
+            if line is not None:
+                self.assertIsNotNone(end_line)
+                self.assertIsNotNone(column)
+                self.assertIsNotNone(end_column)
+                self.assertLessEqual((line, column), (end_line, end_column))
 
     @support.cpython_only
     def test_column_offset_deduplication(self):

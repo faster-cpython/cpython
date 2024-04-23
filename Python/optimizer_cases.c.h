@@ -3,6 +3,8 @@
 //   Python/optimizer_bytecodes.c
 // Do not edit!
 
+        /* _FUNCTION_START is not a viable micro-op for tier 2 */
+
         case _NOP: {
             break;
         }

@@ -8,6 +8,8 @@
 #endif
 #define TIER_TWO 2
 
+        /* _FUNCTION_START is not a viable micro-op for tier 2 because it is replaced */
+
         case _NOP: {
             break;
         }

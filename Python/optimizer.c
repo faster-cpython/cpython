@@ -659,6 +659,10 @@ top:  // Jump here after _PUSH_FRAME or likely branches
                 break;
             }
 
+            case FUNCTION_START:
+                /* Treat as a NOP */
+                break;
+
             case JUMP_BACKWARD:
             case JUMP_BACKWARD_NO_INTERRUPT:
             {

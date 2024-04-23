@@ -2700,6 +2700,7 @@ class BaseExceptionReportingTests:
         self.assertEqual(report, expected)
 
     def test_KeyboardInterrupt_at_first_line_of_frame(self):
+        self.maxDiff = None
         # see GH-93249
         def f():
             return sys._getframe()

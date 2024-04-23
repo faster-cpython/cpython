@@ -2628,7 +2628,13 @@ insert_prefix_instructions(_PyCompile_CodeUnitMetadata *umd, basicblock *entrybl
         };
         RETURN_IF_ERROR(basicblock_insert_instruction(entryblock, 0, &copy_frees));
     }
-
+    cfg_instr start = {
+        .i_opcode = FUNCTION_START,
+        .i_oparg = 0,
+        .i_loc = NO_LOCATION,
+        .i_target = NULL,
+    };
+    RETURN_IF_ERROR(basicblock_insert_instruction(entryblock, 0, &start));
     return SUCCESS;
 }
 
