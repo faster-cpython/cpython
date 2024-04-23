@@ -2807,27 +2807,25 @@
             next_instr += 2;
             INSTRUCTION_STATS(FUNCTION_START);
             /* Skip 1 cache entry */
-            if (0) {
-                #if ENABLE_SPECIALIZATION
-                _Py_BackoffCounter counter = this_instr[1].counter;
-                if (backoff_counter_triggers(counter)) {
-                    _PyExecutorObject *executor;
-                    int optimized = _PyOptimizer_Optimize(frame, this_instr, stack_pointer, &executor);
-                    if (optimized < 0) goto error;
-                    if (optimized) {
-                        assert(tstate->previous_executor == NULL);
-                        tstate->previous_executor = Py_None;
-                        GOTO_TIER_TWO(executor);
-                    }
-                    else {
-                        this_instr[1].counter = restart_backoff_counter(counter);
-                    }
+            #if ENABLE_SPECIALIZATION
+            _Py_BackoffCounter counter = this_instr[1].counter;
+            if (backoff_counter_triggers(counter)) {
+                _PyExecutorObject *executor;
+                int optimized = _PyOptimizer_Optimize(frame, this_instr, stack_pointer, &executor);
+                if (optimized < 0) goto error;
+                if (optimized) {
+                    assert(tstate->previous_executor == NULL);
+                    tstate->previous_executor = Py_None;
+                    GOTO_TIER_TWO(executor);
                 }
                 else {
-                    ADVANCE_ADAPTIVE_COUNTER(this_instr[1].counter);
+                    this_instr[1].counter = restart_backoff_counter(counter);
                 }
-                #endif  /* ENABLE_SPECIALIZATION */
             }
+            else {
+                ADVANCE_ADAPTIVE_COUNTER(this_instr[1].counter);
+            }
+            #endif  /* ENABLE_SPECIALIZATION */
             DISPATCH();
         }
 

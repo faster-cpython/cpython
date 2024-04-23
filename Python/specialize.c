@@ -429,6 +429,7 @@ _PyCode_Quicken(PyCodeObject *code)
         if (caches) {
             // The initial value depends on the opcode
             switch (opcode) {
+                case FUNCTION_START:
                 case JUMP_BACKWARD:
                     instructions[i + 1].counter = initial_jump_backoff_counter();
                     break;
