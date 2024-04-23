@@ -141,7 +141,6 @@ dummy_func(
 // BEGIN BYTECODES //
 
         replaced inst(FUNCTION_START, (unused/1 --)) {
-            if (0) {
             #if ENABLE_SPECIALIZATION
             _Py_BackoffCounter counter = this_instr[1].counter;
             if (backoff_counter_triggers(counter)) {
@@ -161,7 +160,6 @@ dummy_func(
                 ADVANCE_ADAPTIVE_COUNTER(this_instr[1].counter);
             }
             #endif  /* ENABLE_SPECIALIZATION */
-            }
         }
 
         pure inst(NOP, (--)) {
