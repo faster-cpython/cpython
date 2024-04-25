@@ -1612,6 +1612,55 @@
             DISPATCH();
         }
 
+        TARGET(CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS_METHOD) {
+            frame->instr_ptr = next_instr;
+            next_instr += 4;
+            INSTRUCTION_STATS(CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS_METHOD);
+            static_assert(INLINE_CACHE_ENTRIES_CALL == 3, "incorrect cache size");
+            PyObject **args;
+            PyObject *self_or_null;
+            PyObject *callable;
+            PyObject *res;
+            /* Skip 1 cache entry */
+            /* Skip 2 cache entries */
+            // _CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS_METHOD
+            args = &stack_pointer[-oparg];
+            self_or_null = stack_pointer[-1 - oparg];
+            callable = stack_pointer[-2 - oparg];
+            {
+                int total_args = oparg;
+                if (self_or_null != NULL) {
+                    args--;
+                    total_args++;
+                }
+                PyMethodDescrObject *method = (PyMethodDescrObject *)callable;
+                DEOPT_IF(!Py_IS_TYPE(method, &PyMethodDescr_Type), CALL);
+                PyMethodDef *meth = method->d_method;
+                DEOPT_IF(meth->ml_flags != (METH_FASTCALL|METH_KEYWORDS|METH_METHOD), CALL);
+                PyTypeObject *d_type = method->d_common.d_type;
+                PyObject *self = args[0];
+                DEOPT_IF(!Py_IS_TYPE(self, d_type), CALL);
+                STAT_INC(CALL, hit);
+                int nargs = total_args - 1;
+                PyCMethod cmeth = (PyCMethod)(void(*)(void))meth->ml_meth;
+                res = cmeth(self, d_type, args + 1, nargs, NULL);
+                assert((res != NULL) ^ (_PyErr_Occurred(tstate) != NULL));
+                /* Free the arguments. */
+                for (int i = 0; i < total_args; i++) {
+                    Py_DECREF(args[i]);
+                }
+                Py_DECREF(callable);
+                if (res == NULL) { stack_pointer += -2 - oparg; goto error; }
+            }
+            // _CHECK_PERIODIC
+            {
+            }
+            stack_pointer[-2 - oparg] = res;
+            stack_pointer += -1 - oparg;
+            CHECK_EVAL_BREAKER();
+            DISPATCH();
+        }
+
         TARGET(CALL_METHOD_DESCRIPTOR_NOARGS) {
             frame->instr_ptr = next_instr;
             next_instr += 4;

@@ -2330,7 +2330,7 @@ dummy_func(
             b = res ? Py_True : Py_False;
         }
 
-         tier1 inst(IMPORT_NAME, (level, fromlist -- res)) {
+        tier1 inst(IMPORT_NAME, (level, fromlist -- res)) {
             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg);
             res = import_name(tstate, frame, name, fromlist, level);
             DECREF_INPUTS();
@@ -3029,6 +3029,7 @@ dummy_func(
             CALL_LIST_APPEND,
             CALL_METHOD_DESCRIPTOR_O,
             CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS,
+            CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS_METHOD,
             CALL_METHOD_DESCRIPTOR_NOARGS,
             CALL_METHOD_DESCRIPTOR_FAST,
             CALL_ALLOC_AND_ENTER_INIT,
@@ -3531,7 +3532,7 @@ dummy_func(
             DISPATCH();
         }
 
-         op(_CALL_METHOD_DESCRIPTOR_O, (callable, self_or_null, args[oparg] -- res)) {
+        op(_CALL_METHOD_DESCRIPTOR_O, (callable, self_or_null, args[oparg] -- res)) {
             int total_args = oparg;
             if (self_or_null != NULL) {
                 args--;
@@ -3597,6 +3598,39 @@ dummy_func(
             unused/1 +
             unused/2 +
             _CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS +
+            _CHECK_PERIODIC;
+
+        op(_CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS_METHOD, (callable, self_or_null, args[oparg] -- res)) {
+            int total_args = oparg;
+            if (self_or_null != NULL) {
+                args--;
+                total_args++;
+            }
+            PyMethodDescrObject *method = (PyMethodDescrObject *)callable;
+            DEOPT_IF(!Py_IS_TYPE(method, &PyMethodDescr_Type));
+            PyMethodDef *meth = method->d_method;
+            DEOPT_IF(meth->ml_flags != (METH_FASTCALL|METH_KEYWORDS|METH_METHOD));
+            PyTypeObject *d_type = method->d_common.d_type;
+            PyObject *self = args[0];
+            DEOPT_IF(!Py_IS_TYPE(self, d_type));
+            STAT_INC(CALL, hit);
+            int nargs = total_args - 1;
+            PyCMethod cmeth = (PyCMethod)(void(*)(void))meth->ml_meth;
+            res = cmeth(self, d_type, args + 1, nargs, NULL);
+            assert((res != NULL) ^ (_PyErr_Occurred(tstate) != NULL));
+
+            /* Free the arguments. */
+            for (int i = 0; i < total_args; i++) {
+                Py_DECREF(args[i]);
+            }
+            Py_DECREF(callable);
+            ERROR_IF(res == NULL, error);
+        }
+
+        macro(CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS_METHOD) =
+            unused/1 +
+            unused/2 +
+            _CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS_METHOD +
             _CHECK_PERIODIC;
 
         op(_CALL_METHOD_DESCRIPTOR_NOARGS, (callable, self_or_null, args[oparg] -- res)) {
