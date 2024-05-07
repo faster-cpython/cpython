@@ -58,8 +58,6 @@ typedef struct _PyInterpreterFrame {
     PyObject *f_executable; /* Strong reference (code object or None) */
     struct _PyInterpreterFrame *previous;
     PyObject *f_funcobj; /* Strong reference. Only valid if not on C stack */
-    PyObject *f_globals; /* Borrowed reference. Only valid if not on C stack */
-    PyObject *f_builtins; /* Borrowed reference. Only valid if not on C stack */
     PyObject *f_locals; /* Strong reference, may be NULL. Only valid if not on C stack */
     PyFrameObject *frame_obj; /* Strong reference, may be NULL. Only valid if not on C stack */
     _Py_CODEUNIT *instr_ptr; /* Instruction currently executing (or about to begin) */
@@ -99,6 +97,16 @@ static inline void _PyFrame_StackPush(_PyInterpreterFrame *f, PyObject *value) {
     f->stacktop++;
 }
 
+static inline PyObject *_PyFrame_GetGlobals(_PyInterpreterFrame *f) {
+    assert(PyFunction_Check(f->f_funcobj));
+    return ((PyFunctionObject *)f->f_funcobj)->func_globals;
+}
+
+static inline PyObject *_PyFrame_GetBuiltins(_PyInterpreterFrame *f) {
+    assert(PyFunction_Check(f->f_funcobj));
+    return ((PyFunctionObject *)f->f_funcobj)->func_builtins;
+}
+
 #define FRAME_SPECIALS_SIZE ((int)((sizeof(_PyInterpreterFrame)-1)/sizeof(PyObject *)))
 
 static inline int
@@ -133,8 +141,6 @@ _PyFrame_Initialize(
 {
     frame->f_funcobj = (PyObject *)func;
     frame->f_executable = Py_NewRef(code);
-    frame->f_builtins = func->func_builtins;
-    frame->f_globals = func->func_globals;
     frame->f_locals = locals;
     frame->stacktop = code->co_nlocalsplus;
     frame->frame_obj = NULL;
@@ -294,10 +300,6 @@ _PyFrame_PushTrampolineUnchecked(PyThreadState *tstate, PyCodeObject *code, int 
     assert(tstate->datastack_top < tstate->datastack_limit);
     frame->f_funcobj = Py_None;
     frame->f_executable = Py_NewRef(code);
-#ifdef Py_DEBUG
-    frame->f_builtins = NULL;
-    frame->f_globals = NULL;
-#endif
     frame->f_locals = NULL;
     frame->stacktop = code->co_nlocalsplus + stackdepth;
     frame->frame_obj = NULL;

@@ -89,9 +89,11 @@
 #if LLTRACE
 #define LLTRACE_RESUME_FRAME() \
 do { \
-    lltrace = maybe_lltrace_resume_frame(frame, &entry_frame, GLOBALS()); \
-    if (lltrace < 0) { \
-        goto exit_unwind; \
+    if (frame->f_funcobj != Py_None) { \
+        lltrace = maybe_lltrace_resume_frame(frame, &entry_frame, GLOBALS()); \
+        if (lltrace < 0) { \
+            goto exit_unwind; \
+        } \
     } \
 } while (0)
 #else
@@ -291,8 +293,8 @@ GETITEM(PyObject *v, Py_ssize_t i) {
     }
 
 
-#define GLOBALS() frame->f_globals
-#define BUILTINS() frame->f_builtins
+#define GLOBALS() _PyFrame_GetGlobals(frame)
+#define BUILTINS() _PyFrame_GetBuiltins(frame)
 #define LOCALS() frame->f_locals
 #define CONSTS() _PyFrame_GetCode(frame)->co_consts
 #define NAMES() _PyFrame_GetCode(frame)->co_names

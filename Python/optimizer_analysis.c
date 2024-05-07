@@ -139,12 +139,12 @@ remove_globals(_PyInterpreterFrame *frame, _PyUOpInstruction *buffer,
                int buffer_size, _PyBloomFilter *dependencies)
 {
     PyInterpreterState *interp = _PyInterpreterState_GET();
-    PyObject *builtins = frame->f_builtins;
+    PyObject *builtins = _PyFrame_GetBuiltins(frame);
     if (builtins != interp->builtins) {
         OPT_STAT_INC(remove_globals_builtins_changed);
         return 1;
     }
-    PyObject *globals = frame->f_globals;
+    PyObject *globals = _PyFrame_GetGlobals(frame);
     PyFunctionObject *function = (PyFunctionObject *)frame->f_funcobj;
     assert(PyFunction_Check(function));
     assert(function->func_builtins == builtins);

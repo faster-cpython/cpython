@@ -709,12 +709,10 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
 
 
 #ifdef Py_DEBUG
+    entry_frame.f_funcobj = Py_None;
     /* Set these to invalid but identifiable values for debugging. */
-    entry_frame.f_funcobj = (PyObject*)0xaaa0;
     entry_frame.f_locals = (PyObject*)0xaaa1;
     entry_frame.frame_obj = (PyFrameObject*)0xaaa2;
-    entry_frame.f_globals = (PyObject*)0xaaa3;
-    entry_frame.f_builtins = (PyObject*)0xaaa4;
 #endif
     entry_frame.f_executable = Py_None;
     entry_frame.instr_ptr = (_Py_CODEUNIT *)_Py_INTERPRETER_TRAMPOLINE_INSTRUCTIONS + 1;
@@ -766,12 +764,7 @@ start_frame:
 resume_frame:
     stack_pointer = _PyFrame_GetStackPointer(frame);
 
-#ifdef LLTRACE
-    lltrace = maybe_lltrace_resume_frame(frame, &entry_frame, GLOBALS());
-    if (lltrace < 0) {
-        goto exit_unwind;
-    }
-#endif
+    LLTRACE_RESUME_FRAME();
 
 #ifdef Py_DEBUG
     /* _PyEval_EvalFrameDefault() must not be called with an exception set,
@@ -2436,7 +2429,7 @@ _PyEval_GetBuiltins(PyThreadState *tstate)
 {
     _PyInterpreterFrame *frame = _PyThreadState_GetFrame(tstate);
     if (frame != NULL) {
-        return frame->f_builtins;
+        return _PyFrame_GetBuiltins(frame);
     }
     return tstate->interp->builtins;
 }
@@ -2521,7 +2514,7 @@ PyEval_GetGlobals(void)
     if (current_frame == NULL) {
         return NULL;
     }
-    return current_frame->f_globals;
+    return _PyFrame_GetGlobals(current_frame);
 }
 
 PyObject*
@@ -2537,7 +2530,7 @@ PyObject* PyEval_GetFrameGlobals(void)
     if (current_frame == NULL) {
         return NULL;
     }
-    return Py_XNewRef(current_frame->f_globals);
+    return Py_XNewRef(_PyFrame_GetGlobals(current_frame));
 }
 
 PyObject* PyEval_GetFrameBuiltins(void)
@@ -2644,7 +2637,7 @@ import_name(PyThreadState *tstate, _PyInterpreterFrame *frame,
             PyObject *name, PyObject *fromlist, PyObject *level)
 {
     PyObject *import_func;
-    if (PyMapping_GetOptionalItem(frame->f_builtins, &_Py_ID(__import__), &import_func) < 0) {
+    if (PyMapping_GetOptionalItem(_PyFrame_GetBuiltins(frame), &_Py_ID(__import__), &import_func) < 0) {
         return NULL;
     }
     if (import_func == NULL) {
@@ -2666,13 +2659,13 @@ import_name(PyThreadState *tstate, _PyInterpreterFrame *frame,
         }
         return PyImport_ImportModuleLevelObject(
                         name,
-                        frame->f_globals,
+                        _PyFrame_GetGlobals(frame),
                         locals,
                         fromlist,
                         ilevel);
     }
 
-    PyObject* args[5] = {name, frame->f_globals, locals, fromlist, level};
+    PyObject* args[5] = {name, _PyFrame_GetGlobals(frame), locals, fromlist, level};
     PyObject *res = PyObject_Vectorcall(import_func, args, 5, NULL);
     Py_DECREF(import_func);
     return res;
