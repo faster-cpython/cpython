@@ -29,6 +29,7 @@
 #ifndef LIBMPDEC_MPDECIMAL_H_
 #define LIBMPDEC_MPDECIMAL_H_
 
+#define Py_GIL_DISABLED 1
 
 #ifndef _MSC_VER
   #include "pyconfig.h"

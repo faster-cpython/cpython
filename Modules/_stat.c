@@ -10,6 +10,7 @@
  * NOTE: POSIX only defines the values of the S_I* permission bits.
  *
  */
+#define Py_GIL_DISABLED 1
 
 // Need limited C API version 3.13 for PyModule_Add() on Windows
 #include "pyconfig.h"   // Py_GIL_DISABLED

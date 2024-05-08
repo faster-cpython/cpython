@@ -1,3 +1,4 @@
+#define Py_GIL_DISABLED 1
 #include "pyconfig.h"   // Py_GIL_DISABLED
 #ifndef Py_GIL_DISABLED
    // Need limited C API 3.13 to test PyLong_AsInt()

@@ -1,4 +1,5 @@
 /* fcntl module */
+#define Py_GIL_DISABLED 1
 
 // Need limited C API version 3.13 for PyLong_AsInt()
 #include "pyconfig.h"   // Py_GIL_DISABLED

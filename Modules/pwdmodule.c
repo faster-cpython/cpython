@@ -1,5 +1,6 @@
 
 /* UNIX password file access module */
+#define Py_GIL_DISABLED 1
 
 // Need limited C API version 3.13 for PyMem_RawRealloc()
 #include "pyconfig.h"   // Py_GIL_DISABLED

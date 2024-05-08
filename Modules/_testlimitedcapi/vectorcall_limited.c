@@ -1,4 +1,5 @@
 /* Test Vectorcall in the limited API */
+#define Py_GIL_DISABLED 1
 
 // Need limited C API version 3.12 for PyObject_Vectorcall()
 #include "pyconfig.h"   // Py_GIL_DISABLED

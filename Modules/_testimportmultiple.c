@@ -3,6 +3,7 @@
  * file (issue16421). This file defines 3 modules (_testimportmodule,
  * foo, bar), only the first one is called the same as the compiled file.
  */
+#define Py_GIL_DISABLED 1
 
 #include "pyconfig.h"   // Py_GIL_DISABLED
 #ifndef Py_GIL_DISABLED

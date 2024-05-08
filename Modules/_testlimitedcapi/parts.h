@@ -1,5 +1,6 @@
 #ifndef Py_TESTLIMITEDCAPI_PARTS_H
 #define Py_TESTLIMITEDCAPI_PARTS_H
+#define Py_GIL_DISABLED 1
 
 // Always enable assertions
 #undef NDEBUG

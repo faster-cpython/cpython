@@ -1,6 +1,7 @@
 /*
 posixshmem - A Python extension that provides shm_open() and shm_unlink()
 */
+#define Py_GIL_DISABLED 1
 
 // Need limited C API version 3.13 for Py_mod_gil
 #include "pyconfig.h"   // Py_GIL_DISABLED

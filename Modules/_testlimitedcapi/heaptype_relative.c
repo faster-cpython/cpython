@@ -1,3 +1,4 @@
+#define Py_GIL_DISABLED 1
 // Need limited C API version 3.12 for PyType_FromMetaclass()
 #include "pyconfig.h"   // Py_GIL_DISABLED
 #if !defined(Py_GIL_DISABLED) && !defined(Py_LIMITED_API)

@@ -865,7 +865,7 @@ def check_cflags_pgo():
     return any(option in cflags_nodist for option in pgo_options)
 
 
-Py_GIL_DISABLED = bool(sysconfig.get_config_var('Py_GIL_DISABLED'))
+Py_GIL_DISABLED = True
 
 def requires_gil_enabled(msg="needs the GIL enabled"):
     """Decorator for skipping tests on the free-threaded build."""

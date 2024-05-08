@@ -4,6 +4,7 @@
  *
  * See the xxlimited module for an extension module template.
  */
+#define Py_GIL_DISABLED 1
 
 // Test the limited C API version 3.5
 #include "pyconfig.h"   // Py_GIL_DISABLED

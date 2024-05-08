@@ -8,6 +8,7 @@
 // Since this is a "meta-include" file, "#ifdef __cplusplus / extern "C" {"
 // is not needed.
 
+#define Py_GIL_DISABLED 1
 
 // Include Python header files
 #include "patchlevel.h"
