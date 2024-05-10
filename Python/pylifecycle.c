@@ -1223,7 +1223,7 @@ init_interp_main(PyThreadState *tstate)
                 cur_cb = &_Py_perfmap_jit_callbacks;
             }
             if (_PyPerfTrampoline_SetCallbacks(cur_cb) < 0 ||
-                    _PyPerfTrampoline_Init(config->perf_profiling) < 0) {
+                    _PyPerfTrampoline_Init(1) < 0) {
                 return _PyStatus_ERR("can't initialize the perf trampoline");
             }
         }
