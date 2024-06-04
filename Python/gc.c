@@ -2006,9 +2006,13 @@ _PyObject_GC_Link(PyObject *op)
 void
 _Py_RunGC(PyThreadState *tstate)
 {
+    bool immediate = tstate->interp->deallocation_immediate;
+    tstate->interp->deallocation_immediate = true;
+    PyZCT_Clear(tstate->interp);
     if (tstate->interp->gc.enabled) {
         _PyGC_Collect(tstate, 1, _Py_GC_REASON_HEAP);
     }
+    tstate->interp->deallocation_immediate = immediate;
 }
 
 static PyObject *
@@ -2175,4 +2179,113 @@ done:
     gcstate->enabled = origenstate;
 }
 
+
 #endif  // Py_GIL_DISABLED
+
+static size_t
+size_estimate(PyObject *obj)
+{
+    Py_ssize_t bsize, isize;
+    bsize = Py_TYPE(obj)->tp_basicsize;
+    assert(bsize >= sizeof(PyObject));
+    isize = Py_TYPE(obj)->tp_itemsize;
+    if (isize > 0) {
+        return bsize + _PyVarObject_CAST(obj)->ob_size * isize;
+    }
+    else {
+        return bsize;
+    }
+}
+
+void PyZCT_Insert(PyInterpreterState *interp, PyObject *obj)
+{
+    _PyZCT_Insert(interp, obj, size_estimate(obj));
+}
+
+void _PyZCT_Insert(PyInterpreterState *interp, PyObject *obj, Py_ssize_t size)
+{
+    PyZeroCountTable *table = &interp->zct;
+    *table->next_free = obj;
+    table->next_free++;
+    table->pressure += size;
+    assert(table->pressure >= -(Py_ssize_t)(sizeof(PyObject) * ((ZCT_SIZE - ZCT_SAFETY_MARGIN * 2))));
+    if (table->pressure > 0) {
+        _Py_ScheduleGC(PyThreadState_GET());
+    }
+}
+
+void PyZCT_Clear(PyInterpreterState *interp)
+{
+    assert(interp->deallocation_immediate);
+    PyZeroCountTable *table = &interp->zct;
+    PyObject **last = interp->zct.next_free;
+    interp->zct.next_free = interp->zct.objects;
+    table->pressure = ZCT_INITIAL_PRESSURE;
+    while (last > interp->zct.objects) {
+        last--;
+        PyObject *obj = *last;
+        assert(!_Py_IsImmortal(obj));
+        Py_DECREF(obj);
+    }
+}
+
+#ifndef NDEBUG
+static int
+all_stacks_immediate(PyInterpreterState *interp) {
+    PyThreadState* ts = PyInterpreterState_ThreadHead(interp);
+    while (ts) {
+        _PyInterpreterFrame *frame = ts->current_frame;
+        if (frame->references_immediate == 0) {
+            return 0;
+            frame = frame->previous;
+        }
+        ts = PyThreadState_Next(ts);
+    }
+    return 1;
+}
+#endif
+
+static inline void
+defer_object(PyObject *obj, PyInterpreterState *interp) {
+    assert(obj->ob_refcnt > 0);
+    if (obj->ob_refcnt == 1) {
+        PyZCT_Insert(interp, obj);
+    }
+    else {
+        obj->ob_refcnt--;
+    }
+}
+
+void defer_frame(_PyInterpreterFrame *frame, PyInterpreterState *interp) {
+    assert(frame->references_immediate);
+    frame->references_immediate = 0;
+    PyObject **locals = _PyFrame_GetLocalsArray(frame);
+    PyObject **top = locals + frame->stacktop;
+    while (top > locals) {
+        top--;
+        defer_object(*top, interp);
+    }
+}
+
+void undefer_frame(_PyInterpreterFrame *frame) {
+    assert(frame->references_immediate == 0);
+    frame->references_immediate = 1;
+    PyObject **locals = _PyFrame_GetLocalsArray(frame);
+    PyObject **top = locals + frame->stacktop;
+    while (top > locals) {
+        top--;
+        (*top)->ob_refcnt++;
+    }
+}
+
+void collect_0(PyThreadState *tstate)
+{
+    _PyInterpreterFrame *frame = tstate->current_frame;
+    while (frame && frame->references_immediate == 0) {
+        undefer_frame(frame);
+        frame = frame->previous;
+    }
+    assert(all_stacks_immediate(tstate->interp));
+    PyZCT_Clear(tstate->interp);
+}
+

@@ -96,6 +96,7 @@ struct _is {
      * which is by far the hottest field in this struct
      * and should be placed at the beginning. */
     struct _ceval_state ceval;
+    bool deallocation_immediate;
 
     PyInterpreterState *next;
 
@@ -274,6 +275,8 @@ struct _is {
     /* the initial PyInterpreterState.threads.head */
     _PyThreadStateImpl _initial_thread;
     Py_ssize_t _interactive_src_count;
+
+    PyZeroCountTable zct;
 };
 
 

@@ -392,6 +392,20 @@ extern void _Py_RunGC(PyThreadState *tstate);
 extern void _PyGC_ImmortalizeDeferredObjects(PyInterpreterState *interp);
 #endif
 
+#define ZCT_SIZE (1 << 12)
+#define ZCT_SAFETY_MARGIN 60
+#define ZCT_INITIAL_PRESSURE (-(Py_ssize_t)(sizeof(PyObject) * 2 * (ZCT_SIZE - ZCT_SAFETY_MARGIN * 2)))
+
+typedef struct _zct {
+    Py_ssize_t pressure;
+    PyObject **next_free;
+    PyObject *objects[ZCT_SIZE];
+} PyZeroCountTable;
+
+extern void _PyZCT_Insert(PyInterpreterState *interp, PyObject *obj, Py_ssize_t size);
+extern void PyZCT_Insert(PyInterpreterState *interp, PyObject *obj);
+void PyZCT_Clear(PyInterpreterState *interp);
+
 #ifdef __cplusplus
 }
 #endif

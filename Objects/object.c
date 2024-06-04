@@ -2827,6 +2827,11 @@ _PyObject_AssertFailed(PyObject *obj, const char *expr, const char *msg,
 void
 _Py_Dealloc(PyObject *op)
 {
+    PyInterpreterState *interp = _PyInterpreterState_GET();
+    if (!interp->deallocation_immediate) {
+        PyZCT_Insert(interp, op);
+        return;
+    }
     PyTypeObject *type = Py_TYPE(op);
     destructor dealloc = type->tp_dealloc;
 #ifdef Py_DEBUG
