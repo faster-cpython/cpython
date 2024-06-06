@@ -86,7 +86,7 @@ static inline void interpreter_decref(_PyInterpreterFrame *frame, PyObject **sp,
         } \
         _Py_DECREF_STAT_INC(); \
         if (--op->ob_refcnt == 0) { \
-            _PyFrame_SetStackPointer(frame, stack_pointer) \
+            _PyFrame_SetStackPointer(frame, stack_pointer); \
             _Py_Dealloc(op); \
             stack_pointer = _PyFrame_GetStackPointer(frame); \
         } \
