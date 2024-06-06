@@ -1828,8 +1828,8 @@
                                   "Value after * must be an iterable, not %.200s",
                                   Py_TYPE(iterable)->tp_name);
                 }
-                INTERPRETER_DECREF(iterable);
                 LOAD_SP();
+                INTERPRETER_DECREF(iterable);
                 if (true) JUMP_TO_ERROR();
             }
             assert(Py_IsNone(none_val));

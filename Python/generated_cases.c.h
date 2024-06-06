@@ -856,21 +856,23 @@
                 if (opcode == INSTRUMENTED_CALL) {
                     PyObject *arg = total_args == 0 ?
                     &_PyInstrumentation_MISSING : args[0];
-                    SAVE_SP();
                     if (res == NULL) {
+                        SAVE_SP();
                         _Py_call_instrumentation_exc2(
                             tstate, PY_MONITORING_EVENT_C_RAISE,
                             frame, this_instr, callable, arg);
+                        LOAD_SP();
                     }
                     else {
+                        SAVE_SP();
                         int err = _Py_call_instrumentation_2args(
                             tstate, PY_MONITORING_EVENT_C_RETURN,
                             frame, this_instr, callable, arg);
+                        LOAD_SP();
                         if (err < 0) {
                             Py_CLEAR(res);
                         }
                     }
-                    LOAD_SP();
                 }
                 assert((res != NULL) ^ (_PyErr_Occurred(tstate) != NULL));
                 INTERPRETER_DECREF(callable);
@@ -1351,7 +1353,10 @@
             // It converts all dict subtypes in kwargs into regular dicts.
             assert(kwargs == NULL || PyDict_CheckExact(kwargs));
             if (!PyTuple_CheckExact(callargs)) {
-                if (check_args_iterable(tstate, func, callargs) < 0) {
+                SAVE_SP();
+                int err = check_args_iterable(tstate, func, callargs);
+                LOAD_SP();
+                if (err < 0) {
                     goto error;
                 }
                 SAVE_SP();
@@ -3905,8 +3910,8 @@
                                   "Value after * must be an iterable, not %.200s",
                                   Py_TYPE(iterable)->tp_name);
                 }
-                INTERPRETER_DECREF(iterable);
                 LOAD_SP();
+                INTERPRETER_DECREF(iterable);
                 if (true) goto pop_1_error;
             }
             assert(Py_IsNone(none_val));
