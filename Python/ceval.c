@@ -59,9 +59,8 @@
 #else
 
 #ifdef Py_REF_DEBUG
-static inline void interpreter_refclose(_PyInterpreterFrame *frame, _PyStackRef *sp, const char *filename, int lineno, _PyStackRef ref)
+static inline void interpreter_decref(_PyInterpreterFrame *frame, _PyStackRef *sp, const char *filename, int lineno, PyObject *op)
 {
-    PyObject *op = PyStackRef_AsPyObjectBorrow(ref);
     if (op->ob_refcnt <= 0) {
         _Py_NegativeRefcount(filename, lineno, op);
     }
@@ -76,9 +75,30 @@ static inline void interpreter_refclose(_PyInterpreterFrame *frame, _PyStackRef 
         _PyFrame_GetStackPointer(frame);
     }
 }
+
+static inline void interpreter_refclose(_PyInterpreterFrame *frame, _PyStackRef *sp, const char *filename, int lineno, _PyStackRef ref)
+{
+    PyObject *op = PyStackRef_AsPyObjectBorrow(ref);
+    interpreter_decref(frame, sp, filename, lineno, op);
+}
 #define INTERPRETER_REFCLOSE(ref) interpreter_refclose(frame, stack_pointer, __FILE__, __LINE__, ref)
+#define INTERPRETER_DECREF(op) interpreter_decref(frame, stack_pointer, __FILE__, __LINE__, (PyObject *)op)
 
 #else
+
+#define INTERPRETER_DECREF(arg) \
+    do { \
+        PyObject *op = _PyObject_CAST(arg); \
+        if (_Py_IsImmortal(op)) { \
+            break; \
+        } \
+        _Py_DECREF_STAT_INC(); \
+        if (--op->ob_refcnt == 0) { \
+            _PyFrame_SetStackPointer(frame, stack_pointer); \
+            _Py_Dealloc(op); \
+            stack_pointer = _PyFrame_GetStackPointer(frame); \
+        } \
+    } while (0)
 
 #define INTERPRETER_REFCLOSE(ref) \
     do { \
@@ -212,17 +232,14 @@ lltrace_resume_frame(_PyInterpreterFrame *frame)
 static int
 maybe_lltrace_resume_frame(_PyInterpreterFrame *frame, _PyInterpreterFrame *skip_frame, PyObject *globals)
 {
-    if (globals == NULL) {
-        return 0;
+    int lltrace = 0;
+    if (frame != skip_frame && globals != NULL) {
+        int r = PyDict_Contains(globals, &_Py_ID(__lltrace__));
+        if (r < 0) {
+            return -1;
+        }
+        lltrace = r * 5;  // Levels 1-4 only trace uops
     }
-    if (frame == skip_frame) {
-        return 0;
-    }
-    int r = PyDict_Contains(globals, &_Py_ID(__lltrace__));
-    if (r < 0) {
-        return -1;
-    }
-    int lltrace = r * 5;  // Levels 1-4 only trace uops
     if (!lltrace) {
         // Can also be controlled by environment variable
         char *python_lltrace = Py_GETENV("PYTHON_LLTRACE");
@@ -763,6 +780,10 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
 #include "opcode_targets.h"
 #endif
 
+#ifdef Py_DEBUG
+    assert(tstate->sp_cached == 0);
+#endif
+
 #ifdef Py_STATS
     int lastopcode = 0;
 #endif
@@ -832,7 +853,6 @@ start_frame:
 
     next_instr = frame->instr_ptr;
 resume_frame:
-    stack_pointer = _PyFrame_GetStackPointer(frame);
 
 #ifdef LLTRACE
     lltrace = maybe_lltrace_resume_frame(frame, &entry_frame, GLOBALS());
@@ -840,6 +860,7 @@ resume_frame:
         goto exit_unwind;
     }
 #endif
+    stack_pointer = _PyFrame_GetStackPointer(frame);
 
 #ifdef Py_DEBUG
     /* _PyEval_EvalFrameDefault() must not be called with an exception set,
@@ -1005,7 +1026,7 @@ exception_unwind:
             /* Resume normal execution */
 #ifdef LLTRACE
             if (lltrace >= 5) {
-                lltrace_resume_frame(frame);
+                ESCAPING_CALL(lltrace_resume_frame(frame));
             }
 #endif
             DISPATCH();

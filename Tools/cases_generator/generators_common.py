@@ -134,7 +134,7 @@ def replace_decrefs(
             if var.condition == "1":
                 out.emit(f"INTERPRETER_REFCLOSE({var.name});\n")
             elif var.condition != "0":
-                out.emit(f"if (!StackRef_IsNull({var.name})) {{ INTERPRETER_REFCLOSE({var.name}); }}\n")
+                out.emit(f"if (!PyStackRef_IsNull({var.name})) {{ INTERPRETER_REFCLOSE({var.name}); }}\n")
         else:
             out.emit(f"INTERPRETER_REFCLOSE({var.name});\n")
 
@@ -154,6 +154,21 @@ def replace_decref(
     out.emit(");\n")
 
 
+def replace_close(
+    out: CWriter,
+    tkn: Token,
+    tkn_iter: Iterator[Token],
+    uop: Uop,
+    unused: Stack,
+    inst: Instruction | None,
+) -> None:
+    out.emit_at("INTERPRETER_REFCLOSE", tkn)
+    out.emit(next(tkn_iter))
+    emit_to(out, tkn_iter, "RPAREN")
+    next(tkn_iter)  # Semi colon
+    out.emit(");\n")
+
+
 def replace_xdecref(
     out: CWriter,
     tkn: Token,
@@ -162,7 +177,18 @@ def replace_xdecref(
     unused: Stack,
     inst: Instruction | None,
 ) -> None:
-    raise Exception("XDECREF not supported")
+    raise Exception("Py_XDECREF not supported")
+
+
+def replace_xclose(
+    out: CWriter,
+    tkn: Token,
+    tkn_iter: Iterator[Token],
+    uop: Uop,
+    unused: Stack,
+    inst: Instruction | None,
+) -> None:
+    raise Exception("PyStackRef_XCLOSE not supported")
 
 
 def replace_sync_sp(
@@ -193,6 +219,23 @@ def replace_check_eval_breaker(
     if not uop.properties.ends_with_eval_breaker:
         out.emit_at("CHECK_EVAL_BREAKER();", tkn)
 
+def replace_escaping_call(
+    out: CWriter,
+    tkn: Token,
+    tkn_iter: Iterator[Token],
+    uop: Uop,
+    stack: Stack,
+    inst: Instruction | None,
+) -> None:
+    next(tkn_iter) # LPAREN
+    out.emit_at("SAVE_SP();", tkn)
+    out.start_line()
+    emit_to(out, tkn_iter, "RPAREN")
+    next(tkn_iter) # semicolon
+    out.emit(";")
+    out.start_line()
+    out.emit("LOAD_SP();\n")
+
 
 REPLACEMENT_FUNCTIONS = {
     "EXIT_IF": replace_deopt,
@@ -201,9 +244,12 @@ REPLACEMENT_FUNCTIONS = {
     "ERROR_NO_POP": replace_error_no_pop,
     "Py_DECREF": replace_decref,
     "Py_XDECREF": replace_xdecref,
+    "PyStackRef_CLOSE": replace_close,
+    "PyStackRef_XCLOSE": replace_xclose,
     "DECREF_INPUTS": replace_decrefs,
     "CHECK_EVAL_BREAKER": replace_check_eval_breaker,
     "SYNC_SP": replace_sync_sp,
+    "ESCAPING_CALL": replace_escaping_call,
 }
 
 ReplacementFunctionType = Callable[

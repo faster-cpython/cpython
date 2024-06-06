@@ -352,7 +352,6 @@ def has_error_without_pop(op: parser.InstDef) -> bool:
     )
 
 
-NON_ESCAPING_FUNCTIONS = (
     "PyStackRef_FromPyObjectSteal",
     "PyStackRef_AsPyObjectBorrow",
     "PyStackRef_AsPyObjectSteal",
@@ -368,77 +367,11 @@ NON_ESCAPING_FUNCTIONS = (
     "PyStackRef_FromPyObjectNew",
     "PyStackRef_AsPyObjectNew",
     "PyStackRef_FromPyObjectImmortal",
-    "Py_INCREF",
-    "_PyManagedDictPointer_IsValues",
-    "_PyObject_GetManagedDict",
-    "_PyObject_ManagedDictPointer",
-    "_PyObject_InlineValues",
-    "_PyDictValues_AddToInsertionOrder",
-    "Py_DECREF",
-    "Py_XDECREF",
-    "_Py_DECREF_SPECIALIZED",
-    "DECREF_INPUTS_AND_REUSE_FLOAT",
-    "PyUnicode_Append",
-    "_PyLong_IsZero",
-    "Py_SIZE",
-    "Py_TYPE",
-    "PyList_GET_ITEM",
-    "PyList_SET_ITEM",
-    "PyTuple_GET_ITEM",
-    "PyList_GET_SIZE",
-    "PyTuple_GET_SIZE",
-    "Py_ARRAY_LENGTH",
-    "Py_Unicode_GET_LENGTH",
-    "PyUnicode_READ_CHAR",
-    "_Py_SINGLETON",
-    "PyUnicode_GET_LENGTH",
-    "_PyLong_IsCompact",
-    "_PyLong_IsNonNegativeCompact",
-    "_PyLong_CompactValue",
-    "_PyLong_DigitCount",
-    "_Py_NewRef",
-    "_Py_IsImmortal",
-    "PyLong_FromLong",
-    "_Py_STR",
-    "_PyLong_Add",
-    "_PyLong_Multiply",
-    "_PyLong_Subtract",
-    "Py_NewRef",
-    "_PyList_ITEMS",
-    "_PyTuple_ITEMS",
-    "_PyList_AppendTakeRef",
-    "_Py_atomic_load_uintptr_relaxed",
-    "_PyFrame_GetCode",
-    "_PyThreadState_HasStackSpace",
-    "_PyUnicode_Equal",
-    "_PyFrame_SetStackPointer",
-    "_PyType_HasFeature",
-    "PyUnicode_Concat",
-    "PySlice_New",
-    "_Py_LeaveRecursiveCallPy",
-    "CALL_STAT_INC",
-    "STAT_INC",
-    "maybe_lltrace_resume_frame",
-    "_PyUnicode_JoinArray",
-    "_PyEval_FrameClearAndPop",
-    "_PyFrame_StackPush",
-    "PyCell_New",
-    "PyFloat_AS_DOUBLE",
-    "_PyFrame_PushUnchecked",
-    "Py_FatalError",
     "STACKREFS_TO_PYOBJECTS",
     "STACKREFS_TO_PYOBJECTS_CLEANUP",
     "CONVERSION_FAILED",
     "_PyList_FromArraySteal",
     "_PyTuple_FromArraySteal",
-)
-
-ESCAPING_FUNCTIONS = (
-    "import_name",
-    "import_from",
-)
-
-
 def makes_escaping_api_call(instr: parser.InstDef) -> bool:
     if "CALL_INTRINSIC" in instr.name:
         return True
@@ -545,7 +478,6 @@ def compute_properties(op: parser.InstDef) -> Properties:
     has_free = (
         variable_used(op, "PyCell_New")
         or variable_used(op, "PyCell_GetRef")
-        or variable_used(op, "PyCell_SetTakeRef")
         or variable_used(op, "PyCell_SwapTakeRef")
     )
     deopts_if = variable_used(op, "DEOPT_IF")
@@ -562,7 +494,7 @@ def compute_properties(op: parser.InstDef) -> Properties:
     error_with_pop = has_error_with_pop(op)
     error_without_pop = has_error_without_pop(op)
     return Properties(
-        escapes=makes_escaping_api_call(op),
+        escapes=variable_used(op, "ESCAPING_CALL"),
         error_with_pop=error_with_pop,
         error_without_pop=error_without_pop,
         deopts=deopts_if,

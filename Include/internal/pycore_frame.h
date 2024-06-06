@@ -167,6 +167,7 @@ static inline _PyStackRef*
 _PyFrame_GetStackPointer(_PyInterpreterFrame *frame)
 {
 #ifdef Py_DEBUG
+    assert(PyThreadState_GET()->sp_cached == 0);
     PyThreadState_GET()->sp_cached++;
 #endif
     assert(frame->stackpointer != NULL);
@@ -181,6 +182,7 @@ _PyFrame_SetStackPointer(_PyInterpreterFrame *frame, _PyStackRef *stack_pointer)
 #ifdef Py_DEBUG
     PyThreadState_GET()->sp_cached--;
 #endif
+    assert(PyThreadState_GET()->sp_cached == 0);
     assert(frame->stackpointer == NULL);
     frame->stackpointer = stack_pointer;
 }

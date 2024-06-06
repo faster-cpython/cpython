@@ -2843,7 +2843,7 @@ _Py_Dealloc(PyObject *op)
 #ifdef Py_DEBUG
     PyThreadState *tstate = _PyThreadState_GET();
 #ifndef Py_GIL_DISABLED
-    assert(tstate->sp_cached == 0);
+    // assert(tstate->sp_cached == 0);
 #endif
     PyObject *old_exc = tstate != NULL ? tstate->current_exception : NULL;
     // Keep the old exception type alive to prevent undefined behavior

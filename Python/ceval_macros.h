@@ -81,7 +81,7 @@
 /* PRE_DISPATCH_GOTO() does lltrace if enabled. Normally a no-op */
 #ifdef LLTRACE
 #define PRE_DISPATCH_GOTO() if (lltrace >= 5) { \
-    lltrace_instruction(frame, stack_pointer, next_instr, opcode, oparg); }
+    ESCAPING_CALL(lltrace_instruction(frame, stack_pointer, next_instr, opcode, oparg)); }
 #else
 #define PRE_DISPATCH_GOTO() ((void)0)
 #endif
@@ -89,7 +89,9 @@
 #if LLTRACE
 #define LLTRACE_RESUME_FRAME() \
 do { \
-    lltrace = maybe_lltrace_resume_frame(frame, &entry_frame, GLOBALS()); \
+    ESCAPING_CALL( \
+        lltrace = maybe_lltrace_resume_frame(frame, &entry_frame, GLOBALS()) \
+    ); \
     if (lltrace < 0) { \
         goto exit_unwind; \
     } \

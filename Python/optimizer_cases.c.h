@@ -615,9 +615,7 @@
             break;
         }
 
-        /* _INSTRUMENTED_RETURN_VALUE is not a viable micro-op for tier 2 */
-
-        /* _INSTRUMENTED_RETURN_CONST is not a viable micro-op for tier 2 */
+        /* _RETURN_VALUE_EVENT is not a viable micro-op for tier 2 */
 
         case _GET_AITER: {
             _Py_UopsSymbol *iter;
@@ -646,7 +644,7 @@
 
         /* _SEND_GEN is not a viable micro-op for tier 2 */
 
-        /* _INSTRUMENTED_YIELD_VALUE is not a viable micro-op for tier 2 */
+        /* _YIELD_VALUE_EVENT is not a viable micro-op for tier 2 */
 
         case _YIELD_VALUE: {
             _Py_UopsSymbol *res;
