@@ -238,14 +238,14 @@ static inline Py_ALWAYS_INLINE void Py_INCREF(PyObject *op)
     }
 #elif SIZEOF_VOID_P > 4
     // Portable saturated add, branching on the carry flag and set low bits
-    PY_UINT32_T cur_refcnt = op->ob_refcnt_split[PY_BIG_ENDIAN];
+    PY_UINT32_T cur_refcnt = op->ob_refcnt;
     PY_UINT32_T new_refcnt = cur_refcnt + 1;
     if (new_refcnt == 0) {
         // cur_refcnt is equal to _Py_IMMORTAL_REFCNT: the object is immortal,
         // do nothing
         return;
     }
-    op->ob_refcnt_split[PY_BIG_ENDIAN] = new_refcnt;
+    op->ob_refcnt = new_refcnt;
 #else
     // Explicitly check immortality against the immortal value
     if (_Py_IsImmortal(op)) {
@@ -350,6 +350,9 @@ static inline void Py_DECREF(const char *filename, int lineno, PyObject *op)
     if (--op->ob_refcnt == 0) {
         _Py_Dealloc(op);
     }
+    else {
+        op->ob_flags |= _Py_MAYBE_IN_CYCLE;
+    }
 }
 #define Py_DECREF(op) Py_DECREF(__FILE__, __LINE__, _PyObject_CAST(op))
 
@@ -364,6 +367,9 @@ static inline Py_ALWAYS_INLINE void Py_DECREF(PyObject *op)
     _Py_DECREF_STAT_INC();
     if (--op->ob_refcnt == 0) {
         _Py_Dealloc(op);
+    }
+    else {
+        op->ob_flags |= _Py_MAYBE_IN_CYCLE;
     }
 }
 #define Py_DECREF(op) Py_DECREF(_PyObject_CAST(op))

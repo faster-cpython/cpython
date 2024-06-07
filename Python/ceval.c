@@ -71,6 +71,9 @@
             destructor dealloc = Py_TYPE(op)->tp_dealloc; \
             (*dealloc)(op); \
         } \
+        else { \
+            op->ob_flags |= _Py_MAYBE_IN_CYCLE; \
+        } \
     } while (0)
 
 #undef Py_XDECREF
@@ -97,6 +100,9 @@
         if (--op->ob_refcnt == 0) { \
             destructor d = (destructor)(dealloc); \
             d(op); \
+        } \
+        else { \
+            op->ob_flags |= _Py_MAYBE_IN_CYCLE; \
         } \
     } while (0)
 #endif

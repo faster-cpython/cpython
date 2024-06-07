@@ -187,6 +187,7 @@ _Py_DECREF_SPECIALIZED(PyObject *op, const destructor destruct)
 #endif
     if (--op->ob_refcnt != 0) {
         assert(op->ob_refcnt > 0);
+        op->ob_flags |= _Py_MAYBE_IN_CYCLE;
     }
     else {
 #ifdef Py_TRACE_REFS
@@ -212,6 +213,7 @@ _Py_DECREF_NO_DEALLOC(PyObject *op)
         _Py_FatalRefcountError("Expected a positive remaining refcount");
     }
 #endif
+    op->ob_flags |= _Py_MAYBE_IN_CYCLE;
 }
 
 #else

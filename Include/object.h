@@ -79,18 +79,21 @@ whose size is determined when the object is allocated.
         (type),                     \
     },
 #else
-#define PyObject_HEAD_INIT(type)    \
-    {                               \
-        { _Py_IMMORTAL_REFCNT },    \
-        (type)                      \
+
+#define PyObject_HEAD_INIT(type)           \
+    {                                      \
+        .ob_refcnt = _Py_IMMORTAL_REFCNT,  \
+        .ob_flags = 0,                     \
+        .ob_type = (type)                  \
     },
-#endif
 
 #define PyVarObject_HEAD_INIT(type, size) \
     {                                     \
         PyObject_HEAD_INIT(type)          \
         (size)                            \
     },
+
+#endif
 
 /* PyObject_VAR_HEAD defines the initial segment of all variable-size
  * container objects.  These end with a declaration of an array with 1
@@ -119,17 +122,31 @@ struct _object {
     __pragma(warning(push))
     __pragma(warning(disable: 4201))
 #endif
-    union {
-       Py_ssize_t ob_refcnt;
 #if SIZEOF_VOID_P > 4
-       PY_UINT32_T ob_refcnt_split[2];
+
+#if PY_BIG_ENDIAN
+    PY_UINT32_T ob_flags;
+    PY_UINT32_T ob_refcnt;
+#else
+    PY_UINT32_T ob_refcnt;
+    PY_UINT32_T ob_flags;
 #endif
-    };
+
+#else
+    PY_UINT32_T ob_refcnt;
+#endif
+
 #ifdef _MSC_VER
     __pragma(warning(pop))
 #endif
 
     PyTypeObject *ob_type;
+#if SIZEOF_VOID_P <= 4
+    PY_UINT32_T ob_flags;
+#endif
+
+#define _Py_MAYBE_IN_CYCLE          (1 << 31)
+
 };
 #else
 // Objects that are not owned by any thread use a thread id (tid) of zero.
