@@ -4293,6 +4293,10 @@ dummy_func(
             DEOPT_IF(!((_PyExecutorObject *)executor)->vm_data.valid);
         }
 
+        tier2 op(_GUARD_CODE, (version/2 -- )) {
+            DEOPT_IF(((PyCodeObject *)frame->f_executable)->co_version != version);
+        }
+
         tier2 op(_FATAL_ERROR, (--)) {
             assert(0);
             Py_FatalError("Fatal error uop executed.");

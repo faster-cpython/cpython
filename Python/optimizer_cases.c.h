@@ -2065,6 +2065,10 @@
             break;
         }
 
+        case _GUARD_CODE: {
+            break;
+        }
+
         case _FATAL_ERROR: {
             break;
         }

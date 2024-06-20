@@ -4508,6 +4508,15 @@
             break;
         }
 
+        case _GUARD_CODE: {
+            uint32_t version = (uint32_t)CURRENT_OPERAND();
+            if (((PyCodeObject *)frame->f_executable)->co_version != version) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            break;
+        }
+
         case _FATAL_ERROR: {
             assert(0);
             Py_FatalError("Fatal error uop executed.");
