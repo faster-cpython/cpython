@@ -52,36 +52,50 @@
 #  error "ceval.c must be build with Py_BUILD_CORE define for best performance"
 #endif
 
-#if !defined(Py_DEBUG) && !defined(Py_TRACE_REFS) && !defined(Py_GIL_DISABLED)
-// GH-89279: The MSVC compiler does not inline these static inline functions
-// in PGO build in _PyEval_EvalFrameDefault(), because this function is over
-// the limit of PGO, and that limit cannot be configured.
-// Define them as macros to make sure that they are always inlined by the
-// preprocessor.
-// TODO: implement Py_DECREF macro for Py_GIL_DISABLED
+#ifdef Py_GIL_DISABLED
 
-#undef Py_DECREF
-#define Py_DECREF(arg) \
+#define INTERPRETER_REFCLOSE PyStackRef_CLOSE
+
+#else
+
+#ifdef Py_REF_DEBUG
+static inline void interpreter_refclose(_PyInterpreterFrame *frame, _PyStackRef *sp, const char *filename, int lineno, _PyStackRef ref)
+{
+    PyObject *op = PyStackRef_AsPyObjectBorrow(ref);
+    if (op->ob_refcnt <= 0) {
+        _Py_NegativeRefcount(filename, lineno, op);
+    }
+    if (_Py_IsImmortal(op)) {
+        return;
+    }
+    _Py_DECREF_STAT_INC();
+    _Py_DECREF_DecRefTotal();
+    if (--op->ob_refcnt == 0) {
+        _PyFrame_SetStackPointer(frame, sp);
+        _Py_Dealloc(op);
+        _PyFrame_GetStackPointer(frame);
+    }
+}
+#define INTERPRETER_REFCLOSE(ref) interpreter_refclose(frame, stack_pointer, __FILE__, __LINE__, ref)
+
+#else
+
+#define INTERPRETER_REFCLOSE(ref) \
     do { \
-        PyObject *op = _PyObject_CAST(arg); \
+        PyObject *op = PyStackRef_AsPyObjectBorrow(ref); \
         if (_Py_IsImmortal(op)) { \
             break; \
         } \
         _Py_DECREF_STAT_INC(); \
         if (--op->ob_refcnt == 0) { \
-            destructor dealloc = Py_TYPE(op)->tp_dealloc; \
-            (*dealloc)(op); \
+            _PyFrame_SetStackPointer(frame, stack_pointer); \
+            _Py_Dealloc(op); \
+            stack_pointer = _PyFrame_GetStackPointer(frame); \
         } \
     } while (0)
 
-#undef Py_XDECREF
-#define Py_XDECREF(arg) \
-    do { \
-        PyObject *xop = _PyObject_CAST(arg); \
-        if (xop != NULL) { \
-            Py_DECREF(xop); \
-        } \
-    } while (0)
+#endif // Py_REF_DEBUG
+#endif // Py_GIL_DISABLED
 
 #undef Py_IS_TYPE
 #define Py_IS_TYPE(ob, type) \
@@ -100,7 +114,6 @@
             d(op); \
         } \
     } while (0)
-#endif
 
 
 #ifdef LLTRACE
@@ -773,7 +786,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
 #endif
     entry_frame.f_executable = Py_None;
     entry_frame.instr_ptr = (_Py_CODEUNIT *)_Py_INTERPRETER_TRAMPOLINE_INSTRUCTIONS + 1;
-    entry_frame.stacktop = 0;
+    entry_frame.stackpointer = entry_frame.localsplus;
     entry_frame.owner = FRAME_OWNED_BY_CSTACK;
     entry_frame.return_offset = 0;
     /* Push frame */
@@ -936,7 +949,7 @@ error:
                 PyTraceBack_Here(f);
             }
         }
-        monitor_raise(tstate, frame, next_instr-1);
+        ESCAPING_CALL(monitor_raise(tstate, frame, next_instr-1));
 exception_unwind:
         {
             /* We can't use frame->instr_ptr here, as RERAISE may have set it */
@@ -949,7 +962,10 @@ exception_unwind:
                 /* Pop remaining stack entries. */
                 _PyStackRef *stackbase = _PyFrame_Stackbase(frame);
                 while (stack_pointer > stackbase) {
-                    PyStackRef_XCLOSE(POP());
+                    _PyStackRef ref = POP();
+                    if (!PyStackRef_IsNull(ref)) {
+                        INTERPRETER_REFCLOSE(ref);
+                    };
                 }
                 assert(STACK_LEVEL() == 0);
                 _PyFrame_SetStackPointer(frame, stack_pointer);
@@ -960,7 +976,10 @@ exception_unwind:
             assert(STACK_LEVEL() >= level);
             _PyStackRef *new_top = _PyFrame_Stackbase(frame) + level;
             while (stack_pointer > new_top) {
-                PyStackRef_XCLOSE(POP());
+                _PyStackRef ref = POP();
+                if (!PyStackRef_IsNull(ref)) {
+                    INTERPRETER_REFCLOSE(ref);
+                };
             }
             if (lasti) {
                 int frame_lasti = _PyInterpreterFrame_LASTI(frame);
@@ -979,7 +998,8 @@ exception_unwind:
             PUSH(PyStackRef_FromPyObjectSteal(exc));
             next_instr = _PyCode_CODE(_PyFrame_GetCode(frame)) + handler;
 
-            if (monitor_handled(tstate, frame, next_instr, exc) < 0) {
+            ESCAPING_CALL(int err = monitor_handled(tstate, frame, next_instr, exc));
+            if (err < 0) {
                 goto exception_unwind;
             }
             /* Resume normal execution */

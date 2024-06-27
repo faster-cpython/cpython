@@ -753,9 +753,14 @@ fractions
 gc
 --
 
-* The cyclic garbage collector is now incremental, which changes the meanings
-  of the results of :meth:`gc.get_threshold` and :meth:`gc.set_threshold` as
-  well as :meth:`gc.get_count` and :meth:`gc.get_stats`.
+* The cyclic garbage collector is now incremental. Incremental garbage collection
+  scans only a portion of the heap at each collection, so can only collect a
+  portion of the potential cycles. This means that pauses are generally a lot shorter,
+  although memory use might increase as there can be a longer delay before cycles are
+  collected. All cyclic garbage will be collected eventually.
+
+  The meanings of :meth:`gc.get_threshold` and :meth:`gc.set_threshold` as
+  well as :meth:`gc.get_count` and :meth:`gc.get_stats` have changed:
 
   * :meth:`gc.get_threshold` returns a three-item tuple for backwards compatibility.
     The first value is the threshold for young collections, as before; the second

@@ -137,7 +137,8 @@ do { \
     _Py_CHECK_EMSCRIPTEN_SIGNALS_PERIODICALLY(); \
     QSBR_QUIESCENT_STATE(tstate); \
     if (_Py_atomic_load_uintptr_relaxed(&tstate->eval_breaker) & _PY_EVAL_EVENTS_MASK) { \
-        if (_Py_HandlePending(tstate) != 0) { \
+        ESCAPING_CALL(int err = _Py_HandlePending(tstate)); \
+        if (err != 0) { \
             GOTO_ERROR(error); \
         } \
     }
@@ -264,9 +265,14 @@ GETITEM(PyObject *v, Py_ssize_t i) {
    This is because it is possible that during the DECREF the frame is
    accessed by other code (e.g. a __del__ method or gc.collect()) and the
    variable would be pointing to already-freed memory. */
-#define SETLOCAL(i, value)      do { _PyStackRef tmp = GETLOCAL(i); \
-                                     GETLOCAL(i) = value; \
-                                     PyStackRef_XCLOSE(tmp); } while (0)
+#define SETLOCAL(i, value) \
+do { \
+    _PyStackRef tmp = frame->localsplus[i]; \
+    frame->localsplus[i] = value; \
+    if (!PyStackRef_IsNull(tmp)) { \
+        INTERPRETER_REFCLOSE(tmp); \
+    } \
+} while (0)
 
 #define GO_TO_INSTRUCTION(op) goto PREDICT_ID(op)
 
@@ -402,7 +408,12 @@ static inline void _Py_LeaveRecursiveCallPy(PyThreadState *tstate)  {
 /* There's no STORE_IP(), it's inlined by the code generator. */
 
 #define LOAD_SP() \
-stack_pointer = _PyFrame_GetStackPointer(frame);
+stack_pointer = _PyFrame_GetStackPointer(frame)
+
+#define SAVE_SP() \
+_PyFrame_SetStackPointer(frame, stack_pointer)
+
+#define ESCAPING_CALL(CALL) SAVE_SP(); CALL; LOAD_SP()
 
 /* Tier-switching macros. */
 
