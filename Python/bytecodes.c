@@ -930,6 +930,9 @@ dummy_func(
             _PyInterpreterFrame *dying = frame;
             frame = tstate->current_frame = dying->previous;
             _PyEval_FrameClearAndPop(tstate, dying);
+            if (frame->references_immediate) {
+                _PyFrame_Defer(frame, tstate->interp);
+            }
             LOAD_SP();
             LOAD_IP(frame->return_offset);
             res = retval;

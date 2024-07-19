@@ -2245,36 +2245,26 @@ all_stacks_immediate(PyInterpreterState *interp) {
 }
 #endif
 
-static inline void
-defer_object(PyObject *obj, PyInterpreterState *interp) {
-    assert(obj->ob_refcnt > 0);
-    if (obj->ob_refcnt == 1) {
-        PyZCT_Insert(interp, obj);
-    }
-    else {
-        obj->ob_refcnt--;
-    }
-}
 
-void defer_frame(_PyInterpreterFrame *frame, PyInterpreterState *interp) {
+void _PyFrame_Defer(struct _PyInterpreterFrame *frame, PyInterpreterState *interp) {
     assert(frame->references_immediate);
     frame->references_immediate = 0;
-    PyObject **locals = _PyFrame_GetLocalsArray(frame);
-    PyObject **top = locals + frame->stacktop;
+    _PyStackRef *locals = _PyFrame_GetLocalsArray(frame);
+    _PyStackRef *top = frame->stackpointer;
     while (top > locals) {
         top--;
-        defer_object(*top, interp);
+        PyStackRef_Defer(*top, interp);
     }
 }
 
-void undefer_frame(_PyInterpreterFrame *frame) {
+void _PyFrame_Undefer(struct _PyInterpreterFrame *frame) {
     assert(frame->references_immediate == 0);
     frame->references_immediate = 1;
-    PyObject **locals = _PyFrame_GetLocalsArray(frame);
-    PyObject **top = locals + frame->stacktop;
+    _PyStackRef *locals = _PyFrame_GetLocalsArray(frame);
+    _PyStackRef *top = frame->stackpointer;
     while (top > locals) {
         top--;
-        (*top)->ob_refcnt++;
+        PyStackRef_Undefer(*top);
     }
 }
 
@@ -2282,7 +2272,7 @@ void collect_0(PyThreadState *tstate)
 {
     _PyInterpreterFrame *frame = tstate->current_frame;
     while (frame && frame->references_immediate == 0) {
-        undefer_frame(frame);
+        _PyFrame_Undefer(frame);
         frame = frame->previous;
     }
     assert(all_stacks_immediate(tstate->interp));

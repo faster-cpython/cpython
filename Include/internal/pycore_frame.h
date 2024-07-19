@@ -71,6 +71,7 @@ typedef struct _PyInterpreterFrame {
     _PyStackRef *stackpointer;
     uint16_t return_offset;  /* Only relevant during a function call */
     char owner;
+    char references_immediate;
     /* Locals and stack */
     _PyStackRef localsplus[1];
 } _PyInterpreterFrame;
@@ -149,6 +150,7 @@ _PyFrame_Initialize(
     frame->instr_ptr = _PyCode_CODE(code);
     frame->return_offset = 0;
     frame->owner = FRAME_OWNED_BY_THREAD;
+    frame->references_immediate = 0;
 
     for (int i = null_locals_from; i < code->co_nlocalsplus; i++) {
         frame->localsplus[i] = PyStackRef_NULL;
@@ -321,6 +323,8 @@ PyAPI_FUNC(_PyInterpreterFrame *)
 _PyEvalFramePushAndInit(PyThreadState *tstate, PyFunctionObject *func,
                         PyObject *locals, _PyStackRef const* args,
                         size_t argcount, PyObject *kwnames);
+
+void _PyFrame_Defer(_PyInterpreterFrame* frame, PyInterpreterState* interp);
 
 #ifdef __cplusplus
 }

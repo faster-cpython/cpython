@@ -81,9 +81,10 @@
 /* PRE_DISPATCH_GOTO() does lltrace if enabled. Normally a no-op */
 #ifdef LLTRACE
 #define PRE_DISPATCH_GOTO() if (lltrace >= 5) { \
-    lltrace_instruction(frame, stack_pointer, next_instr, opcode, oparg); }
+    lltrace_instruction(frame, stack_pointer, next_instr, opcode, oparg); } \
+    assert(frame->references_immediate == 0);
 #else
-#define PRE_DISPATCH_GOTO() ((void)0)
+#define PRE_DISPATCH_GOTO() assert(frame->references_immediate == 0);
 #endif
 
 #if LLTRACE
@@ -137,6 +138,9 @@ do { \
     _Py_CHECK_EMSCRIPTEN_SIGNALS_PERIODICALLY(); \
     QSBR_QUIESCENT_STATE(tstate); \
     if (_Py_atomic_load_uintptr_relaxed(&tstate->eval_breaker) & _PY_EVAL_EVENTS_MASK) { \
+        if (frame->references_immediate) { \
+            _PyFrame_Defer(frame, tstate->interp); \
+        } \
         if (_Py_HandlePending(tstate) != 0) { \
             GOTO_ERROR(error); \
         } \

@@ -663,7 +663,9 @@ init_interpreter(PyInterpreterState *interp,
         interp->dtoa = (struct _dtoa_state)_dtoa_state_INIT(interp);
     }
     interp->zct.pressure = ZCT_INITIAL_PRESSURE;
-    interp->zct.used = 0;
+    interp->zct.next_free = interp->zct.objects;
+    /* This will get set to false on entering the interpreter */
+    interp->deallocation_immediate = true;
 
     interp->_initialized = 1;
     return _PyStatus_OK();

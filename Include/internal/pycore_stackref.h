@@ -237,6 +237,34 @@ _PyObjectStack_FromStackRefStack(PyObject **dst, const _PyStackRef *src, size_t 
     }
 }
 
+#ifndef Py_GIL_DISABLED
+static inline void
+PyStackRef_Defer(_PyStackRef ref, PyInterpreterState *interp)
+{
+    // Do nothing for now
+    return;
+
+    PyObject *obj = PyStackRef_AsPyObjectBorrow(ref);
+    assert(obj->ob_refcnt > 0);
+    if (obj->ob_refcnt == 1) {
+        PyZCT_Insert(interp, obj);
+    }
+    else {
+        obj->ob_refcnt--;
+    }
+}
+
+static inline void
+PyStackRef_Undefer(_PyStackRef ref)
+{
+    // Do nothing for now
+    return;
+
+    PyObject *obj = PyStackRef_AsPyObjectBorrow(ref);
+    obj->ob_refcnt++;
+}
+
+#endif
 
 #ifdef __cplusplus
 }
