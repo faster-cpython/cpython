@@ -1000,6 +1000,9 @@ exit_unwind:
     }
 
 resume_with_error:
+    if (frame->references_immediate) {
+        _PyFrame_Defer(frame, tstate->interp);
+    }
     next_instr = frame->instr_ptr;
     stack_pointer = _PyFrame_GetStackPointer(frame);
     goto error;

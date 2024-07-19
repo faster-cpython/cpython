@@ -226,6 +226,9 @@ gen_send_ex2(PyGenObject *gen, PyObject *arg, PyObject **presult,
     gen->gi_frame_state = FRAME_EXECUTING;
     EVAL_CALL_STAT_INC(EVAL_CALL_GENERATOR);
     PyObject *result = _PyEval_EvalFrame(tstate, frame, exc);
+    if (frame->references_immediate) {
+        _PyFrame_Defer(frame, tstate->interp);
+    }
     assert(tstate->exc_info == prev_exc_info);
     assert(gen->gi_exc_state.previous_item == NULL);
     assert(gen->gi_frame_state != FRAME_EXECUTING);

@@ -953,6 +953,9 @@ dummy_func(
             _PyInterpreterFrame *dying = frame;
             frame = tstate->current_frame = dying->previous;
             _PyEval_FrameClearAndPop(tstate, dying);
+            if (frame->references_immediate) {
+                _PyFrame_Defer(frame, tstate->interp);
+            }
             _PyFrame_StackPush(frame, retval);
             LOAD_IP(frame->return_offset);
             goto resume_frame;
@@ -977,6 +980,9 @@ dummy_func(
             _PyInterpreterFrame *dying = frame;
             frame = tstate->current_frame = dying->previous;
             _PyEval_FrameClearAndPop(tstate, dying);
+            if (frame->references_immediate) {
+                _PyFrame_Defer(frame, tstate->interp);
+            }
             _PyFrame_StackPush(frame, PyStackRef_FromPyObjectSteal(retval));
             LOAD_IP(frame->return_offset);
             goto resume_frame;
@@ -1192,6 +1198,9 @@ dummy_func(
             _PyInterpreterFrame *gen_frame = frame;
             frame = tstate->current_frame = frame->previous;
             gen_frame->previous = NULL;
+            if (frame->references_immediate) {
+                _PyFrame_Defer(frame, tstate->interp);
+            }
             _PyFrame_StackPush(frame, retval);
             /* We don't know which of these is relevant here, so keep them equal */
             assert(INLINE_CACHE_ENTRIES_SEND == INLINE_CACHE_ENTRIES_FOR_ITER);
@@ -1219,6 +1228,9 @@ dummy_func(
             _PyInterpreterFrame *gen_frame = frame;
             frame = tstate->current_frame = frame->previous;
             gen_frame->previous = NULL;
+            if (frame->references_immediate) {
+                _PyFrame_Defer(frame, tstate->interp);
+            }
             /* We don't know which of these is relevant here, so keep them equal */
             assert(INLINE_CACHE_ENTRIES_SEND == INLINE_CACHE_ENTRIES_FOR_ITER);
             #if TIER_ONE
@@ -4382,6 +4394,9 @@ dummy_func(
             _PyInterpreterFrame *prev = frame->previous;
             _PyThreadState_PopFrame(tstate, frame);
             frame = tstate->current_frame = prev;
+            if (frame->references_immediate) {
+                _PyFrame_Defer(frame, tstate->interp);
+            }
             LOAD_IP(frame->return_offset);
             LOAD_SP();
             LLTRACE_RESUME_FRAME();

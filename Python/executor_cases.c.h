@@ -1259,6 +1259,9 @@
             _PyInterpreterFrame *gen_frame = frame;
             frame = tstate->current_frame = frame->previous;
             gen_frame->previous = NULL;
+            if (frame->references_immediate) {
+                _PyFrame_Defer(frame, tstate->interp);
+            }
             /* We don't know which of these is relevant here, so keep them equal */
             assert(INLINE_CACHE_ENTRIES_SEND == INLINE_CACHE_ENTRIES_FOR_ITER);
             #if TIER_ONE
@@ -4581,6 +4584,9 @@
             _PyInterpreterFrame *prev = frame->previous;
             _PyThreadState_PopFrame(tstate, frame);
             frame = tstate->current_frame = prev;
+            if (frame->references_immediate) {
+                _PyFrame_Defer(frame, tstate->interp);
+            }
             LOAD_IP(frame->return_offset);
             LOAD_SP();
             LLTRACE_RESUME_FRAME();
