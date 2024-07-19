@@ -272,6 +272,9 @@ nitpick_ignore += [
     ('c:data', 'PyExc_UnicodeWarning'),
     ('c:data', 'PyExc_UserWarning'),
     ('c:data', 'PyExc_Warning'),
+    # Undocumented public C macros
+    ('c:macro', 'Py_BUILD_ASSERT'),
+    ('c:macro', 'Py_BUILD_ASSERT_EXPR'),
     # Do not error nit-picky mode builds when _SubParsersAction.add_parser cannot
     # be resolved, as the method is currently undocumented. For context, see
     # https://github.com/python/cpython/pull/103289.
@@ -339,11 +342,13 @@ repository_url = os.getenv("READTHEDOCS_GIT_CLONE_URL")
 html_context = {
     "is_deployment_preview": os.getenv("READTHEDOCS_VERSION_TYPE") == "external",
     "repository_url": repository_url.removesuffix(".git") if repository_url else None,
-    "pr_id": os.getenv("READTHEDOCS_VERSION")
+    "pr_id": os.getenv("READTHEDOCS_VERSION"),
+    "enable_analytics": os.getenv("PYTHON_DOCS_ENABLE_ANALYTICS"),
 }
 
 # This 'Last updated on:' timestamp is inserted at the bottom of every page.
-html_last_updated_fmt = time.strftime('%b %d, %Y (%H:%M UTC)', time.gmtime())
+html_time = int(os.environ.get('SOURCE_DATE_EPOCH', time.time()))
+html_last_updated_fmt = time.strftime('%b %d, %Y (%H:%M UTC)', time.gmtime(html_time))
 
 # Path to find HTML templates.
 templates_path = ['tools/templates']
