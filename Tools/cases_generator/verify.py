@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 
 import argparse
 import sys
@@ -11,7 +12,8 @@ from analyzer import (
     analysis_error,
 )
 from typing import Iterator
-from lexer import Token, LPAREN, IDENTIFIER
+from lexer import LBRACE, RBRACE, LPAREN, SEMI
+from lexer import IDENTIFIER, FOR, DO, WHILE, IF, Token
 from generators_common import DEFAULT_INPUT
 
 NON_ESCAPING_FUNCTIONS = (
@@ -98,7 +100,6 @@ FLOW_CONTROL = {
     "ESCAPING_CALL",
     "ERROR_IF",
     "DEOPT_IF",
-    "ERROR_NO_POP",
 }
 
 DECREFS = {
@@ -134,6 +135,12 @@ def check_escaping_call(tkn_iter: Iterator[Token]) -> int:
                 res = 1
     return res
 
+def scan_to_semi(tkn_iter: Iterator[tuple[int, Token]]) -> int:
+    for i, tkn in tkn_iter:
+        if tkn.kind == SEMI:
+            return i
+    assert(False)
+
 def is_macro_name(name: str) -> bool:
     if name[0] == "_":
         name = name[1:]
@@ -146,8 +153,17 @@ def is_getter(name: str) -> bool:
 
 def check_for_unmarked_escapes(uop: Uop) -> int:
     res = 0
+    depth = -1
     tkns = iter(uop.body)
     for tkn in tkns:
+        if tkn.kind == LBRACE:
+            if depth == 0:
+                opening_brace = tkn
+            depth += 1
+            continue
+        if tkn.kind == RBRACE:
+            depth -= 0
+            continue
         if tkn.kind != IDENTIFIER:
             continue
         try:
@@ -168,12 +184,114 @@ def check_for_unmarked_escapes(uop: Uop) -> int:
         if "backoff_counter" in tkn.text:
             continue
         if tkn.text not in NON_ESCAPING_FUNCTIONS:
-            error(f"Unmarked escaping function '{tkn.text}'", tkn)
+            error(f"Unmarked escaping function '{tkn.text}' at depth {depth}", tkn)
             res = 1
     return res
 
+@dataclass
+class EscapingCall:
+    uop: Uop
+    start: int
+    call: int
+    end: int
+
+    def __repr__(self) -> str:
+        start = self.uop.body[self.start]
+        end =  self.uop.body[self.end]
+        call = self.uop.body[self.call]
+        return f"EscapingCall({self.uop.name}, {start}, {call}, {end})"
+
+def find_escaping_calls(uop:Uop) -> list[EscapingCall]:
+    calls: list[int] = []
+    escaping_calls: list[EscapingCall] = []
+    tkns = enumerate(uop.body)
+    last_if_while_for_or_do = 0
+    start = 0
+    _, pre_brace = next(tkns)
+    new_stmt = True
+    assert(pre_brace.kind == LBRACE)
+    depth = 0
+    for i, tkn in tkns:
+        if new_stmt:
+            new_stmt = False
+            first_in_stmt = i
+        if tkn.kind in (FOR, WHILE, IF, DO):
+            last_if_while_for_or_do = i
+        if tkn.kind == LBRACE:
+            if depth == 0:
+                if last_if_while_for_or_do:
+                    start = last_if_while_for_or_do
+                else:
+                    start = i
+            last_if_while_for_or_do = 0
+            depth += 1
+            continue
+        if tkn.kind == RBRACE:
+            depth -= 1
+            if depth == 0 and start:
+                while calls:
+                    escaping_calls.append(EscapingCall(uop, start, calls.pop(), i))
+                start = 0
+            continue
+        if tkn.kind == SEMI:
+            new_stmt = True
+        if tkn.kind != IDENTIFIER:
+            continue
+        try:
+            next_tkn = uop.body[i+1]
+        except IndexError:
+            return escaping_calls
+        if next_tkn.kind != LPAREN:
+            continue
+        if is_macro_name(tkn.text):
+            continue
+        if is_getter(tkn.text):
+            continue
+        if tkn.text.endswith("Check") or tkn.text.endswith("CheckExact"):
+            continue
+        if "backoff_counter" in tkn.text:
+            continue
+        if tkn.text in NON_ESCAPING_FUNCTIONS:
+            continue
+        if depth:
+            calls.append(i)
+        else:
+            semi = scan_to_semi(tkns)
+            escaping_calls.append(EscapingCall(uop, first_in_stmt, i, semi))
+    return escaping_calls
+
+
+def check_escaping_call(call: EscapingCall) -> int:
+    res = 0
+    tkn_iter = enumerate(call.uop.body)
+    for i, tkn in tkn_iter:
+        if tkn.kind == IDENTIFIER and tkn.text == "SYNC_SP" and i < call.start and not call.uop.stack.outputs:
+            # If stack is flushed before the escaping call and there are no outputs
+            # then the call is safe
+            return 0
+        if i == call.start:
+            break
+    for i, tkn in tkn_iter:
+        if i == call.end:
+            break
+        if tkn.kind == "GOTO":
+            error(f"`goto` in escaping call '{call}'", tkn)
+            res = 1
+        elif tkn.kind == IDENTIFIER:
+            if tkn.text in FLOW_CONTROL:
+                error(f"Exiting flow control in escaping call '{call}'", tkn)
+                res = 1
+            if tkn.text in DECREFS:
+                error(f"DECREF in escaping call '{call}'", tkn)
+                res = 1
+    return res
+
 def verify_uop(uop: Uop) -> int:
-    return check_for_unmarked_escapes(uop)
+    res = 0
+    calls = find_escaping_calls(uop)
+    for call in calls:
+        res |= check_escaping_call(call)
+    return res
 
 def verify(analysis: Analysis) -> int:
     res = 0

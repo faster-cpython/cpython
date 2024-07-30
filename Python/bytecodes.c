@@ -157,7 +157,7 @@ dummy_func(
                 assert((code_version & 255) == 0);
                 if (code_version != global_version) {
                     int err = _Py_Instrument(_PyFrame_GetCode(frame), tstate->interp);
-                    ERROR_IF(err, error);
+                    ERROR_NO_POP(err, error);
                     next_instr = this_instr;
                     DISPATCH();
                 }
@@ -204,7 +204,7 @@ dummy_func(
                 int err = _Py_call_instrumentation(
                         tstate, oparg > 0, frame, this_instr);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
-                ERROR_IF(err, error);
+                ERROR_NO_POP(err, error);
                 if (frame->instr_ptr != this_instr) {
                     /* Instrumentation has jumped */
                     next_instr = frame->instr_ptr;
@@ -224,7 +224,7 @@ dummy_func(
                     UNBOUNDLOCAL_ERROR_MSG,
                     PyTuple_GetItem(_PyFrame_GetCode(frame)->co_localsplusnames, oparg)
                 );
-                ERROR_IF(1, error);
+                ERROR_NO_POP(1, error);
             }
             value = PyStackRef_DUP(value_s);
         }
@@ -881,6 +881,7 @@ dummy_func(
         }
 
         tier1 inst(RAISE_VARARGS, (args[oparg] -- )) {
+            int reraise;
             PyObject *cause = NULL, *exc = NULL;
             switch (oparg) {
             case 2:
@@ -890,16 +891,18 @@ dummy_func(
                 exc = PyStackRef_AsPyObjectSteal(args[0]);
                 _Py_FALLTHROUGH;
             case 0:
-                if (do_raise(tstate, exc, cause)) {
-                    assert(oparg == 0);
-                    monitor_reraise(tstate, frame, this_instr);
-                    goto exception_unwind;
-                }
+                reraise = do_raise(tstate, exc, cause);
                 break;
             default:
                 _PyErr_SetString(tstate, PyExc_SystemError,
                                  "bad RAISE_VARARGS oparg");
-                break;
+                reraise = 0;
+            }
+            SYNC_SP();
+            if (reraise) {
+                assert(oparg == 0);
+                monitor_reraise(tstate, frame, this_instr);
+                goto exception_unwind;
             }
             ERROR_IF(true, error);
         }
@@ -994,8 +997,7 @@ dummy_func(
                               "'async for' requires an object with "
                               "__aiter__ method, got %.100s",
                               type->tp_name);
-                DECREF_INPUTS();
-                ERROR_IF(true, error);
+                ERROR_NO_POP(true, error);
             }
 
             iter_o = (*getter)(obj_o);
