@@ -12,7 +12,7 @@ from analyzer import (
     analysis_error,
 )
 from typing import Iterator
-from lexer import LBRACE, RBRACE, LPAREN, SEMI
+from lexer import LBRACE, RBRACE, LPAREN, SEMI, EQUALS
 from lexer import IDENTIFIER, FOR, DO, WHILE, IF, Token
 from generators_common import DEFAULT_INPUT
 
@@ -112,28 +112,6 @@ DECREFS = {
 def error(msg: str, tkn:Token) -> None:
     print(f"{msg} at {tkn.filename}:{tkn.line}")
 
-def check_escaping_call(tkn_iter: Iterator[Token]) -> int:
-    res = 0
-    assert(next(tkn_iter).kind == "LPAREN")
-    parens = 1
-    for tkn in tkn_iter:
-        if tkn.kind == "LPAREN":
-            parens += 1
-        elif tkn.kind == "RPAREN":
-            parens -= 1
-            if parens == 0:
-                return res
-        elif tkn.kind == "GOTO":
-            error("`goto` in 'ESCAPING_CALL'", tkn)
-            res = 1
-        elif tkn.kind == IDENTIFIER:
-            if tkn.text in FLOW_CONTROL:
-                error("Exiting flow control in 'ESCAPING_CALL'", tkn)
-                res = 1
-            if tkn.text in DECREFS:
-                error("DECREF in 'ESCAPING_CALL'", tkn)
-                res = 1
-    return res
 
 def scan_to_semi(tkn_iter: Iterator[tuple[int, Token]]) -> int:
     for i, tkn in tkn_iter:
@@ -150,43 +128,6 @@ def is_macro_name(name: str) -> bool:
 
 def is_getter(name: str) -> bool:
     return "GET" in name
-
-def check_for_unmarked_escapes(uop: Uop) -> int:
-    res = 0
-    depth = -1
-    tkns = iter(uop.body)
-    for tkn in tkns:
-        if tkn.kind == LBRACE:
-            if depth == 0:
-                opening_brace = tkn
-            depth += 1
-            continue
-        if tkn.kind == RBRACE:
-            depth -= 0
-            continue
-        if tkn.kind != IDENTIFIER:
-            continue
-        try:
-            next_tkn = next(tkns)
-        except StopIteration:
-            return False
-        if next_tkn.kind != LPAREN:
-            continue
-        if tkn.text == "ESCAPING_CALL":
-            if check_escaping_call(tkns):
-                res = 1
-        if is_macro_name(tkn.text):
-            continue
-        if is_getter(tkn.text):
-            continue
-        if tkn.text.endswith("Check") or tkn.text.endswith("CheckExact"):
-            continue
-        if "backoff_counter" in tkn.text:
-            continue
-        if tkn.text not in NON_ESCAPING_FUNCTIONS:
-            error(f"Unmarked escaping function '{tkn.text}' at depth {depth}", tkn)
-            res = 1
-    return res
 
 @dataclass
 class EscapingCall:
@@ -260,35 +201,58 @@ def find_escaping_calls(uop:Uop) -> list[EscapingCall]:
             escaping_calls.append(EscapingCall(uop, first_in_stmt, i, semi))
     return escaping_calls
 
+SYNC = "SYNC_SP", "DECREF_INPUTS"
 
-def check_escaping_call(call: EscapingCall) -> int:
+
+def check_for_decrefs_in_call(call: EscapingCall) -> int:
     res = 0
     tkn_iter = enumerate(call.uop.body)
     for i, tkn in tkn_iter:
-        if tkn.kind == IDENTIFIER and tkn.text == "SYNC_SP" and i < call.start and not call.uop.stack.outputs:
-            # If stack is flushed before the escaping call and there are no outputs
-            # then the call is safe
-            return 0
         if i == call.start:
             break
     for i, tkn in tkn_iter:
         if i == call.end:
             break
+        if tkn.kind == IDENTIFIER:
+            if tkn.text in DECREFS:
+                error(f"{call.uop.name}: DECREF in escaping region '{call}'", tkn)
+                res = 1
+    return res
+
+def check_escaping_call(call: EscapingCall) -> int:
+    outnames = { item.name for item in call.uop.stack.outputs }
+    safe = not bool(call.uop.stack.inputs)
+    res = 0
+    tkn_iter = enumerate(call.uop.body)
+    for i, tkn in tkn_iter:
+        if tkn.kind == IDENTIFIER:
+            if tkn.text in SYNC:
+                # If stack is flushed before the escaping call and there are no outputs
+                # then escaping calls are safe
+                safe = True
+            if tkn.text in outnames and call.uop.body[i+1].kind == EQUALS:
+                safe = False
+        if i == call.start:
+            break
+    if safe:
+        return res
+    for i, tkn in tkn_iter:
+        if i == call.end:
+            break
         if tkn.kind == "GOTO":
-            error(f"`goto` in escaping call '{call}'", tkn)
+            error(f"{call.uop.name}: `goto` in escaping region '{call}'", tkn)
             res = 1
         elif tkn.kind == IDENTIFIER:
             if tkn.text in FLOW_CONTROL:
-                error(f"Exiting flow control in escaping call '{call}'", tkn)
-                res = 1
-            if tkn.text in DECREFS:
-                error(f"DECREF in escaping call '{call}'", tkn)
+                error(f"{call.uop.name}: Exiting flow control in escaping region '{call}'", tkn)
                 res = 1
     return res
 
 def verify_uop(uop: Uop) -> int:
     res = 0
     calls = find_escaping_calls(uop)
+    for call in calls:
+        res |= check_for_decrefs_in_call(call)
     for call in calls:
         res |= check_escaping_call(call)
     return res

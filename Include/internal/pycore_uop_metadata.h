@@ -21,7 +21,7 @@ extern int _PyUop_num_popped(int opcode, int oparg);
 const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_NOP] = HAS_PURE_FLAG,
     [_RESUME_CHECK] = HAS_DEOPT_FLAG,
-    [_LOAD_FAST_CHECK] = HAS_ARG_FLAG | HAS_LOCAL_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
+    [_LOAD_FAST_CHECK] = HAS_ARG_FLAG | HAS_LOCAL_FLAG | HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG | HAS_ESCAPES_FLAG,
     [_LOAD_FAST_0] = HAS_LOCAL_FLAG | HAS_PURE_FLAG,
     [_LOAD_FAST_1] = HAS_LOCAL_FLAG | HAS_PURE_FLAG,
     [_LOAD_FAST_2] = HAS_LOCAL_FLAG | HAS_PURE_FLAG,
@@ -88,7 +88,6 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_CALL_INTRINSIC_1] = HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_CALL_INTRINSIC_2] = HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_RETURN_VALUE] = 0,
-    [_GET_AITER] = HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_GET_ANEXT] = HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG | HAS_ESCAPES_FLAG,
     [_GET_AWAITABLE] = HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_YIELD_VALUE] = HAS_ARG_FLAG | HAS_ESCAPES_FLAG,
@@ -354,7 +353,6 @@ const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_FORMAT_WITH_SPEC] = "_FORMAT_WITH_SPEC",
     [_FOR_ITER_GEN_FRAME] = "_FOR_ITER_GEN_FRAME",
     [_FOR_ITER_TIER_TWO] = "_FOR_ITER_TIER_TWO",
-    [_GET_AITER] = "_GET_AITER",
     [_GET_ANEXT] = "_GET_ANEXT",
     [_GET_AWAITABLE] = "_GET_AWAITABLE",
     [_GET_ITER] = "_GET_ITER",
@@ -651,8 +649,6 @@ int _PyUop_num_popped(int opcode, int oparg)
         case _CALL_INTRINSIC_2:
             return 2;
         case _RETURN_VALUE:
-            return 1;
-        case _GET_AITER:
             return 1;
         case _GET_ANEXT:
             return 1;

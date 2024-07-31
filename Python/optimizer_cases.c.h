@@ -619,12 +619,7 @@
 
         /* _INSTRUMENTED_RETURN_CONST is not a viable micro-op for tier 2 */
 
-        case _GET_AITER: {
-            _Py_UopsSymbol *iter;
-            iter = sym_new_not_null(ctx);
-            stack_pointer[-1] = iter;
-            break;
-        }
+        /* _GET_AITER is not a viable micro-op for tier 2 */
 
         case _GET_ANEXT: {
             _Py_UopsSymbol *awaitable;

@@ -654,12 +654,11 @@ dummy_func(
             // Can't use ERROR_IF() here, because we haven't
             // DECREF'ed container yet, and we still own slice.
             if (slice == NULL) {
-                res_o = NULL;
+                PyStackRef_CLOSE(container);
+                ERROR_IF(true, error);
             }
-            else {
-                res_o = PyObject_GetItem(PyStackRef_AsPyObjectBorrow(container), slice);
-                Py_DECREF(slice);
-            }
+            res_o = PyObject_GetItem(PyStackRef_AsPyObjectBorrow(container), slice);
+            Py_DECREF(slice);
             PyStackRef_CLOSE(container);
             ERROR_IF(res_o == NULL, error);
             res = PyStackRef_FromPyObjectSteal(res_o);
@@ -668,14 +667,12 @@ dummy_func(
         inst(STORE_SLICE, (v, container, start, stop -- )) {
             PyObject *slice = _PyBuildSlice_ConsumeRefs(PyStackRef_AsPyObjectSteal(start),
                                                         PyStackRef_AsPyObjectSteal(stop));
-            int err;
             if (slice == NULL) {
-                err = 1;
+                PyStackRef_CLOSE(container);
+                ERROR_IF(true, error);
             }
-            else {
-                err = PyObject_SetItem(PyStackRef_AsPyObjectBorrow(container), slice, PyStackRef_AsPyObjectBorrow(v));
-                Py_DECREF(slice);
-            }
+            int err= PyObject_SetItem(PyStackRef_AsPyObjectBorrow(container), slice, PyStackRef_AsPyObjectBorrow(v));
+            Py_DECREF(slice);
             PyStackRef_CLOSE(v);
             PyStackRef_CLOSE(container);
             ERROR_IF(err, error);
@@ -1268,7 +1265,8 @@ dummy_func(
             PyObject *exc = PyStackRef_AsPyObjectBorrow(exc_st);
 
             assert(exc && PyExceptionInstance_Check(exc));
-            if (PyErr_GivenExceptionMatches(exc, PyExc_StopAsyncIteration)) {
+            int matches = PyErr_GivenExceptionMatches(exc, PyExc_StopAsyncIteration);
+            if (matches) {
                 DECREF_INPUTS();
             }
             else {
@@ -1503,6 +1501,7 @@ dummy_func(
             if (PyMapping_GetOptionalItem(PyStackRef_AsPyObjectBorrow(mod_or_class_dict), name, &v_o) < 0) {
                 ERROR_NO_POP();
             }
+            DECREF_INPUTS();
             if (v_o == NULL) {
                 if (PyDict_CheckExact(GLOBALS())
                     && PyDict_CheckExact(BUILTINS()))
@@ -1517,7 +1516,7 @@ dummy_func(
                             _PyEval_FormatExcCheckArg(tstate, PyExc_NameError,
                                                     NAME_ERROR_MSG, name);
                         }
-                        ERROR_NO_POP();
+                        ERROR_IF(true, error);
                     }
                 }
                 else {
@@ -1536,7 +1535,6 @@ dummy_func(
                     }
                 }
             }
-            DECREF_INPUTS();
             v = PyStackRef_FromPyObjectSteal(v_o);
         }
 
@@ -1804,6 +1802,7 @@ dummy_func(
             PyObject *iterable = PyStackRef_AsPyObjectBorrow(iterable_st);
 
             PyObject *none_val = _PyList_Extend((PyListObject *)list, iterable);
+            DECREF_INPUTS();
             if (none_val == NULL) {
                 if (_PyErr_ExceptionMatches(tstate, PyExc_TypeError) &&
                    (Py_TYPE(iterable)->tp_iter == NULL && !PySequence_Check(iterable)))
@@ -1813,11 +1812,9 @@ dummy_func(
                           "Value after * must be an iterable, not %.200s",
                           Py_TYPE(iterable)->tp_name);
                 }
-                DECREF_INPUTS();
                 ERROR_IF(true, error);
             }
             assert(Py_IsNone(none_val));
-            DECREF_INPUTS();
         }
 
         inst(SET_UPDATE, (set, unused[oparg-1], iterable -- set, unused[oparg-1])) {
