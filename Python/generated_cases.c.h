@@ -3982,11 +3982,81 @@
             (void)this_instr;
             next_instr += 2;
             INSTRUCTION_STATS(INSTRUMENTED_LOAD_SUPER_ATTR);
-            /* Skip 1 cache entry */
-            // cancel out the decrement that will happen in LOAD_SUPER_ATTR; we
-            // don't want to specialize instrumented instructions
-            PAUSE_ADAPTIVE_COUNTER(this_instr[1].counter);
-            GO_TO_INSTRUCTION(LOAD_SUPER_ATTR);
+            _PyStackRef global_super_st;
+            _PyStackRef class_st;
+            _PyStackRef self_st;
+            _PyStackRef super;
+            _PyStackRef owner;
+            _PyStackRef attr;
+            _PyStackRef null = PyStackRef_NULL;
+            // _SPECIALIZE_LOAD_SUPER_ATTR
+            class_st = stack_pointer[-2];
+            global_super_st = stack_pointer[-3];
+            {
+                uint16_t counter = read_u16(&this_instr[1].cache);
+                (void)counter;
+                #if ENABLE_SPECIALIZATION
+                int load_method = oparg & 1;
+                if (ADAPTIVE_COUNTER_TRIGGERS(counter)) {
+                    next_instr = this_instr;
+                    _Py_Specialize_LoadSuperAttr(global_super_st, class_st, next_instr, load_method);
+                    DISPATCH_SAME_OPARG();
+                }
+                STAT_INC(LOAD_SUPER_ATTR, deferred);
+                ADVANCE_ADAPTIVE_COUNTER(this_instr[1].counter);
+                #endif  /* ENABLE_SPECIALIZATION */
+            }
+            // _MONITOR_CALL_SUPER
+            self_st = stack_pointer[-1];
+            {
+                PyObject *global_super = PyStackRef_AsPyObjectBorrow(global_super_st);
+                PyObject *class = PyStackRef_AsPyObjectBorrow(class_st);
+                PyObject *self = PyStackRef_AsPyObjectBorrow(self_st);
+                PyObject *arg = oparg & 2 ? class : &_PyInstrumentation_MISSING;
+                int err = _Py_call_instrumentation_2args(
+                    tstate, PY_MONITORING_EVENT_CALL,
+                    frame, this_instr, global_super, arg);
+                if (err) goto pop_3_error;
+                // we make no attempt to optimize here; specializations should
+                // handle any case whose performance we care about
+                PyObject *stack[] = {class, self};
+                PyObject *super_o = PyObject_Vectorcall(global_super, stack, oparg & 2, NULL);
+                if (super_o == NULL) {
+                    _Py_call_instrumentation_exc2(
+                        tstate, PY_MONITORING_EVENT_C_RAISE,
+                        frame, this_instr, global_super, arg);
+                }
+                else {
+                    int err = _Py_call_instrumentation_2args(
+                        tstate, PY_MONITORING_EVENT_C_RETURN,
+                        frame, this_instr, global_super, arg);
+                    if (err < 0) {
+                        Py_CLEAR(super_o);
+                    }
+                }
+                PyStackRef_CLOSE(global_super_st);
+                PyStackRef_CLOSE(class_st);
+                PyStackRef_CLOSE(self_st);
+                if (super_o == NULL) goto pop_3_error;
+                super = PyStackRef_FromPyObjectSteal(super_o);
+            }
+            // _LOAD_ATTR_2
+            owner = super;
+            {
+                /* Like LOAD_ATTR but shift oparg by 2 */
+                PyObject *name = GETITEM(FRAME_CO_NAMES, oparg >> 2);
+                /* Classic, pushes one value. */
+                PyObject *attr_o = PyObject_GetAttr(PyStackRef_AsPyObjectBorrow(owner), name);
+                PyStackRef_CLOSE(owner);
+                if (attr_o == NULL) goto pop_3_error;
+                attr = PyStackRef_FromPyObjectSteal(attr_o);
+                null = PyStackRef_NULL;
+            }
+            stack_pointer[-3] = attr;
+            if (oparg & 1) stack_pointer[-2] = null;
+            stack_pointer += -2 + (oparg & 1);
+            assert(WITHIN_STACK_BOUNDS());
+            DISPATCH();
         }
 
         TARGET(INSTRUMENTED_POP_JUMP_IF_FALSE) {
@@ -5442,6 +5512,8 @@
             _PyStackRef global_super_st;
             _PyStackRef class_st;
             _PyStackRef self_st;
+            _PyStackRef super;
+            _PyStackRef owner;
             _PyStackRef attr;
             _PyStackRef null = PyStackRef_NULL;
             // _SPECIALIZE_LOAD_SUPER_ATTR
@@ -5461,47 +5533,32 @@
                 ADVANCE_ADAPTIVE_COUNTER(this_instr[1].counter);
                 #endif  /* ENABLE_SPECIALIZATION */
             }
-            // _LOAD_SUPER_ATTR
+            // _CALL_SUPER
             self_st = stack_pointer[-1];
             {
                 PyObject *global_super = PyStackRef_AsPyObjectBorrow(global_super_st);
                 PyObject *class = PyStackRef_AsPyObjectBorrow(class_st);
                 PyObject *self = PyStackRef_AsPyObjectBorrow(self_st);
-                if (opcode == INSTRUMENTED_LOAD_SUPER_ATTR) {
-                    PyObject *arg = oparg & 2 ? class : &_PyInstrumentation_MISSING;
-                    int err = _Py_call_instrumentation_2args(
-                        tstate, PY_MONITORING_EVENT_CALL,
-                        frame, this_instr, global_super, arg);
-                    if (err) goto pop_3_error;
-                }
                 // we make no attempt to optimize here; specializations should
                 // handle any case whose performance we care about
                 PyObject *stack[] = {class, self};
-                PyObject *super = PyObject_Vectorcall(global_super, stack, oparg & 2, NULL);
-                if (opcode == INSTRUMENTED_LOAD_SUPER_ATTR) {
-                    PyObject *arg = oparg & 2 ? class : &_PyInstrumentation_MISSING;
-                    if (super == NULL) {
-                        _Py_call_instrumentation_exc2(
-                            tstate, PY_MONITORING_EVENT_C_RAISE,
-                            frame, this_instr, global_super, arg);
-                    }
-                    else {
-                        int err = _Py_call_instrumentation_2args(
-                            tstate, PY_MONITORING_EVENT_C_RETURN,
-                            frame, this_instr, global_super, arg);
-                        if (err < 0) {
-                            Py_CLEAR(super);
-                        }
-                    }
-                }
+                PyObject *super_o = PyObject_Vectorcall(global_super, stack, oparg & 2, NULL);
                 PyStackRef_CLOSE(global_super_st);
                 PyStackRef_CLOSE(class_st);
                 PyStackRef_CLOSE(self_st);
-                if (super == NULL) goto pop_3_error;
+                if (super_o == NULL) goto pop_3_error;
+                super = PyStackRef_FromPyObjectSteal(super_o);
+            }
+            // _LOAD_ATTR_2
+            owner = super;
+            {
+                /* Like LOAD_ATTR but shift oparg by 2 */
                 PyObject *name = GETITEM(FRAME_CO_NAMES, oparg >> 2);
-                attr = PyStackRef_FromPyObjectSteal(PyObject_GetAttr(super, name));
-                Py_DECREF(super);
-                if (PyStackRef_IsNull(attr)) goto pop_3_error;
+                /* Classic, pushes one value. */
+                PyObject *attr_o = PyObject_GetAttr(PyStackRef_AsPyObjectBorrow(owner), name);
+                PyStackRef_CLOSE(owner);
+                if (attr_o == NULL) goto pop_3_error;
+                attr = PyStackRef_FromPyObjectSteal(attr_o);
                 null = PyStackRef_NULL;
             }
             stack_pointer[-3] = attr;

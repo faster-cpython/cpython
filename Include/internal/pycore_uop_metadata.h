@@ -135,6 +135,7 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_DICT_UPDATE] = HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_DICT_MERGE] = HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_MAP_ADD] = HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
+    [_LOAD_ATTR_2] = HAS_ARG_FLAG | HAS_NAME_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_LOAD_SUPER_ATTR_ATTR] = HAS_ARG_FLAG | HAS_NAME_FLAG | HAS_DEOPT_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_LOAD_SUPER_ATTR_METHOD] = HAS_ARG_FLAG | HAS_NAME_FLAG | HAS_DEOPT_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_LOAD_ATTR] = HAS_ARG_FLAG | HAS_NAME_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
@@ -416,6 +417,7 @@ const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_LIST_APPEND] = "_LIST_APPEND",
     [_LIST_EXTEND] = "_LIST_EXTEND",
     [_LOAD_ATTR] = "_LOAD_ATTR",
+    [_LOAD_ATTR_2] = "_LOAD_ATTR_2",
     [_LOAD_ATTR_CLASS] = "_LOAD_ATTR_CLASS",
     [_LOAD_ATTR_CLASS_0] = "_LOAD_ATTR_CLASS_0",
     [_LOAD_ATTR_CLASS_1] = "_LOAD_ATTR_CLASS_1",
@@ -766,6 +768,8 @@ int _PyUop_num_popped(int opcode, int oparg)
             return 5 + (oparg - 1);
         case _MAP_ADD:
             return 3 + (oparg - 1);
+        case _LOAD_ATTR_2:
+            return 1;
         case _LOAD_SUPER_ATTR_ATTR:
             return 3;
         case _LOAD_SUPER_ATTR_METHOD:

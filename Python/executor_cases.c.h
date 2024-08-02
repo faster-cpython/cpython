@@ -2187,7 +2187,26 @@
             break;
         }
 
-        /* _INSTRUMENTED_LOAD_SUPER_ATTR is not a viable micro-op for tier 2 because it is instrumented */
+        case _LOAD_ATTR_2: {
+            _PyStackRef owner;
+            _PyStackRef attr;
+            _PyStackRef null = PyStackRef_NULL;
+            oparg = CURRENT_OPARG();
+            owner = stack_pointer[-1];
+            /* Like LOAD_ATTR but shift oparg by 2 */
+            PyObject *name = GETITEM(FRAME_CO_NAMES, oparg >> 2);
+            /* Classic, pushes one value. */
+            PyObject *attr_o = PyObject_GetAttr(PyStackRef_AsPyObjectBorrow(owner), name);
+            PyStackRef_CLOSE(owner);
+            if (attr_o == NULL) JUMP_TO_ERROR();
+            attr = PyStackRef_FromPyObjectSteal(attr_o);
+            null = PyStackRef_NULL;
+            stack_pointer[-1] = attr;
+            if (oparg & 1) stack_pointer[0] = null;
+            stack_pointer += (oparg & 1);
+            assert(WITHIN_STACK_BOUNDS());
+            break;
+        }
 
         case _LOAD_SUPER_ATTR_ATTR: {
             _PyStackRef self_st;

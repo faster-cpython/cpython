@@ -972,7 +972,17 @@
             break;
         }
 
-        /* _INSTRUMENTED_LOAD_SUPER_ATTR is not a viable micro-op for tier 2 */
+        case _LOAD_ATTR_2: {
+            _Py_UopsSymbol *attr;
+            _Py_UopsSymbol *null = NULL;
+            attr = sym_new_not_null(ctx);
+            null = sym_new_null(ctx);
+            stack_pointer[-1] = attr;
+            if (oparg & 1) stack_pointer[0] = null;
+            stack_pointer += (oparg & 1);
+            assert(WITHIN_STACK_BOUNDS());
+            break;
+        }
 
         case _LOAD_SUPER_ATTR_ATTR: {
             _Py_UopsSymbol *attr_st;
