@@ -202,10 +202,11 @@ def find_escaping_calls(uop:Uop) -> list[EscapingCall]:
     return escaping_calls
 
 SYNC = "SYNC_SP", "DECREF_INPUTS"
-
+ERRORS = "ERROR_IF", "ERROR_NO_POP"
 
 def check_for_decrefs_in_call(call: EscapingCall) -> int:
     res = 0
+    found_decref: Token | None = None
     tkn_iter = enumerate(call.uop.body)
     for i, tkn in tkn_iter:
         if i == call.start:
@@ -213,10 +214,16 @@ def check_for_decrefs_in_call(call: EscapingCall) -> int:
     for i, tkn in tkn_iter:
         if i == call.end:
             break
+        if tkn.kind == RBRACE and found_decref:
+            error(f"{call.uop.name}: DECREF in escaping region '{call}'", found_decref)
+            res = 1
         if tkn.kind == IDENTIFIER:
             if tkn.text in DECREFS:
-                error(f"{call.uop.name}: DECREF in escaping region '{call}'", tkn)
-                res = 1
+                found_decref = tkn
+            #if tkn.text in ERRORS:
+            #    found_decref = None
+    if found_decref:
+        res = 1
     return res
 
 def check_escaping_call(call: EscapingCall) -> int:
