@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import TextIO
+from operator import attrgetter
 
 from analyzer import (
     Instruction,
@@ -16,6 +17,7 @@ from stack import Stack
 ROOT = Path(__file__).parent.parent.parent
 DEFAULT_INPUT = (ROOT / "Python/bytecodes.c").absolute().as_posix()
 
+import verify
 
 def root_relative_path(filename: str) -> str:
     try:
@@ -212,9 +214,23 @@ def emit_tokens(
     tkns = uop.body[1:-1]
     if not tkns:
         return
+    escaping_calls = verify.find_escaping_calls(uop)
+    escaping_calls.sort(reverse=True, key = attrgetter("start"))
+    next_escaping_call = escaping_calls.pop() if escaping_calls else None
     tkn_iter = iter(tkns)
     out.start_line()
     for tkn in tkn_iter:
+        if next_escaping_call is not None and tkn is uop.body[next_escaping_call.start]:
+            out.start_line()
+            out.emit("/* SPILL */")
+            out.start_line()
+        if next_escaping_call is not None and tkn is uop.body[next_escaping_call.end]:
+            next_escaping_call = escaping_calls.pop() if escaping_calls else None
+            out.emit(tkn)
+            out.start_line()
+            out.emit("/* RELOAD */")
+            out.start_line()
+            continue
         if tkn.kind == "IDENTIFIER" and tkn.text in replacement_functions:
             replacement_functions[tkn.text](out, tkn, tkn_iter, uop, stack, inst)
         else:

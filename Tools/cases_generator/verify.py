@@ -117,6 +117,10 @@ def scan_to_semi(tkn_iter: Iterator[tuple[int, Token]]) -> int:
     for i, tkn in tkn_iter:
         if tkn.kind == SEMI:
             return i
+        if tkn.kind == RBRACE:
+           error("Found '}' when scanning for end of escaping call statement", tkn)
+        if tkn.kind == LBRACE:
+           error("Found '{' when scanning for end of escaping call statement", tkn)
     assert(False)
 
 def is_macro_name(name: str) -> bool:
@@ -173,6 +177,7 @@ def find_escaping_calls(uop:Uop) -> list[EscapingCall]:
                 while calls:
                     escaping_calls.append(EscapingCall(uop, start, calls.pop(), i))
                 start = 0
+            new_stmt = True
             continue
         if tkn.kind == SEMI:
             new_stmt = True
@@ -199,6 +204,43 @@ def find_escaping_calls(uop:Uop) -> list[EscapingCall]:
         else:
             semi = scan_to_semi(tkns)
             escaping_calls.append(EscapingCall(uop, first_in_stmt, i, semi))
+    return escaping_calls
+
+def find_escaping_calls(uop:Uop) -> list[EscapingCall]:
+    calls: list[int] = []
+    escaping_calls: list[EscapingCall] = []
+    tkns = enumerate(uop.body)
+    last_if_while_for_or_do = 0
+    start = 0
+    _, pre_brace = next(tkns)
+    new_stmt = True
+    assert(pre_brace.kind == LBRACE)
+    for i, tkn in tkns:
+        if new_stmt:
+            new_stmt = False
+            first_in_stmt = i
+        if tkn.kind == SEMI:
+            new_stmt = True
+        if tkn.kind != IDENTIFIER:
+            continue
+        try:
+            next_tkn = uop.body[i+1]
+        except IndexError:
+            return escaping_calls
+        if next_tkn.kind != LPAREN:
+            continue
+        if is_macro_name(tkn.text):
+            continue
+        if is_getter(tkn.text):
+            continue
+        if tkn.text.endswith("Check") or tkn.text.endswith("CheckExact"):
+            continue
+        if "backoff_counter" in tkn.text:
+            continue
+        if tkn.text in NON_ESCAPING_FUNCTIONS:
+            continue
+        semi = scan_to_semi(tkns)
+        escaping_calls.append(EscapingCall(uop, first_in_stmt, i, semi))
     return escaping_calls
 
 SYNC = "SYNC_SP", "DECREF_INPUTS"
@@ -258,8 +300,6 @@ def check_escaping_call(call: EscapingCall) -> int:
 def verify_uop(uop: Uop) -> int:
     res = 0
     calls = find_escaping_calls(uop)
-    for call in calls:
-        res |= check_for_decrefs_in_call(call)
     for call in calls:
         res |= check_escaping_call(call)
     return res
