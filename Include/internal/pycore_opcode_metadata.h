@@ -505,7 +505,7 @@ int _PyOpcode_num_pushed(int opcode, int oparg)  {
         case BINARY_SUBSCR_DICT:
             return 1;
         case BINARY_SUBSCR_GETITEM:
-            return 1;
+            return 0;
         case BINARY_SUBSCR_LIST_INT:
             return 1;
         case BINARY_SUBSCR_STR_INT:
@@ -903,7 +903,7 @@ int _PyOpcode_num_pushed(int opcode, int oparg)  {
         case UNARY_NOT:
             return 1;
         case UNPACK_EX:
-            return 1 + (oparg >> 8) + (oparg & 0xFF);
+            return 1 + (oparg & 0xFF) + (oparg >> 8);
         case UNPACK_SEQUENCE:
             return oparg;
         case UNPACK_SEQUENCE_LIST:
@@ -1155,7 +1155,7 @@ const struct opcode_metadata _PyOpcode_opcode_metadata[264] = {
     [RAISE_VARARGS] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG | HAS_ESCAPES_FLAG },
     [RERAISE] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG | HAS_ESCAPES_FLAG },
     [RESERVED] = { true, INSTR_FMT_IX, 0 },
-    [RESUME] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_EVAL_BREAK_FLAG | HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG | HAS_ESCAPES_FLAG },
+    [RESUME] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_EVAL_BREAK_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [RESUME_CHECK] = { true, INSTR_FMT_IX, HAS_DEOPT_FLAG },
     [RETURN_CONST] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_CONST_FLAG },
     [RETURN_GENERATOR] = { true, INSTR_FMT_IX, HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG | HAS_ESCAPES_FLAG },
@@ -1231,6 +1231,7 @@ _PyOpcode_macro_expansion[256] = {
     [BINARY_SLICE] = { .nuops = 1, .uops = { { _BINARY_SLICE, 0, 0 } } },
     [BINARY_SUBSCR] = { .nuops = 1, .uops = { { _BINARY_SUBSCR, 0, 0 } } },
     [BINARY_SUBSCR_DICT] = { .nuops = 1, .uops = { { _BINARY_SUBSCR_DICT, 0, 0 } } },
+    [BINARY_SUBSCR_GETITEM] = { .nuops = 4, .uops = { { _CHECK_PEP_523, 0, 0 }, { _BINARY_SUBSCR_CHECK_FUNC, 0, 0 }, { _BINARY_SUBSCR_INIT_CALL, 0, 0 }, { _PUSH_FRAME, 0, 0 } } },
     [BINARY_SUBSCR_LIST_INT] = { .nuops = 1, .uops = { { _BINARY_SUBSCR_LIST_INT, 0, 0 } } },
     [BINARY_SUBSCR_STR_INT] = { .nuops = 1, .uops = { { _BINARY_SUBSCR_STR_INT, 0, 0 } } },
     [BINARY_SUBSCR_TUPLE_INT] = { .nuops = 1, .uops = { { _BINARY_SUBSCR_TUPLE_INT, 0, 0 } } },
