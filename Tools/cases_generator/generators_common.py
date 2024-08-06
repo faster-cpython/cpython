@@ -17,7 +17,6 @@ from stack import Stack
 ROOT = Path(__file__).parent.parent.parent
 DEFAULT_INPUT = (ROOT / "Python/bytecodes.c").absolute().as_posix()
 
-import verify
 
 def root_relative_path(filename: str) -> str:
     try:
