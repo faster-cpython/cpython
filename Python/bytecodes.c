@@ -225,7 +225,7 @@ dummy_func(
                     UNBOUNDLOCAL_ERROR_MSG,
                     PyTuple_GetItem(_PyFrame_GetCode(frame)->co_localsplusnames, oparg)
                 );
-                ERROR_NO_POP();
+                ERROR_IF(1, error);
             }
             value = PyStackRef_DUP(value_s);
         }
@@ -666,11 +666,12 @@ dummy_func(
             // Can't use ERROR_IF() here, because we haven't
             // DECREF'ed container yet, and we still own slice.
             if (slice == NULL) {
-                PyStackRef_CLOSE(container);
-                ERROR_IF(true, error);
+                res_o = NULL;
             }
-            res_o = PyObject_GetItem(PyStackRef_AsPyObjectBorrow(container), slice);
-            Py_DECREF(slice);
+            else {
+                res_o = PyObject_GetItem(PyStackRef_AsPyObjectBorrow(container), slice);
+                Py_DECREF(slice);
+            }
             PyStackRef_CLOSE(container);
             ERROR_IF(res_o == NULL, error);
             res = PyStackRef_FromPyObjectSteal(res_o);
@@ -679,12 +680,14 @@ dummy_func(
         inst(STORE_SLICE, (v, container, start, stop -- )) {
             PyObject *slice = _PyBuildSlice_ConsumeRefs(PyStackRef_AsPyObjectSteal(start),
                                                         PyStackRef_AsPyObjectSteal(stop));
+            int err;
             if (slice == NULL) {
-                PyStackRef_CLOSE(container);
-                ERROR_IF(true, error);
+                err = 1;
             }
-            int err= PyObject_SetItem(PyStackRef_AsPyObjectBorrow(container), slice, PyStackRef_AsPyObjectBorrow(v));
-            Py_DECREF(slice);
+            else {
+                err = PyObject_SetItem(PyStackRef_AsPyObjectBorrow(container), slice, PyStackRef_AsPyObjectBorrow(v));
+                Py_DECREF(slice);
+            }
             PyStackRef_CLOSE(v);
             PyStackRef_CLOSE(container);
             ERROR_IF(err, error);
@@ -898,7 +901,7 @@ dummy_func(
         }
 
         tier1 inst(RAISE_VARARGS, (args[oparg] -- )) {
-            int reraise;
+            int err;
             PyObject *cause = NULL, *exc = NULL;
             switch (oparg) {
             case 2:
@@ -908,18 +911,17 @@ dummy_func(
                 exc = PyStackRef_AsPyObjectSteal(args[0]);
                 _Py_FALLTHROUGH;
             case 0:
-                reraise = do_raise(tstate, exc, cause);
+                err = do_raise(tstate, exc, cause);
+                if (err) {
+                    assert(oparg == 0);
+                    monitor_reraise(tstate, frame, this_instr);
+                    goto exception_unwind;
+                }
                 break;
             default:
                 _PyErr_SetString(tstate, PyExc_SystemError,
                                  "bad RAISE_VARARGS oparg");
-                reraise = 0;
-            }
-            SYNC_SP();
-            if (reraise) {
-                assert(oparg == 0);
-                monitor_reraise(tstate, frame, this_instr);
-                goto exception_unwind;
+                break;
             }
             ERROR_IF(true, error);
         }
@@ -991,7 +993,8 @@ dummy_func(
                               "'async for' requires an object with "
                               "__aiter__ method, got %.100s",
                               type->tp_name);
-                ERROR_NO_POP();
+                DECREF_INPUTS();
+                ERROR_IF(true, error);
             }
 
             iter_o = (*getter)(obj_o);
@@ -1434,7 +1437,6 @@ dummy_func(
             if (err < 0) {
                 ERROR_NO_POP();
             }
-            DECREF_INPUTS();
             if (v_o == NULL) {
                 if (PyDict_CheckExact(GLOBALS())
                     && PyDict_CheckExact(BUILTINS()))
@@ -1449,7 +1451,7 @@ dummy_func(
                             _PyEval_FormatExcCheckArg(tstate, PyExc_NameError,
                                                     NAME_ERROR_MSG, name);
                         }
-                        ERROR_IF(true, error);
+                        ERROR_NO_POP();
                     }
                 }
                 else {
@@ -1468,6 +1470,7 @@ dummy_func(
                     }
                 }
             }
+            DECREF_INPUTS();
             v = PyStackRef_FromPyObjectSteal(v_o);
         }
 
@@ -1682,7 +1685,6 @@ dummy_func(
             PyObject *iterable = PyStackRef_AsPyObjectBorrow(iterable_st);
 
             PyObject *none_val = _PyList_Extend((PyListObject *)list, iterable);
-            DECREF_INPUTS();
             if (none_val == NULL) {
                 int matches = _PyErr_ExceptionMatches(tstate, PyExc_TypeError);
                 if (matches &&
@@ -1693,9 +1695,11 @@ dummy_func(
                           "Value after * must be an iterable, not %.200s",
                           Py_TYPE(iterable)->tp_name);
                 }
+                DECREF_INPUTS();
                 ERROR_IF(true, error);
             }
             assert(Py_IsNone(none_val));
+            DECREF_INPUTS();
         }
 
         inst(SET_UPDATE, (set, unused[oparg-1], iterable -- set, unused[oparg-1])) {

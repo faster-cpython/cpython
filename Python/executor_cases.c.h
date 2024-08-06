@@ -41,7 +41,7 @@
                     UNBOUNDLOCAL_ERROR_MSG,
                     PyTuple_GetItem(_PyFrame_GetCode(frame)->co_localsplusnames, oparg)
                 );
-                JUMP_TO_ERROR();
+                if (1) JUMP_TO_ERROR();
             }
             value = PyStackRef_DUP(value_s);
             stack_pointer[0] = value;
@@ -775,11 +775,12 @@
             // Can't use ERROR_IF() here, because we haven't
             // DECREF'ed container yet, and we still own slice.
             if (slice == NULL) {
-                PyStackRef_CLOSE(container);
-                if (true) JUMP_TO_ERROR();
+                res_o = NULL;
             }
-            res_o = PyObject_GetItem(PyStackRef_AsPyObjectBorrow(container), slice);
-            Py_DECREF(slice);
+            else {
+                res_o = PyObject_GetItem(PyStackRef_AsPyObjectBorrow(container), slice);
+                Py_DECREF(slice);
+            }
             PyStackRef_CLOSE(container);
             if (res_o == NULL) JUMP_TO_ERROR();
             res = PyStackRef_FromPyObjectSteal(res_o);
@@ -800,12 +801,14 @@
             v = stack_pointer[-4];
             PyObject *slice = _PyBuildSlice_ConsumeRefs(PyStackRef_AsPyObjectSteal(start),
                 PyStackRef_AsPyObjectSteal(stop));
+            int err;
             if (slice == NULL) {
-                PyStackRef_CLOSE(container);
-                if (true) JUMP_TO_ERROR();
+                err = 1;
             }
-            int err= PyObject_SetItem(PyStackRef_AsPyObjectBorrow(container), slice, PyStackRef_AsPyObjectBorrow(v));
-            Py_DECREF(slice);
+            else {
+                err = PyObject_SetItem(PyStackRef_AsPyObjectBorrow(container), slice, PyStackRef_AsPyObjectBorrow(v));
+                Py_DECREF(slice);
+            }
             PyStackRef_CLOSE(v);
             PyStackRef_CLOSE(container);
             if (err) JUMP_TO_ERROR();
@@ -1200,7 +1203,41 @@
             break;
         }
 
-        /* _GET_AITER is not a viable micro-op for tier 2 because it has both popping and not-popping errors */
+        case _GET_AITER: {
+            _PyStackRef obj;
+            _PyStackRef iter;
+            obj = stack_pointer[-1];
+            unaryfunc getter = NULL;
+            PyObject *obj_o = PyStackRef_AsPyObjectBorrow(obj);
+            PyObject *iter_o;
+            PyTypeObject *type = Py_TYPE(obj_o);
+            if (type->tp_as_async != NULL) {
+                getter = type->tp_as_async->am_aiter;
+            }
+            if (getter == NULL) {
+                _PyErr_Format(tstate, PyExc_TypeError,
+                              "'async for' requires an object with "
+                              "__aiter__ method, got %.100s",
+                              type->tp_name);
+                PyStackRef_CLOSE(obj);
+                if (true) JUMP_TO_ERROR();
+            }
+            iter_o = (*getter)(obj_o);
+            PyStackRef_CLOSE(obj);
+            if (iter_o == NULL) JUMP_TO_ERROR();
+            if (Py_TYPE(iter_o)->tp_as_async == NULL ||
+                Py_TYPE(iter_o)->tp_as_async->am_anext == NULL) {
+                _PyErr_Format(tstate, PyExc_TypeError,
+                              "'async for' received an object from __aiter__ "
+                              "that does not implement __anext__: %.100s",
+                              Py_TYPE(iter_o)->tp_name);
+                Py_DECREF(iter_o);
+                if (true) JUMP_TO_ERROR();
+            }
+            iter = PyStackRef_FromPyObjectSteal(iter_o);
+            stack_pointer[-1] = iter;
+            break;
+        }
 
         case _GET_ANEXT: {
             _PyStackRef aiter;
@@ -1870,7 +1907,6 @@
             PyObject *list = PyStackRef_AsPyObjectBorrow(list_st);
             PyObject *iterable = PyStackRef_AsPyObjectBorrow(iterable_st);
             PyObject *none_val = _PyList_Extend((PyListObject *)list, iterable);
-            PyStackRef_CLOSE(iterable_st);
             if (none_val == NULL) {
                 int matches = _PyErr_ExceptionMatches(tstate, PyExc_TypeError);
                 if (matches &&
@@ -1881,9 +1917,11 @@
                                   "Value after * must be an iterable, not %.200s",
                                   Py_TYPE(iterable)->tp_name);
                 }
+                PyStackRef_CLOSE(iterable_st);
                 if (true) JUMP_TO_ERROR();
             }
             assert(Py_IsNone(none_val));
+            PyStackRef_CLOSE(iterable_st);
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
             break;
