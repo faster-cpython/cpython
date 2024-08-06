@@ -225,7 +225,12 @@ def emit_tokens(
             out.emit("/* SPILL */")
             out.start_line()
         if next_escaping_call is not None and tkn is uop.body[next_escaping_call.end]:
+            prev_escaping_call = next_escaping_call
             next_escaping_call = escaping_calls.pop() if escaping_calls else None
+            assert (
+                next_escaping_call is None or
+                prev_escaping_call.end < next_escaping_call.start
+            )
             out.emit(tkn)
             out.start_line()
             out.emit("/* RELOAD */")
