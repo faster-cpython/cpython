@@ -1548,8 +1548,11 @@
             assert(kwargs == NULL || PyDict_CheckExact(kwargs));
             /* SPILL */
             if (!PyTuple_CheckExact(callargs)) {
-                if (check_args_iterable(tstate, func, callargs) < 0) {
+                int err = check_args_iterable(tstate, func, callargs);
+                /* RELOAD */
+                if (err < 0) {
                     goto error;
+                    /* SPILL */
                 }
                 PyObject *tuple = PySequence_Tuple(callargs);
                 /* RELOAD */
@@ -1565,10 +1568,13 @@
             if (opcode == INSTRUMENTED_CALL_FUNCTION_EX) {
                 PyObject *arg = PyTuple_GET_SIZE(callargs) > 0 ?
                 PyTuple_GET_ITEM(callargs, 0) : &_PyInstrumentation_MISSING;
+                /* SPILL */
                 int err = _Py_call_instrumentation_2args(
                     tstate, PY_MONITORING_EVENT_CALL,
                     frame, this_instr, func, arg);
+                /* RELOAD */
                 if (err) goto error;
+                /* SPILL */
                 result = PyStackRef_FromPyObjectSteal(PyObject_Call(func, callargs, kwargs));
                 if (!PyFunction_Check(func) && !PyMethod_Check(func)) {
                     if (PyStackRef_IsNull(result)) {
@@ -1580,6 +1586,7 @@
                         int err = _Py_call_instrumentation_2args(
                             tstate, PY_MONITORING_EVENT_C_RETURN,
                             frame, this_instr, func, arg);
+                        /* RELOAD */
                         if (err < 0) {
                             PyStackRef_CLEAR(result);
                         }
@@ -2584,11 +2591,15 @@
             PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
             assert(PyExceptionInstance_Check(left_o));
             /* SPILL */
-            if (_PyEval_CheckExceptTypeValid(tstate, right_o) < 0) {
+            int err = _PyEval_CheckExceptTypeValid(tstate, right_o);
+            /* RELOAD */
+            if (err < 0) {
                 PyStackRef_CLOSE(right);
                 if (true) goto pop_1_error;
+                /* SPILL */
             }
             int res = PyErr_GivenExceptionMatches(left_o, right_o);
+            /* RELOAD */
             PyStackRef_CLOSE(right);
             b = res ? PyStackRef_True : PyStackRef_False;
             stack_pointer[-1] = b;
@@ -4218,7 +4229,9 @@
             uintptr_t code_version = FT_ATOMIC_LOAD_UINTPTR_ACQUIRE(_PyFrame_GetCode(frame)->_co_instrumentation_version);
             /* SPILL */
             if (code_version != global_version && tstate->tracing == 0) {
-                if (_Py_Instrument(_PyFrame_GetCode(frame), tstate->interp)) {
+                int err = _Py_Instrument(_PyFrame_GetCode(frame), tstate->interp);
+                /* RELOAD */
+                if (err) {
                     goto error;
                 }
                 next_instr = this_instr;
@@ -4228,9 +4241,11 @@
                     CHECK_EVAL_BREAKER();
                 }
                 _PyFrame_SetStackPointer(frame, stack_pointer);
+                /* SPILL */
                 int err = _Py_call_instrumentation(
                     tstate, oparg > 0, frame, this_instr);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
+                /* RELOAD */
                 if (err) goto error;
                 if (frame->instr_ptr != this_instr) {
                     /* Instrumentation has jumped */
@@ -5794,7 +5809,13 @@
             /* SPILL */
             /* dict[key] = value */
             // Do not DECREF INPUTS because the function steals the references
-            if (_PyDict_SetItem_Take2((PyDictObject *)dict, PyStackRef_AsPyObjectSteal(key), PyStackRef_AsPyObjectSteal(value)) != 0) goto pop_2_error;
+            int err = _PyDict_SetItem_Take2(
+                (PyDictObject *)dict,
+                PyStackRef_AsPyObjectSteal(key),
+                PyStackRef_AsPyObjectSteal(value)
+            );
+            /* RELOAD */
+            if (err != 0) goto pop_2_error;
             stack_pointer += -2;
             assert(WITHIN_STACK_BOUNDS());
             DISPATCH();
@@ -6718,11 +6739,9 @@
                 ep->me_value = PyStackRef_AsPyObjectSteal(value);
                 Py_XDECREF(old_value);
                 STAT_INC(STORE_ATTR, hit);
-                /* SPILL */
                 /* Ensure dict is GC tracked if it needs to be */
                 if (!_PyObject_GC_IS_TRACKED(dict) && _PyObject_GC_MAY_BE_TRACKED(PyStackRef_AsPyObjectBorrow(value))) {
                     _PyObject_GC_TRACK(dict);
-                    /* RELOAD */
                 }
                 /* PEP 509 */
                 dict->ma_version_tag = new_version;

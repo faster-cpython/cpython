@@ -158,66 +158,6 @@ def find_escaping_calls(uop:Uop) -> list[EscapingCall]:
     _, pre_brace = next(tkns)
     new_stmt = True
     assert(pre_brace.kind == LBRACE)
-    depth = 0
-    for i, tkn in tkns:
-        if new_stmt:
-            new_stmt = False
-            first_in_stmt = i
-        if tkn.kind in (FOR, WHILE, IF, DO):
-            last_if_while_for_or_do = i
-        if tkn.kind == LBRACE:
-            if depth == 0:
-                if last_if_while_for_or_do:
-                    start = last_if_while_for_or_do
-                else:
-                    start = i
-            last_if_while_for_or_do = 0
-            depth += 1
-            continue
-        if tkn.kind == RBRACE:
-            depth -= 1
-            if depth == 0 and start:
-                while calls:
-                    escaping_calls.append(EscapingCall(uop, start, calls.pop(), i))
-                start = 0
-            new_stmt = True
-            continue
-        if tkn.kind == SEMI:
-            new_stmt = True
-        if tkn.kind != IDENTIFIER:
-            continue
-        try:
-            next_tkn = uop.body[i+1]
-        except IndexError:
-            return escaping_calls
-        if next_tkn.kind != LPAREN:
-            continue
-        if is_macro_name(tkn.text):
-            continue
-        if is_getter(tkn.text):
-            continue
-        if tkn.text.endswith("Check") or tkn.text.endswith("CheckExact"):
-            continue
-        if "backoff_counter" in tkn.text:
-            continue
-        if tkn.text in NON_ESCAPING_FUNCTIONS:
-            continue
-        if depth:
-            calls.append(i)
-        else:
-            semi = scan_to_semi(tkns)
-            escaping_calls.append(EscapingCall(uop, first_in_stmt, i, semi))
-    return escaping_calls
-
-def find_escaping_calls(uop:Uop) -> list[EscapingCall]:
-    calls: list[int] = []
-    escaping_calls: list[EscapingCall] = []
-    tkns = enumerate(uop.body)
-    last_if_while_for_or_do = 0
-    start = 0
-    _, pre_brace = next(tkns)
-    new_stmt = True
-    assert(pre_brace.kind == LBRACE)
     for i, tkn in tkns:
         if new_stmt:
             new_stmt = False
