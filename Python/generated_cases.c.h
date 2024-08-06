@@ -2541,22 +2541,28 @@
             PyObject *exc_value = PyStackRef_AsPyObjectBorrow(exc_value_st);
             PyObject *match_type = PyStackRef_AsPyObjectBorrow(match_type_st);
             /* SPILL */
-            if (_PyEval_CheckExceptStarTypeValid(tstate, match_type) < 0) {
+            int err = _PyEval_CheckExceptStarTypeValid(tstate, match_type);
+            /* RELOAD */
+            if (err < 0) {
                 PyStackRef_CLOSE(exc_value_st);
                 PyStackRef_CLOSE(match_type_st);
                 if (true) goto pop_2_error;
             }
             PyObject *match_o = NULL;
             PyObject *rest_o = NULL;
+            /* SPILL */
             int res = _PyEval_ExceptionGroupMatch(exc_value, match_type,
                 &match_o, &rest_o);
+            /* RELOAD */
             PyStackRef_CLOSE(exc_value_st);
             PyStackRef_CLOSE(match_type_st);
             if (res < 0) goto pop_2_error;
             assert((match_o == NULL) == (rest_o == NULL));
             if (match_o == NULL) goto pop_2_error;
+            /* SPILL */
             if (!Py_IsNone(match_o)) {
                 PyErr_SetHandledException(match_o);
+                /* RELOAD */
             }
             rest = PyStackRef_FromPyObjectSteal(rest_o);
             match = PyStackRef_FromPyObjectSteal(match_o);
@@ -2606,9 +2612,10 @@
             assert(throwflag);
             assert(exc_value && PyExceptionInstance_Check(exc_value));
             /* SPILL */
-            if (PyErr_GivenExceptionMatches(exc_value, PyExc_StopIteration)) {
+            int matches = PyErr_GivenExceptionMatches(exc_value, PyExc_StopIteration);
+            /* RELOAD */
+            if (matches) {
                 value = PyStackRef_FromPyObjectNew(((PyStopIterationObject *)exc_value)->value);
-                /* RELOAD */
                 PyStackRef_CLOSE(sub_iter_st);
                 PyStackRef_CLOSE(last_sent_val_st);
                 PyStackRef_CLOSE(exc_value_st);
@@ -3096,7 +3103,8 @@
             PyObject *dict_o = PyStackRef_AsPyObjectBorrow(dict);
             PyObject *update_o = PyStackRef_AsPyObjectBorrow(update);
             /* SPILL */
-            if (_PyDict_MergeEx(dict_o, update_o, 2) < 0) {
+            int err = _PyDict_MergeEx(dict_o, update_o, 2);
+            if (err < 0) {
                 _PyEval_FormatKwargsError(tstate, callable_o, update_o);
                 /* RELOAD */
                 PyStackRef_CLOSE(update);
@@ -3119,8 +3127,10 @@
             PyObject *dict_o = PyStackRef_AsPyObjectBorrow(dict);
             PyObject *update_o = PyStackRef_AsPyObjectBorrow(update);
             /* SPILL */
-            if (PyDict_Update(dict_o, update_o) < 0) {
-                if (_PyErr_ExceptionMatches(tstate, PyExc_AttributeError)) {
+            int err = PyDict_Update(dict_o, update_o);
+            if (err < 0) {
+                int matches = _PyErr_ExceptionMatches(tstate, PyExc_AttributeError);
+                if (matches) {
                     _PyErr_Format(tstate, PyExc_TypeError,
                                   "'%.200s' object is not a mapping",
                                   Py_TYPE(update_o)->tp_name);
@@ -3339,8 +3349,11 @@
                     next = PyStackRef_NULL;
                     /* SPILL */
                     if (_PyErr_Occurred(tstate)) {
-                        if (!_PyErr_ExceptionMatches(tstate, PyExc_StopIteration)) {
+                        int matches = _PyErr_ExceptionMatches(tstate, PyExc_StopIteration);
+                        /* RELOAD */
+                        if (!matches) {
                             goto error;
+                            /* SPILL */
                         }
                         _PyEval_MonitorRaise(tstate, frame, this_instr);
                         _PyErr_Clear(tstate);
@@ -3950,7 +3963,9 @@
             /* Need to create a fake StopIteration error here,
              * to conform to PEP 380 */
             if (PyStackRef_GenCheck(receiver)) {
-                if (monitor_stop_iteration(tstate, frame, this_instr, PyStackRef_AsPyObjectBorrow(value))) {
+                int err = monitor_stop_iteration(tstate, frame, this_instr, PyStackRef_AsPyObjectBorrow(value));
+                /* RELOAD */
+                if (err) {
                     goto error;
                 }
             }
@@ -3972,7 +3987,9 @@
             PyObject *receiver_o = PyStackRef_AsPyObjectBorrow(receiver);
             /* SPILL */
             if (PyGen_Check(receiver_o) || PyCoro_CheckExact(receiver_o)) {
-                if (monitor_stop_iteration(tstate, frame, this_instr, PyStackRef_AsPyObjectBorrow(value))) {
+                int err = monitor_stop_iteration(tstate, frame, this_instr, PyStackRef_AsPyObjectBorrow(value));
+                /* RELOAD */
+                if (err) {
                     goto error;
                 }
             }
@@ -4000,8 +4017,11 @@
             }
             else {
                 if (_PyErr_Occurred(tstate)) {
-                    if (!_PyErr_ExceptionMatches(tstate, PyExc_StopIteration)) {
+                    int matches = _PyErr_ExceptionMatches(tstate, PyExc_StopIteration);
+                    /* RELOAD */
+                    if (!matches) {
                         goto error;
+                        /* SPILL */
                     }
                     _PyEval_MonitorRaise(tstate, frame, this_instr);
                     _PyErr_Clear(tstate);
@@ -4518,7 +4538,8 @@
             PyStackRef_CLOSE(iterable_st);
             /* SPILL */
             if (none_val == NULL) {
-                if (_PyErr_ExceptionMatches(tstate, PyExc_TypeError) &&
+                int matches = _PyErr_ExceptionMatches(tstate, PyExc_TypeError);
+                if (matches &&
                     (Py_TYPE(iterable)->tp_iter == NULL && !PySequence_Check(iterable)))
                 {
                     _PyErr_Clear(tstate);
@@ -4572,14 +4593,14 @@
                     /* Designed to work in tandem with CALL, pushes two values. */
                     attr_o = NULL;
                     /* SPILL */
-                    if (_PyObject_GetMethod(PyStackRef_AsPyObjectBorrow(owner), name, &attr_o)) {
+                    int is_meth = _PyObject_GetMethod(PyStackRef_AsPyObjectBorrow(owner), name, &attr_o);
+                    /* RELOAD */
+                    if (is_meth) {
                         /* We can bypass temporary bound method object.
                            meth is unbound method and obj is self.
                            meth | self | arg1 | ... | argN
                          */
-                        assert(attr_o != NULL);
-                        /* RELOAD */
-                        // No errors on this branch
+                        assert(attr_o != NULL);  // No errors on this branch
                         self_or_null = owner;  // Transfer ownership
                     }
                     else {
@@ -5104,16 +5125,10 @@
                 PyDictObject *dict = _PyObject_GetManagedDict(owner_o);
                 DEOPT_IF(hint >= (size_t)dict->ma_keys->dk_nentries, LOAD_ATTR);
                 PyObject *name = GETITEM(FRAME_CO_NAMES, oparg>>1);
-                if (DK_IS_UNICODE(dict->ma_keys)) {
-                    PyDictUnicodeEntry *ep = DK_UNICODE_ENTRIES(dict->ma_keys) + hint;
-                    DEOPT_IF(ep->me_key != name, LOAD_ATTR);
-                    attr_o = ep->me_value;
-                }
-                else {
-                    PyDictKeyEntry *ep = DK_ENTRIES(dict->ma_keys) + hint;
-                    DEOPT_IF(ep->me_key != name, LOAD_ATTR);
-                    attr_o = ep->me_value;
-                }
+                DEOPT_IF(!DK_IS_UNICODE(dict->ma_keys), LOAD_ATTR);
+                PyDictUnicodeEntry *ep = DK_UNICODE_ENTRIES(dict->ma_keys) + hint;
+                DEOPT_IF(ep->me_key != name, LOAD_ATTR);
+                attr_o = ep->me_value;
                 DEOPT_IF(attr_o == NULL, LOAD_ATTR);
                 STAT_INC(LOAD_ATTR, hit);
                 Py_INCREF(attr_o);
@@ -5284,14 +5299,18 @@
             assert(oparg >= 0 && oparg < _PyFrame_GetCode(frame)->co_nlocalsplus);
             name = PyTuple_GET_ITEM(_PyFrame_GetCode(frame)->co_localsplusnames, oparg);
             /* SPILL */
-            if (PyMapping_GetOptionalItem(class_dict, name, &value_o) < 0) {
+            int err = PyMapping_GetOptionalItem(class_dict, name, &value_o);
+            /* RELOAD */
+            if (err < 0) {
                 goto error;
             }
             if (!value_o) {
                 PyCellObject *cell = (PyCellObject *)PyStackRef_AsPyObjectBorrow(GETLOCAL(oparg));
+                /* SPILL */
                 value_o = PyCell_GetRef(cell);
                 if (value_o == NULL) {
                     _PyEval_FormatExcUnbound(tstate, _PyFrame_GetCode(frame), oparg);
+                    /* RELOAD */
                     goto error;
                 }
             }
@@ -5311,10 +5330,13 @@
             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg);
             PyObject *v_o;
             /* SPILL */
-            if (PyMapping_GetOptionalItem(PyStackRef_AsPyObjectBorrow(mod_or_class_dict), name, &v_o) < 0) {
+            int err = PyMapping_GetOptionalItem(PyStackRef_AsPyObjectBorrow(mod_or_class_dict), name, &v_o);
+            /* RELOAD */
+            if (err < 0) {
                 goto error;
             }
             PyStackRef_CLOSE(mod_or_class_dict);
+            /* SPILL */
             if (v_o == NULL) {
                 if (PyDict_CheckExact(GLOBALS())
                     && PyDict_CheckExact(BUILTINS()))
@@ -5328,6 +5350,7 @@
                              * an exception if the key doesn't exist */
                             _PyEval_FormatExcCheckArg(tstate, PyExc_NameError,
                                 NAME_ERROR_MSG, name);
+                            /* RELOAD */
                         }
                         if (true) goto pop_1_error;
                     }
@@ -6345,13 +6368,14 @@
                         PyStackRef_AsPyObjectBorrow(v));
                 }
                 if (retval_o == NULL) {
-                    if (_PyErr_ExceptionMatches(tstate, PyExc_StopIteration)
-                    ) {
+                    int matches = _PyErr_ExceptionMatches(tstate, PyExc_StopIteration);
+                    if (matches) {
                         _PyEval_MonitorRaise(tstate, frame, this_instr);
                     }
-                    if (_PyGen_FetchStopIterationValue(&retval_o) == 0) {
+                    int err = _PyGen_FetchStopIterationValue(&retval_o);
+                    /* RELOAD */
+                    if (err == 0) {
                         assert(retval_o != NULL);
-                        /* RELOAD */
                         JUMPBY(oparg);
                     }
                     else {
@@ -6683,27 +6707,16 @@
                 DEOPT_IF(hint >= (size_t)dict->ma_keys->dk_nentries, STORE_ATTR);
                 PyObject *old_value;
                 uint64_t new_version;
-                if (DK_IS_UNICODE(dict->ma_keys)) {
-                    PyDictUnicodeEntry *ep = DK_UNICODE_ENTRIES(dict->ma_keys) + hint;
-                    DEOPT_IF(ep->me_key != name, STORE_ATTR);
-                    old_value = ep->me_value;
-                    DEOPT_IF(old_value == NULL, STORE_ATTR);
-                    /* SPILL */
-                    new_version = _PyDict_NotifyEvent(tstate->interp, PyDict_EVENT_MODIFIED, dict, name, PyStackRef_AsPyObjectBorrow(value));
-                    /* RELOAD */
-                    ep->me_value = PyStackRef_AsPyObjectSteal(value);
-                }
-                else {
-                    PyDictKeyEntry *ep = DK_ENTRIES(dict->ma_keys) + hint;
-                    DEOPT_IF(ep->me_key != name, STORE_ATTR);
-                    old_value = ep->me_value;
-                    DEOPT_IF(old_value == NULL, STORE_ATTR);
-                    /* SPILL */
-                    new_version = _PyDict_NotifyEvent(tstate->interp, PyDict_EVENT_MODIFIED, dict, name, PyStackRef_AsPyObjectBorrow(value));
-                    /* RELOAD */
-                    ep->me_value = PyStackRef_AsPyObjectSteal(value);
-                }
-                Py_DECREF(old_value);
+                DEOPT_IF(!DK_IS_UNICODE(dict->ma_keys), STORE_ATTR);
+                PyDictUnicodeEntry *ep = DK_UNICODE_ENTRIES(dict->ma_keys) + hint;
+                DEOPT_IF(ep->me_key != name, STORE_ATTR);
+                old_value = ep->me_value;
+                PyDict_WatchEvent event = old_value == NULL ? PyDict_EVENT_ADDED : PyDict_EVENT_MODIFIED;
+                /* SPILL */
+                new_version = _PyDict_NotifyEvent(tstate->interp, event, dict, name, PyStackRef_AsPyObjectBorrow(value));
+                /* RELOAD */
+                ep->me_value = PyStackRef_AsPyObjectSteal(value);
+                Py_XDECREF(old_value);
                 STAT_INC(STORE_ATTR, hit);
                 /* SPILL */
                 /* Ensure dict is GC tracked if it needs to be */
