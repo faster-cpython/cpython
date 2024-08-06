@@ -399,6 +399,10 @@ DECREFS = (
     "PyStackRef_CLOSE",
     "PyStackRef_CLEAR",
     "Py_CLEAR",
+    "STACKREFS_TO_PYOBJECTS_CLEANUP",
+    "_PyList_FromArraySteal",
+    "_PyTuple_FromStackRefSteal",
+    "_PyList_AppendTakeRef",
 )
 
 NON_ESCAPING_FUNCTIONS = (
@@ -489,9 +493,6 @@ NON_ESCAPING_FUNCTIONS = (
     "_PyFrame_GetStackPointer",
     "_PyFrame_IsIncomplete",
     "_PyFunction_SetVersion",
-    "_PyList_FromArraySteal",
-    "_PyTuple_FromStackRefSteal",
-    "_PyList_AppendTakeRef",
 )
 
 def makes_escaping_api_call(instr: parser.InstDef) -> bool:
