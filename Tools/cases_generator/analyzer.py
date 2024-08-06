@@ -391,6 +391,15 @@ def has_error_without_pop(op: parser.InstDef) -> bool:
         or variable_used(op, "resume_with_error")
     )
 
+DECREFS = (
+    "Py_DECREF",
+    "Py_XDECREF",
+    "_Py_DECREF_SPECIALIZED",
+    "DECREF_INPUTS_AND_REUSE_FLOAT",
+    "PyStackRef_CLOSE",
+    "PyStackRef_CLEAR",
+    "Py_CLEAR",
+)
 
 NON_ESCAPING_FUNCTIONS = (
     "Py_INCREF",
@@ -399,10 +408,6 @@ NON_ESCAPING_FUNCTIONS = (
     "_PyObject_ManagedDictPointer",
     "_PyObject_InlineValues",
     "_PyDictValues_AddToInsertionOrder",
-    "Py_DECREF",
-    "Py_XDECREF",
-    "_Py_DECREF_SPECIALIZED",
-    "DECREF_INPUTS_AND_REUSE_FLOAT",
     "PyUnicode_Append",
     "_PyLong_IsZero",
     "Py_ARRAY_LENGTH",
@@ -457,9 +462,7 @@ NON_ESCAPING_FUNCTIONS = (
     "PyStackRef_FromPyObjectSteal",
     "PyStackRef_AsPyObjectBorrow",
     "PyStackRef_AsPyObjectSteal",
-    "PyStackRef_CLOSE",
     "PyStackRef_DUP",
-    "PyStackRef_CLEAR",
     "PyStackRef_IsNull",
     "PyStackRef_TYPE",
     "PyStackRef_False",
@@ -486,6 +489,9 @@ NON_ESCAPING_FUNCTIONS = (
     "_PyFrame_GetStackPointer",
     "_PyFrame_IsIncomplete",
     "_PyFunction_SetVersion",
+    "_PyList_FromArraySteal",
+    "_PyTuple_FromStackRefSteal",
+    "_PyList_AppendTakeRef",
 )
 
 def makes_escaping_api_call(instr: parser.InstDef) -> bool:
@@ -503,10 +509,12 @@ def makes_escaping_api_call(instr: parser.InstDef) -> bool:
             return False
         if next_tkn.kind != lexer.LPAREN:
             continue
+        if tkn.text in DECREFS:
+            continue
+        if is_macro_name(tkn.text):
+            continue
         if tkn.text == "tp_vectorcall":
             return True
-        if not tkn.text.startswith("Py") and not tkn.text.startswith("_Py"):
-            continue
         if tkn.text.endswith("Check"):
             continue
         if tkn.text.startswith("Py_Is"):
@@ -986,7 +994,7 @@ def find_escaping_calls(tkn_list: list[lexer.Token]) -> list[EscapingCall]:
             return escaping_calls
         if next_tkn.kind != lexer.LPAREN:
             continue
-        if is_macro_name(tkn.text):
+        if tkn.text not in DECREFS and is_macro_name(tkn.text):
             continue
         if is_getter(tkn.text):
             continue
@@ -997,7 +1005,7 @@ def find_escaping_calls(tkn_list: list[lexer.Token]) -> list[EscapingCall]:
         if tkn.text in NON_ESCAPING_FUNCTIONS:
             continue
         semi = scan_to_semi(tkns)
-        # print(f"Escaping call: {tkn.text}")
+        # print(f"Escaping call: {tkn.text} @{tkn.line}")
         escaping_calls.append(EscapingCall(first_in_stmt, i, semi))
     return escaping_calls
 
