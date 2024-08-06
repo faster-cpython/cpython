@@ -414,6 +414,8 @@ NON_ESCAPING_FUNCTIONS = (
     "_PyLong_IsNonNegativeCompact",
     "_PyLong_CompactValue",
     "_PyLong_DigitCount",
+    "PyLong_AsLong",
+    "PyLong_FromSsize_t",
     "_Py_NewRef",
     "_Py_IsImmortal",
     "PyLong_FromLong",
@@ -473,6 +475,17 @@ NON_ESCAPING_FUNCTIONS = (
     "_PyObject_GC_IS_TRACKED",
     "_PyObject_GC_MAY_BE_TRACKED",
     "_PyObject_GC_TRACK",
+    "PyTuple_GET_SIZE",
+    "PyTuple_GET_ITEM",
+    "PyList_GET_SIZE",
+    "PyList_GET_ITEM",
+    "PyList_SET_ITEM",
+    "_PyCode_CODE",
+    "PyCell_GetRef",
+    "_PyBuildSlice_ConsumeRefs",
+    "_PyFrame_GetStackPointer",
+    "_PyFrame_IsIncomplete",
+    "_PyFunction_SetVersion",
 )
 
 def makes_escaping_api_call(instr: parser.InstDef) -> bool:
@@ -984,6 +997,7 @@ def find_escaping_calls(tkn_list: list[lexer.Token]) -> list[EscapingCall]:
         if tkn.text in NON_ESCAPING_FUNCTIONS:
             continue
         semi = scan_to_semi(tkns)
+        # print(f"Escaping call: {tkn.text}")
         escaping_calls.append(EscapingCall(first_in_stmt, i, semi))
     return escaping_calls
 
