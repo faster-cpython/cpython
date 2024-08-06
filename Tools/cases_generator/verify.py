@@ -138,21 +138,21 @@ def is_getter(name: str) -> bool:
 
 @dataclass
 class EscapingCall:
-    uop: Uop
+    body: list[Token]
     start: int
     call: int
     end: int
 
     def __repr__(self) -> str:
-        start = self.uop.body[self.start]
-        end =  self.uop.body[self.end]
-        call = self.uop.body[self.call]
+        start = self.body[self.start]
+        end =  self.body[self.end]
+        call = self.body[self.call]
         return f"EscapingCall({self.uop.name}, {start}, {call}, {end})"
 
-def find_escaping_calls(uop:Uop) -> list[EscapingCall]:
+def find_escaping_calls(tkn_list: list[Token]) -> list[EscapingCall]:
     calls: list[int] = []
     escaping_calls: list[EscapingCall] = []
-    tkns = enumerate(uop.body)
+    tkns = enumerate(tkn_list)
     last_if_while_for_or_do = 0
     start = 0
     _, pre_brace = next(tkns)
@@ -183,7 +183,7 @@ def find_escaping_calls(uop:Uop) -> list[EscapingCall]:
         if tkn.text in NON_ESCAPING_FUNCTIONS:
             continue
         semi = scan_to_semi(tkns)
-        escaping_calls.append(EscapingCall(uop, first_in_stmt, i, semi))
+        escaping_calls.append(EscapingCall(tkn_list, first_in_stmt, i, semi))
     return escaping_calls
 
 SYNC = "SYNC_SP", "DECREF_INPUTS"

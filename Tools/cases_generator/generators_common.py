@@ -214,24 +214,9 @@ class Emitter:
         tkns = uop.body[1:-1]
         if not tkns:
             return
-        escaping_calls = verify.find_escaping_calls(uop)
-        escaping_calls.sort(reverse=True, key = attrgetter("start"))
-        next_escaping_call = escaping_calls.pop() if escaping_calls else None
         tkn_iter = iter(tkns)
         self.out.start_line()
         for tkn in tkn_iter:
-            if next_escaping_call is not None and tkn is uop.body[next_escaping_call.start]:
-                self.out.start_line()
-                self.emit("/* SPILL */")
-                self.out.start_line()
-            if next_escaping_call is not None and tkn is uop.body[next_escaping_call.end]:
-                prev_escaping_call = next_escaping_call
-                next_escaping_call = escaping_calls.pop() if escaping_calls else None
-                self.emit(tkn)
-                self.out.start_line()
-                self.emit("/* RELOAD */")
-                self.out.start_line()
-                continue
             if tkn.kind == "IDENTIFIER" and tkn.text in self._replacers:
                 self._replacers[tkn.text](tkn, tkn_iter, uop, stack, inst)
             else:

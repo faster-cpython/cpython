@@ -5,6 +5,7 @@ Writes the cases to optimizer_cases.c.h, which is #included in Python/optimizer_
 
 import argparse
 
+import analyzer
 from analyzer import (
     Analysis,
     Instruction,
@@ -227,7 +228,7 @@ if __name__ == "__main__":
     else:
         args.base.append(args.input[-1])
         args.input.pop()
-    abstract = analyze_files(args.input)
+    abstract = analyze_files(args.input, find_escapes=False)
     base = analyze_files(args.base)
     with open(args.output, "w") as outfile:
         generate_abstract_interpreter(args.input, abstract, base, outfile, args.debug)

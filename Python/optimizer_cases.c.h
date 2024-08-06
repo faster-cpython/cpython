@@ -16,11 +16,9 @@
         case _LOAD_FAST_CHECK: {
             _Py_UopsSymbol *value;
             value = GETLOCAL(oparg);
-            /* SPILL */
             // We guarantee this will error - just bail and don't optimize it.
             if (sym_is_null(value)) {
                 ctx->done = true;
-                /* RELOAD */
             }
             stack_pointer[0] = value;
             stack_pointer += 1;
@@ -40,9 +38,7 @@
         case _LOAD_FAST_AND_CLEAR: {
             _Py_UopsSymbol *value;
             value = GETLOCAL(oparg);
-            /* SPILL */
             _Py_UopsSymbol *temp = sym_new_null(ctx);
-            /* RELOAD */
             GETLOCAL(oparg) = temp;
             stack_pointer[0] = value;
             stack_pointer += 1;
@@ -55,9 +51,7 @@
             PyObject *val = PyTuple_GET_ITEM(co->co_consts, this_instr->oparg);
             int opcode = _Py_IsImmortal(val) ? _LOAD_CONST_INLINE_BORROW : _LOAD_CONST_INLINE;
             REPLACE_OP(this_instr, opcode, 0, (uintptr_t)val);
-            /* SPILL */
             value = sym_new_const(ctx, val);
-            /* RELOAD */
             stack_pointer[0] = value;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
@@ -81,9 +75,7 @@
 
         case _PUSH_NULL: {
             _Py_UopsSymbol *res;
-            /* SPILL */
             res = sym_new_null(ctx);
-            /* RELOAD */
             stack_pointer[0] = res;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
@@ -117,10 +109,8 @@
             _Py_UopsSymbol *value;
             _Py_UopsSymbol *res;
             value = stack_pointer[-1];
-            /* SPILL */
             if (!optimize_to_bool(this_instr, ctx, value, &res)) {
                 res = sym_new_type(ctx, &PyBool_Type);
-                /* RELOAD */
             }
             stack_pointer[-1] = res;
             break;
@@ -130,10 +120,8 @@
             _Py_UopsSymbol *value;
             _Py_UopsSymbol *res;
             value = stack_pointer[-1];
-            /* SPILL */
             if (!optimize_to_bool(this_instr, ctx, value, &res)) {
                 sym_set_type(value, &PyBool_Type);
-                /* RELOAD */
                 res = value;
             }
             stack_pointer[-1] = res;
@@ -144,11 +132,9 @@
             _Py_UopsSymbol *value;
             _Py_UopsSymbol *res;
             value = stack_pointer[-1];
-            /* SPILL */
             if (!optimize_to_bool(this_instr, ctx, value, &res)) {
                 sym_set_type(value, &PyLong_Type);
                 res = sym_new_type(ctx, &PyBool_Type);
-                /* RELOAD */
             }
             stack_pointer[-1] = res;
             break;
@@ -158,11 +144,9 @@
             _Py_UopsSymbol *value;
             _Py_UopsSymbol *res;
             value = stack_pointer[-1];
-            /* SPILL */
             if (!optimize_to_bool(this_instr, ctx, value, &res)) {
                 sym_set_type(value, &PyList_Type);
                 res = sym_new_type(ctx, &PyBool_Type);
-                /* RELOAD */
             }
             stack_pointer[-1] = res;
             break;
@@ -172,11 +156,9 @@
             _Py_UopsSymbol *value;
             _Py_UopsSymbol *res;
             value = stack_pointer[-1];
-            /* SPILL */
             if (!optimize_to_bool(this_instr, ctx, value, &res)) {
                 sym_set_const(value, Py_None);
                 res = sym_new_const(ctx, Py_False);
-                /* RELOAD */
             }
             stack_pointer[-1] = res;
             break;
@@ -186,11 +168,9 @@
             _Py_UopsSymbol *value;
             _Py_UopsSymbol *res;
             value = stack_pointer[-1];
-            /* SPILL */
             if (!optimize_to_bool(this_instr, ctx, value, &res)) {
                 res = sym_new_type(ctx, &PyBool_Type);
                 sym_set_type(value, &PyUnicode_Type);
-                /* RELOAD */
             }
             stack_pointer[-1] = res;
             break;
@@ -215,15 +195,12 @@
             _Py_UopsSymbol *left;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            /* SPILL */
             if (sym_matches_type(left, &PyLong_Type)) {
                 if (sym_matches_type(right, &PyLong_Type)) {
                     REPLACE_OP(this_instr, _NOP, 0, 0);
-                    /* RELOAD */
                 }
                 else {
                     REPLACE_OP(this_instr, _GUARD_TOS_INT, 0, 0);
-                    /* SPILL */
                 }
             }
             else {
@@ -233,7 +210,6 @@
             }
             sym_set_type(left, &PyLong_Type);
             sym_set_type(right, &PyLong_Type);
-            /* RELOAD */
             break;
         }
 
@@ -251,7 +227,6 @@
             _Py_UopsSymbol *res;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            /* SPILL */
             if (sym_is_const(left) && sym_is_const(right) &&
                 sym_matches_type(left, &PyLong_Type) && sym_matches_type(right, &PyLong_Type))
             {
@@ -259,7 +234,6 @@
                 assert(PyLong_CheckExact(sym_get_const(right)));
                 PyObject *temp = _PyLong_Multiply((PyLongObject *)sym_get_const(left),
                     (PyLongObject *)sym_get_const(right));
-                /* RELOAD */
                 if (temp == NULL) {
                     goto error;
                 }
@@ -283,7 +257,6 @@
             _Py_UopsSymbol *res;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            /* SPILL */
             if (sym_is_const(left) && sym_is_const(right) &&
                 sym_matches_type(left, &PyLong_Type) && sym_matches_type(right, &PyLong_Type))
             {
@@ -291,7 +264,6 @@
                 assert(PyLong_CheckExact(sym_get_const(right)));
                 PyObject *temp = _PyLong_Add((PyLongObject *)sym_get_const(left),
                     (PyLongObject *)sym_get_const(right));
-                /* RELOAD */
                 if (temp == NULL) {
                     goto error;
                 }
@@ -315,7 +287,6 @@
             _Py_UopsSymbol *res;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            /* SPILL */
             if (sym_is_const(left) && sym_is_const(right) &&
                 sym_matches_type(left, &PyLong_Type) && sym_matches_type(right, &PyLong_Type))
             {
@@ -323,7 +294,6 @@
                 assert(PyLong_CheckExact(sym_get_const(right)));
                 PyObject *temp = _PyLong_Subtract((PyLongObject *)sym_get_const(left),
                     (PyLongObject *)sym_get_const(right));
-                /* RELOAD */
                 if (temp == NULL) {
                     goto error;
                 }
@@ -346,15 +316,12 @@
             _Py_UopsSymbol *left;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            /* SPILL */
             if (sym_matches_type(left, &PyFloat_Type)) {
                 if (sym_matches_type(right, &PyFloat_Type)) {
                     REPLACE_OP(this_instr, _NOP, 0, 0);
-                    /* RELOAD */
                 }
                 else {
                     REPLACE_OP(this_instr, _GUARD_TOS_FLOAT, 0, 0);
-                    /* SPILL */
                 }
             }
             else {
@@ -364,7 +331,6 @@
             }
             sym_set_type(left, &PyFloat_Type);
             sym_set_type(right, &PyFloat_Type);
-            /* RELOAD */
             break;
         }
 
@@ -382,7 +348,6 @@
             _Py_UopsSymbol *res;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            /* SPILL */
             if (sym_is_const(left) && sym_is_const(right) &&
                 sym_matches_type(left, &PyFloat_Type) && sym_matches_type(right, &PyFloat_Type))
             {
@@ -391,7 +356,6 @@
                 PyObject *temp = PyFloat_FromDouble(
                     PyFloat_AS_DOUBLE(sym_get_const(left)) *
                     PyFloat_AS_DOUBLE(sym_get_const(right)));
-                /* RELOAD */
                 if (temp == NULL) {
                     goto error;
                 }
@@ -415,7 +379,6 @@
             _Py_UopsSymbol *res;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            /* SPILL */
             if (sym_is_const(left) && sym_is_const(right) &&
                 sym_matches_type(left, &PyFloat_Type) && sym_matches_type(right, &PyFloat_Type))
             {
@@ -424,7 +387,6 @@
                 PyObject *temp = PyFloat_FromDouble(
                     PyFloat_AS_DOUBLE(sym_get_const(left)) +
                     PyFloat_AS_DOUBLE(sym_get_const(right)));
-                /* RELOAD */
                 if (temp == NULL) {
                     goto error;
                 }
@@ -448,7 +410,6 @@
             _Py_UopsSymbol *res;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            /* SPILL */
             if (sym_is_const(left) && sym_is_const(right) &&
                 sym_matches_type(left, &PyFloat_Type) && sym_matches_type(right, &PyFloat_Type))
             {
@@ -457,7 +418,6 @@
                 PyObject *temp = PyFloat_FromDouble(
                     PyFloat_AS_DOUBLE(sym_get_const(left)) -
                     PyFloat_AS_DOUBLE(sym_get_const(right)));
-                /* RELOAD */
                 if (temp == NULL) {
                     goto error;
                 }
@@ -480,14 +440,12 @@
             _Py_UopsSymbol *left;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            /* SPILL */
             if (sym_matches_type(left, &PyUnicode_Type) &&
                 sym_matches_type(right, &PyUnicode_Type)) {
                 REPLACE_OP(this_instr, _NOP, 0 ,0);
             }
             sym_set_type(left, &PyUnicode_Type);
             sym_set_type(left, &PyUnicode_Type);
-            /* RELOAD */
             break;
         }
 
@@ -497,23 +455,17 @@
             _Py_UopsSymbol *res;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            /* SPILL */
             if (sym_is_const(left) && sym_is_const(right) &&
                 sym_matches_type(left, &PyUnicode_Type) && sym_matches_type(right, &PyUnicode_Type)) {
                 PyObject *temp = PyUnicode_Concat(sym_get_const(left), sym_get_const(right));
-                /* RELOAD */
                 if (temp == NULL) {
                     goto error;
-                    /* SPILL */
                 }
                 res = sym_new_const(ctx, temp);
-                /* RELOAD */
                 Py_DECREF(temp);
-                /* SPILL */
             }
             else {
                 res = sym_new_type(ctx, &PyUnicode_Type);
-                /* RELOAD */
             }
             stack_pointer[-2] = res;
             stack_pointer += -1;
@@ -659,9 +611,7 @@
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
             ctx->frame->stack_pointer = stack_pointer;
-            /* SPILL */
             frame_pop(ctx);
-            /* RELOAD */
             stack_pointer = ctx->frame->stack_pointer;
             res = retval;
             /* Stack space handling */
@@ -671,9 +621,7 @@
             assert(framesize > 0);
             assert(framesize <= curr_space);
             curr_space -= framesize;
-            /* SPILL */
             co = get_code(this_instr);
-            /* RELOAD */
             if (co == NULL) {
                 // might be impossible, but bailing is still safe
                 ctx->done = true;
@@ -712,9 +660,7 @@
 
         case _YIELD_VALUE: {
             _Py_UopsSymbol *res;
-            /* SPILL */
             res = sym_new_unknown(ctx);
-            /* RELOAD */
             stack_pointer[-1] = res;
             break;
         }
@@ -760,11 +706,8 @@
             values = &stack_pointer[-1];
             /* This has to be done manually */
             (void)seq;
-            for (int i = 0; i < oparg;
-             /* SPILL */
-             i++) {
+            for (int i = 0; i < oparg; i++) {
                 values[i] = sym_new_unknown(ctx);
-                /* RELOAD */
             }
             stack_pointer += -1 + oparg;
             assert(WITHIN_STACK_BOUNDS());
@@ -813,11 +756,8 @@
             /* This has to be done manually */
             (void)seq;
             int totalargs = (oparg & 0xFF) + (oparg >> 8) + 1;
-            for (int i = 0; i < totalargs;
-             /* SPILL */
-             i++) {
+            for (int i = 0; i < totalargs; i++) {
                 values[i] = sym_new_unknown(ctx);
-                /* RELOAD */
             }
             stack_pointer += (oparg & 0xFF) + (oparg >> 8);
             assert(WITHIN_STACK_BOUNDS());
@@ -1056,11 +996,9 @@
             _Py_UopsSymbol *self_or_null = NULL;
             owner = stack_pointer[-1];
             (void)owner;
-            /* SPILL */
             attr = sym_new_not_null(ctx);
             if (oparg & 1) {
                 self_or_null = sym_new_unknown(ctx);
-                /* RELOAD */
             }
             stack_pointer[-1] = attr;
             if (oparg & 1) stack_pointer[0] = self_or_null;
@@ -1074,7 +1012,6 @@
             owner = stack_pointer[-1];
             uint32_t type_version = (uint32_t)this_instr->operand;
             assert(type_version);
-            /* SPILL */
             if (sym_matches_type_version(owner, type_version)) {
                 REPLACE_OP(this_instr, _NOP, 0, 0);
             } else {
@@ -1090,7 +1027,6 @@
                     if (sym_set_type_version(owner, type_version)) {
                         PyType_Watch(TYPE_WATCHER_ID, (PyObject *)type);
                         _Py_BloomFilter_Add(dependencies, type);
-                        /* RELOAD */
                     }
                 }
             }
@@ -1107,10 +1043,8 @@
             _Py_UopsSymbol *null = NULL;
             owner = stack_pointer[-1];
             uint16_t index = (uint16_t)this_instr->operand;
-            /* SPILL */
             attr = sym_new_not_null(ctx);
             null = sym_new_null(ctx);
-            /* RELOAD */
             (void)index;
             (void)owner;
             stack_pointer[-1] = attr;
@@ -1125,19 +1059,15 @@
             owner = stack_pointer[-1];
             uint32_t dict_version = (uint32_t)this_instr->operand;
             (void)dict_version;
-            /* SPILL */
             if (sym_is_const(owner)) {
                 PyObject *cnst = sym_get_const(owner);
-                /* RELOAD */
                 if (PyModule_CheckExact(cnst)) {
                     PyModuleObject *mod = (PyModuleObject *)cnst;
                     PyObject *dict = mod->md_dict;
-                    /* SPILL */
                     uint64_t watched_mutations = get_mutations(dict);
                     if (watched_mutations < _Py_MAX_ALLOWED_GLOBALS_MODIFICATIONS) {
                         PyDict_Watch(GLOBALS_WATCHER_ID, dict);
                         _Py_BloomFilter_Add(dependencies, dict);
-                        /* RELOAD */
                         this_instr->opcode = _NOP;
                     }
                 }
@@ -1152,16 +1082,12 @@
             owner = stack_pointer[-1];
             uint16_t index = (uint16_t)this_instr->operand;
             (void)index;
-            /* SPILL */
             null = sym_new_null(ctx);
-            /* RELOAD */
             attr = NULL;
-            /* SPILL */
             if (this_instr[-1].opcode == _NOP) {
                 // Preceding _CHECK_ATTR_MODULE was removed: mod is const and dict is watched.
                 assert(sym_is_const(owner));
                 PyModuleObject *mod = (PyModuleObject *)sym_get_const(owner);
-                /* RELOAD */
                 assert(PyModule_CheckExact(mod));
                 PyObject *dict = mod->md_dict;
                 PyObject *res = convert_global_to_const(this_instr, dict);
@@ -1191,10 +1117,8 @@
             _Py_UopsSymbol *null = NULL;
             owner = stack_pointer[-1];
             uint16_t hint = (uint16_t)this_instr->operand;
-            /* SPILL */
             attr = sym_new_not_null(ctx);
             null = sym_new_null(ctx);
-            /* RELOAD */
             (void)hint;
             (void)owner;
             stack_pointer[-1] = attr;
@@ -1210,10 +1134,8 @@
             _Py_UopsSymbol *null = NULL;
             owner = stack_pointer[-1];
             uint16_t index = (uint16_t)this_instr->operand;
-            /* SPILL */
             attr = sym_new_not_null(ctx);
             null = sym_new_null(ctx);
-            /* RELOAD */
             (void)index;
             (void)owner;
             stack_pointer[-1] = attr;
@@ -1233,10 +1155,8 @@
             _Py_UopsSymbol *null = NULL;
             owner = stack_pointer[-1];
             PyObject *descr = (PyObject *)this_instr->operand;
-            /* SPILL */
             attr = sym_new_not_null(ctx);
             null = sym_new_null(ctx);
-            /* RELOAD */
             (void)descr;
             (void)owner;
             stack_pointer[-1] = attr;
@@ -1285,13 +1205,11 @@
             left = stack_pointer[-2];
             (void)left;
             (void)right;
-            /* SPILL */
             if (oparg & 16) {
                 res = sym_new_type(ctx, &PyBool_Type);
             }
             else {
                 res = _Py_uop_sym_new_not_null(ctx);
-                /* RELOAD */
             }
             stack_pointer[-2] = res;
             stack_pointer += -1;
@@ -1307,9 +1225,7 @@
             left = stack_pointer[-2];
             (void)left;
             (void)right;
-            /* SPILL */
             res = sym_new_type(ctx, &PyBool_Type);
-            /* RELOAD */
             stack_pointer[-2] = res;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
@@ -1324,9 +1240,7 @@
             left = stack_pointer[-2];
             (void)left;
             (void)right;
-            /* SPILL */
             res = sym_new_type(ctx, &PyBool_Type);
-            /* RELOAD */
             stack_pointer[-2] = res;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
@@ -1341,9 +1255,7 @@
             left = stack_pointer[-2];
             (void)left;
             (void)right;
-            /* SPILL */
             res = sym_new_type(ctx, &PyBool_Type);
-            /* RELOAD */
             stack_pointer[-2] = res;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
@@ -1358,9 +1270,7 @@
             left = stack_pointer[-2];
             (void)left;
             (void)right;
-            /* SPILL */
             res = sym_new_type(ctx, &PyBool_Type);
-            /* RELOAD */
             stack_pointer[-2] = res;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
@@ -1375,9 +1285,7 @@
             left = stack_pointer[-2];
             (void)left;
             (void)right;
-            /* SPILL */
             res = sym_new_type(ctx, &PyBool_Type);
-            /* RELOAD */
             stack_pointer[-2] = res;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
@@ -1572,9 +1480,7 @@
             _Py_UopsSymbol *iter;
             _Py_UopsSymbol *next;
             iter = stack_pointer[-1];
-            /* SPILL */
             next = sym_new_type(ctx, &PyLong_Type);
-            /* RELOAD */
             (void)iter;
             stack_pointer[0] = next;
             stack_pointer += 1;
@@ -1594,10 +1500,8 @@
             _Py_UopsSymbol *self_or_null;
             owner = stack_pointer[-1];
             (void)owner;
-            /* SPILL */
             attr = sym_new_not_null(ctx);
             self_or_null = sym_new_unknown(ctx);
-            /* RELOAD */
             stack_pointer[-1] = attr;
             stack_pointer[0] = self_or_null;
             stack_pointer += 1;
@@ -1641,9 +1545,7 @@
             owner = stack_pointer[-1];
             PyObject *descr = (PyObject *)this_instr->operand;
             (void)descr;
-            /* SPILL */
             attr = sym_new_not_null(ctx);
-            /* RELOAD */
             self = owner;
             stack_pointer[-1] = attr;
             stack_pointer[0] = self;
@@ -1659,9 +1561,7 @@
             owner = stack_pointer[-1];
             PyObject *descr = (PyObject *)this_instr->operand;
             (void)descr;
-            /* SPILL */
             attr = sym_new_not_null(ctx);
-            /* RELOAD */
             self = owner;
             stack_pointer[-1] = attr;
             stack_pointer[0] = self;
@@ -1695,9 +1595,7 @@
             owner = stack_pointer[-1];
             PyObject *descr = (PyObject *)this_instr->operand;
             (void)descr;
-            /* SPILL */
             attr = sym_new_not_null(ctx);
-            /* RELOAD */
             self = owner;
             stack_pointer[-1] = attr;
             stack_pointer[0] = self;
@@ -1719,10 +1617,8 @@
             (void)callable;
             (void)self_or_null;
             (void)args;
-            /* SPILL */
             func = sym_new_not_null(ctx);
             maybe_self = sym_new_not_null(ctx);
-            /* RELOAD */
             stack_pointer[-2 - oparg] = func;
             stack_pointer[-1 - oparg] = maybe_self;
             break;
@@ -1792,10 +1688,8 @@
             _Py_UopsSymbol *callable;
             null = stack_pointer[-1 - oparg];
             callable = stack_pointer[-2 - oparg];
-            /* SPILL */
             sym_set_null(null);
             sym_set_type(callable, &PyMethod_Type);
-            /* RELOAD */
             break;
         }
 
@@ -1805,10 +1699,8 @@
             _Py_UopsSymbol *self;
             callable = stack_pointer[-2 - oparg];
             (void)callable;
-            /* SPILL */
             func = sym_new_not_null(ctx);
             self = sym_new_not_null(ctx);
-            /* RELOAD */
             stack_pointer[-2 - oparg] = func;
             stack_pointer[-1 - oparg] = self;
             break;
@@ -1828,9 +1720,7 @@
             _Py_UopsSymbol *callable;
             self_or_null = stack_pointer[-1 - oparg];
             callable = stack_pointer[-2 - oparg];
-            /* SPILL */
             sym_set_type(callable, &PyFunction_Type);
-            /* RELOAD */
             (void)self_or_null;
             break;
         }
@@ -1873,19 +1763,15 @@
             }
             assert(self_or_null != NULL);
             assert(args != NULL);
-            /* SPILL */
             if (sym_is_not_null(self_or_null)) {
                 // Bound method fiddling, same as _INIT_CALL_PY_EXACT_ARGS in VM
                 args--;
-                /* RELOAD */
                 argcount++;
-                /* SPILL */
             }
             if (sym_is_null(self_or_null) || sym_is_not_null(self_or_null)) {
                 new_frame = frame_new(ctx, co, 0, args, argcount);
             } else {
                 new_frame = frame_new(ctx, co, 0, NULL, 0);
-                /* RELOAD */
             }
             stack_pointer[-2 - oparg] = (_Py_UopsSymbol *)new_frame;
             stack_pointer += -1 - oparg;
@@ -1902,9 +1788,7 @@
             ctx->frame = new_frame;
             ctx->curr_frame_depth++;
             stack_pointer = new_frame->stack_pointer;
-            /* SPILL */
             co = get_code(this_instr);
-            /* RELOAD */
             if (co == NULL) {
                 // should be about to _EXIT_TRACE anyway
                 ctx->done = true;
@@ -2089,13 +1973,9 @@
         case _RETURN_GENERATOR: {
             _Py_UopsSymbol *res;
             ctx->frame->stack_pointer = stack_pointer;
-            /* SPILL */
             frame_pop(ctx);
-            /* RELOAD */
             stack_pointer = ctx->frame->stack_pointer;
-            /* SPILL */
             res = sym_new_unknown(ctx);
-            /* RELOAD */
             /* Stack space handling */
             assert(corresponding_check_stack == NULL);
             assert(co != NULL);
@@ -2103,9 +1983,7 @@
             assert(framesize > 0);
             assert(framesize <= curr_space);
             curr_space -= framesize;
-            /* SPILL */
             co = get_code(this_instr);
-            /* RELOAD */
             if (co == NULL) {
                 // might be impossible, but bailing is still safe
                 ctx->done = true;
@@ -2166,7 +2044,6 @@
             _Py_UopsSymbol *res;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
-            /* SPILL */
             PyTypeObject *ltype = sym_get_type(left);
             PyTypeObject *rtype = sym_get_type(right);
             if (ltype != NULL && (ltype == &PyLong_Type || ltype == &PyFloat_Type) &&
@@ -2183,7 +2060,6 @@
                 }
             }
             res = sym_new_unknown(ctx);
-            /* RELOAD */
             stack_pointer[-2] = res;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
@@ -2219,14 +2095,10 @@
         case _GUARD_IS_TRUE_POP: {
             _Py_UopsSymbol *flag;
             flag = stack_pointer[-1];
-            /* SPILL */
             if (sym_is_const(flag)) {
                 PyObject *value = sym_get_const(flag);
-                /* RELOAD */
                 assert(value != NULL);
-                /* SPILL */
                 eliminate_pop_guard(this_instr, value != Py_True);
-                /* RELOAD */
             }
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
@@ -2236,14 +2108,10 @@
         case _GUARD_IS_FALSE_POP: {
             _Py_UopsSymbol *flag;
             flag = stack_pointer[-1];
-            /* SPILL */
             if (sym_is_const(flag)) {
                 PyObject *value = sym_get_const(flag);
-                /* RELOAD */
                 assert(value != NULL);
-                /* SPILL */
                 eliminate_pop_guard(this_instr, value != Py_False);
-                /* RELOAD */
             }
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
@@ -2253,18 +2121,14 @@
         case _GUARD_IS_NONE_POP: {
             _Py_UopsSymbol *flag;
             flag = stack_pointer[-1];
-            /* SPILL */
             if (sym_is_const(flag)) {
                 PyObject *value = sym_get_const(flag);
-                /* RELOAD */
                 assert(value != NULL);
-                /* SPILL */
                 eliminate_pop_guard(this_instr, !Py_IsNone(value));
             }
             else if (sym_has_type(flag)) {
                 assert(!sym_matches_type(flag, &_PyNone_Type));
                 eliminate_pop_guard(this_instr, true);
-                /* RELOAD */
             }
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
@@ -2274,18 +2138,14 @@
         case _GUARD_IS_NOT_NONE_POP: {
             _Py_UopsSymbol *flag;
             flag = stack_pointer[-1];
-            /* SPILL */
             if (sym_is_const(flag)) {
                 PyObject *value = sym_get_const(flag);
-                /* RELOAD */
                 assert(value != NULL);
-                /* SPILL */
                 eliminate_pop_guard(this_instr, Py_IsNone(value));
             }
             else if (sym_has_type(flag)) {
                 assert(!sym_matches_type(flag, &_PyNone_Type));
                 eliminate_pop_guard(this_instr, false);
-                /* RELOAD */
             }
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
@@ -2328,9 +2188,7 @@
         case _LOAD_CONST_INLINE: {
             _Py_UopsSymbol *value;
             PyObject *ptr = (PyObject *)this_instr->operand;
-            /* SPILL */
             value = sym_new_const(ctx, ptr);
-            /* RELOAD */
             stack_pointer[0] = value;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
@@ -2340,9 +2198,7 @@
         case _LOAD_CONST_INLINE_BORROW: {
             _Py_UopsSymbol *value;
             PyObject *ptr = (PyObject *)this_instr->operand;
-            /* SPILL */
             value = sym_new_const(ctx, ptr);
-            /* RELOAD */
             stack_pointer[0] = value;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
@@ -2360,10 +2216,8 @@
             _Py_UopsSymbol *value;
             _Py_UopsSymbol *null;
             PyObject *ptr = (PyObject *)this_instr->operand;
-            /* SPILL */
             value = sym_new_const(ctx, ptr);
             null = sym_new_null(ctx);
-            /* RELOAD */
             stack_pointer[0] = value;
             stack_pointer[1] = null;
             stack_pointer += 2;
@@ -2375,10 +2229,8 @@
             _Py_UopsSymbol *value;
             _Py_UopsSymbol *null;
             PyObject *ptr = (PyObject *)this_instr->operand;
-            /* SPILL */
             value = sym_new_const(ctx, ptr);
             null = sym_new_null(ctx);
-            /* RELOAD */
             stack_pointer[0] = value;
             stack_pointer[1] = null;
             stack_pointer += 2;

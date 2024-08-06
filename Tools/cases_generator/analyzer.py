@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import lexer
 import parser
 import re
-from typing import Optional
+from typing import Optional, Iterator
 
 
 @dataclass
@@ -159,6 +159,7 @@ class Uop:
     caches: list[CacheEntry]
     body: list[lexer.Token]
     properties: Properties
+    escapes: list["EscapingCall"]
     _size: int = -1
     implicitly_created: bool = False
     replicated = 0
@@ -392,21 +393,6 @@ def has_error_without_pop(op: parser.InstDef) -> bool:
 
 
 NON_ESCAPING_FUNCTIONS = (
-    "PyStackRef_FromPyObjectSteal",
-    "PyStackRef_AsPyObjectBorrow",
-    "PyStackRef_AsPyObjectSteal",
-    "PyStackRef_CLOSE",
-    "PyStackRef_DUP",
-    "PyStackRef_CLEAR",
-    "PyStackRef_IsNull",
-    "PyStackRef_TYPE",
-    "PyStackRef_False",
-    "PyStackRef_True",
-    "PyStackRef_None",
-    "PyStackRef_Is",
-    "PyStackRef_FromPyObjectNew",
-    "PyStackRef_AsPyObjectNew",
-    "PyStackRef_FromPyObjectImmortal",
     "Py_INCREF",
     "_PyManagedDictPointer_IsValues",
     "_PyObject_GetManagedDict",
@@ -419,13 +405,6 @@ NON_ESCAPING_FUNCTIONS = (
     "DECREF_INPUTS_AND_REUSE_FLOAT",
     "PyUnicode_Append",
     "_PyLong_IsZero",
-    "Py_SIZE",
-    "Py_TYPE",
-    "PyList_GET_ITEM",
-    "PyList_SET_ITEM",
-    "PyTuple_GET_ITEM",
-    "PyList_GET_SIZE",
-    "PyTuple_GET_SIZE",
     "Py_ARRAY_LENGTH",
     "Py_Unicode_GET_LENGTH",
     "PyUnicode_READ_CHAR",
@@ -445,7 +424,6 @@ NON_ESCAPING_FUNCTIONS = (
     "Py_NewRef",
     "_PyList_ITEMS",
     "_PyTuple_ITEMS",
-    "_PyList_AppendTakeRef",
     "_Py_atomic_load_uintptr_relaxed",
     "_PyFrame_GetCode",
     "_PyThreadState_HasStackSpace",
@@ -455,8 +433,6 @@ NON_ESCAPING_FUNCTIONS = (
     "PyUnicode_Concat",
     "PySlice_New",
     "_Py_LeaveRecursiveCallPy",
-    "CALL_STAT_INC",
-    "STAT_INC",
     "maybe_lltrace_resume_frame",
     "_PyUnicode_JoinArray",
     "_PyEval_FrameClearAndPop",
@@ -465,19 +441,39 @@ NON_ESCAPING_FUNCTIONS = (
     "PyFloat_AS_DOUBLE",
     "_PyFrame_PushUnchecked",
     "Py_FatalError",
+    "assert",
+    "Py_Is",
+    "Py_IsTrue",
+    "Py_IsNone",
+    "Py_IsFalse",
+    "_PyFrame_GetStackPointer"
+    "_PyCode_CODE",
+    "PyCFunction_GET_FLAGS",
+    "_PyErr_Occurred",
+    "_Py_LeaveRecursiveCallTstate",
+    "_Py_EnterRecursiveCallTstateUnchecked",
+    "PyStackRef_FromPyObjectSteal",
+    "PyStackRef_AsPyObjectBorrow",
+    "PyStackRef_AsPyObjectSteal",
+    "PyStackRef_CLOSE",
+    "PyStackRef_DUP",
+    "PyStackRef_CLEAR",
+    "PyStackRef_IsNull",
+    "PyStackRef_TYPE",
+    "PyStackRef_False",
+    "PyStackRef_True",
+    "PyStackRef_None",
+    "PyStackRef_Is",
+    "PyStackRef_FromPyObjectNew",
+    "PyStackRef_AsPyObjectNew",
+    "PyStackRef_FromPyObjectImmortal",
     "STACKREFS_TO_PYOBJECTS",
     "STACKREFS_TO_PYOBJECTS_CLEANUP",
     "CONVERSION_FAILED",
-    "_PyList_FromArraySteal",
-    "_PyTuple_FromArraySteal",
-    "_PyTuple_FromStackRefSteal",
+    "_PyObject_GC_IS_TRACKED",
+    "_PyObject_GC_MAY_BE_TRACKED",
+    "_PyObject_GC_TRACK",
 )
-
-ESCAPING_FUNCTIONS = (
-    "import_name",
-    "import_from",
-)
-
 
 def makes_escaping_api_call(instr: parser.InstDef) -> bool:
     if "CALL_INTRINSIC" in instr.name:
@@ -494,8 +490,6 @@ def makes_escaping_api_call(instr: parser.InstDef) -> bool:
             return False
         if next_tkn.kind != lexer.LPAREN:
             continue
-        if tkn.text in ESCAPING_FUNCTIONS:
-            return True
         if tkn.text == "tp_vectorcall":
             return True
         if not tkn.text.startswith("Py") and not tkn.text.startswith("_Py"):
@@ -625,7 +619,11 @@ def compute_properties(op: parser.InstDef) -> Properties:
     )
 
 
-def make_uop(name: str, op: parser.InstDef, inputs: list[parser.InputEffect], uops: dict[str, Uop]) -> Uop:
+def make_uop(name: str, op: parser.InstDef, inputs: list[parser.InputEffect], uops: dict[str, Uop], find_escapes: bool) -> Uop:
+    if find_escapes:
+        escapes = find_escaping_calls(op.block.tokens)
+    else:
+        escapes = []
     result = Uop(
         name=name,
         context=op.context,
@@ -634,6 +632,7 @@ def make_uop(name: str, op: parser.InstDef, inputs: list[parser.InputEffect], uo
         caches=analyze_caches(inputs),
         body=op.block.tokens,
         properties=compute_properties(op),
+        escapes = escapes,
     )
     if effect_depends_on_oparg_1(op) and "split" in op.annotations:
         result.properties.oparg_and_1 = True
@@ -651,6 +650,7 @@ def make_uop(name: str, op: parser.InstDef, inputs: list[parser.InputEffect], uo
                 caches=analyze_caches(inputs),
                 body=op.block.tokens,
                 properties=properties,
+                escapes = escapes,
             )
             rep.replicates = result
             uops[name_x] = rep
@@ -673,6 +673,7 @@ def make_uop(name: str, op: parser.InstDef, inputs: list[parser.InputEffect], uo
             caches=analyze_caches(inputs),
             body=op.block.tokens,
             properties=properties,
+            escapes = escapes,
         )
         rep.replicates = result
         uops[name_x] = rep
@@ -680,14 +681,14 @@ def make_uop(name: str, op: parser.InstDef, inputs: list[parser.InputEffect], uo
     return result
 
 
-def add_op(op: parser.InstDef, uops: dict[str, Uop]) -> None:
+def add_op(op: parser.InstDef, uops: dict[str, Uop], find_escapes: bool) -> None:
     assert op.kind == "op"
     if op.name in uops:
         if "override" not in op.annotations:
             raise override_error(
                 op.name, op.context, uops[op.name].context, op.tokens[0]
             )
-    uops[op.name] = make_uop(op.name, op, op.inputs, uops)
+    uops[op.name] = make_uop(op.name, op, op.inputs, uops, find_escapes)
 
 
 def add_instruction(
@@ -698,7 +699,7 @@ def add_instruction(
 
 
 def desugar_inst(
-    inst: parser.InstDef, instructions: dict[str, Instruction], uops: dict[str, Uop]
+    inst: parser.InstDef, instructions: dict[str, Instruction], uops: dict[str, Uop], find_escapes: bool
 ) -> None:
     assert inst.kind == "inst"
     name = inst.name
@@ -715,7 +716,7 @@ def desugar_inst(
                 uop_index = len(parts)
                 # Place holder for the uop.
                 parts.append(Skip(0))
-    uop = make_uop("_" + inst.name, inst, op_inputs, uops)
+    uop = make_uop("_" + inst.name, inst, op_inputs, uops, find_escapes)
     uop.implicitly_created = True
     uops[inst.name] = uop
     if uop_index < 0:
@@ -859,7 +860,7 @@ def assign_opcodes(
     return instmap, len(no_arg), min_instrumented
 
 
-def analyze_forest(forest: list[parser.AstNode]) -> Analysis:
+def analyze_forest(forest: list[parser.AstNode], find_escapes: bool) -> Analysis:
     instructions: dict[str, Instruction] = {}
     uops: dict[str, Uop] = {}
     families: dict[str, Family] = {}
@@ -868,10 +869,10 @@ def analyze_forest(forest: list[parser.AstNode]) -> Analysis:
         match node:
             case parser.InstDef(name):
                 if node.kind == "inst":
-                    desugar_inst(node, instructions, uops)
+                    desugar_inst(node, instructions, uops, find_escapes)
                 else:
                     assert node.kind == "op"
-                    add_op(node, uops)
+                    add_op(node, uops, find_escapes)
             case parser.Macro():
                 pass
             case parser.Family():
@@ -916,8 +917,79 @@ def analyze_forest(forest: list[parser.AstNode]) -> Analysis:
     )
 
 
-def analyze_files(filenames: list[str]) -> Analysis:
-    return analyze_forest(parser.parse_files(filenames))
+@dataclass
+class EscapingCall:
+    start: int
+    call: int
+    end: int
+    uop: Uop | None = None
+
+    def __repr__(self) -> str:
+        assert self.uop is not None
+        start = self.uop.body[self.start]
+        end =  self.uop.body[self.end]
+        call = self.uop.body[self.call]
+        return f"EscapingCall({self.uop.name}, {start}, {call}, {end})"
+
+
+def scan_to_semi(tkn_iter: Iterator[tuple[int, lexer.Token]]) -> int:
+    for i, tkn in tkn_iter:
+        if tkn.kind == lexer.SEMI:
+            return i
+        if tkn.kind == lexer.RBRACE or tkn.kind == lexer.LBRACE:
+           raise analysis_error(f"Found '{tkn.text}' when scanning for end of escaping call statement", tkn)
+    assert(False)
+
+def is_macro_name(name: str) -> bool:
+    if name[0] == "_":
+        name = name[1:]
+    if name.startswith("Py"):
+        name = name[2:]
+    return name == name.upper()
+
+def is_getter(name: str) -> bool:
+    return "GET" in name
+
+def find_escaping_calls(tkn_list: list[lexer.Token]) -> list[EscapingCall]:
+    calls: list[int] = []
+    escaping_calls: list[EscapingCall] = []
+    tkns = enumerate(tkn_list)
+    last_if_while_for_or_do = 0
+    start = 0
+    _, pre_brace = next(tkns)
+    new_stmt = True
+    assert(pre_brace.kind == lexer.LBRACE)
+    for i, tkn in tkns:
+        if new_stmt:
+            new_stmt = False
+            first_in_stmt = i
+        if tkn.kind == lexer.SEMI:
+            new_stmt = True
+        if tkn.kind != lexer.IDENTIFIER:
+            continue
+        try:
+            next_tkn = tkn_list[i+1]
+        except IndexError:
+            return escaping_calls
+        if next_tkn.kind != lexer.LPAREN:
+            continue
+        if is_macro_name(tkn.text):
+            continue
+        if is_getter(tkn.text):
+            continue
+        if tkn.text.endswith("Check") or tkn.text.endswith("CheckExact"):
+            continue
+        if "backoff_counter" in tkn.text:
+            continue
+        if tkn.text in NON_ESCAPING_FUNCTIONS:
+            continue
+        semi = scan_to_semi(tkns)
+        escaping_calls.append(EscapingCall(first_in_stmt, i, semi))
+    return escaping_calls
+
+
+def analyze_files(filenames: list[str], find_escapes: bool = True) -> Analysis:
+    return analyze_forest(parser.parse_files(filenames), find_escapes)
 
 
 def dump_analysis(analysis: Analysis) -> None:
