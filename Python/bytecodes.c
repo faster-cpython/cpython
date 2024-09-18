@@ -4484,22 +4484,22 @@ dummy_func(
             #if ENABLE_SPECIALIZATION
             if (ADAPTIVE_COUNTER_TRIGGERS(counter)) {
                 next_instr = this_instr;
-                _Py_Specialize_BinaryOp(lhs, rhs, next_instr, oparg, LOCALS_ARRAY);
+                _Py_Specialize_BinaryOp(lhs, rhs, next_instr, oparg & NB_OPERATOR_MASK, LOCALS_ARRAY);
                 DISPATCH_SAME_OPARG();
             }
             OPCODE_DEFERRED_INC(BINARY_OP);
             ADVANCE_ADAPTIVE_COUNTER(this_instr[1].counter);
             #endif  /* ENABLE_SPECIALIZATION */
-            assert(NB_ADD <= oparg);
-            assert(oparg <= NB_INPLACE_XOR);
+            assert(NB_ADD <= (oparg & NB_OPERATOR_MASK));
+            assert((oparg & NB_OPERATOR_MASK) <= NB_INPLACE_XOR);
         }
 
         op(_BINARY_OP, (lhs, rhs -- res)) {
             PyObject *lhs_o = PyStackRef_AsPyObjectBorrow(lhs);
             PyObject *rhs_o = PyStackRef_AsPyObjectBorrow(rhs);
+            assert(_PyEval_BinaryOps[oparg & NB_OPERATOR_MASK]);
+            PyObject *res_o = _PyEval_BinaryOps[oparg & NB_OPERATOR_MASK](lhs_o, rhs_o);
 
-            assert(_PyEval_BinaryOps[oparg]);
-            PyObject *res_o = _PyEval_BinaryOps[oparg](lhs_o, rhs_o);
             DECREF_INPUTS();
             ERROR_IF(res_o == NULL, error);
             res = PyStackRef_FromPyObjectSteal(res_o);

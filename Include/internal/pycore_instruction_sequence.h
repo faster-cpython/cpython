@@ -68,6 +68,7 @@ int _PyInstructionSequence_InsertInstruction(_PyInstructionSequence *seq, int po
                                              int opcode, int oparg, _Py_SourceLocation loc);
 int _PyInstructionSequence_AddNested(_PyInstructionSequence *seq, _PyInstructionSequence *nested);
 void PyInstructionSequence_Fini(_PyInstructionSequence *seq);
+_PyInstruction *_PyInstructionSequence_LastInstruction(_PyInstructionSequence *seq);
 
 extern PyTypeObject _PyInstructionSequence_Type;
 #define _PyInstructionSequence_Check(v) Py_IS_TYPE((v), &_PyInstructionSequence_Type)

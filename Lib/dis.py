@@ -618,7 +618,7 @@ class ArgResolver:
                 argrepr = ', '.join(s for i, s in enumerate(FUNCTION_ATTR_FLAGS)
                                     if arg & (1<<i))
             elif deop == BINARY_OP:
-                _, argrepr = _nb_ops[arg]
+                _, argrepr = _nb_ops[arg&31]
             elif deop == CALL_INTRINSIC_1:
                 argrepr = _intrinsic_1_descs[arg]
             elif deop == CALL_INTRINSIC_2:

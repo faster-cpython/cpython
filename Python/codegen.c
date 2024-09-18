@@ -2840,6 +2840,55 @@ codegen_stmt_expr(compiler *c, location loc, expr_ty value)
     return SUCCESS;
 }
 
+int
+assign_is_overwriting_binop(stmt_ty s)
+{
+    assert(s->kind == Assign_kind);
+    Py_ssize_t n = asdl_seq_LEN(s->v.Assign.targets);
+    if (n != 1) {
+        return 0;
+    }
+    expr_ty rhs = s->v.Assign.value;
+    if (rhs->kind != BinOp_kind) {
+        return 0;
+    }
+    expr_ty target = (expr_ty)asdl_seq_GET(s->v.Assign.targets, 0);
+    if (target->kind != Name_kind) {
+        return 0;
+    }
+    expr_ty left = rhs->v.BinOp.left;
+    if (left->kind != Name_kind) {
+        return 0;
+    }
+    return _PyUnicode_Equal(target->v.Name.id, left->v.Name.id);
+}
+
+static int
+codegen_assign(compiler *c, stmt_ty s)
+{
+    Py_ssize_t n = asdl_seq_LEN(s->v.Assign.targets);
+    VISIT(c, expr, s->v.Assign.value);
+    _PyInstruction *binop = NULL;
+    if (assign_is_overwriting_binop(s)) {
+        binop = _PyInstructionSequence_LastInstruction(INSTR_SEQUENCE(c));
+        assert(binop->i_opcode == BINARY_OP);
+    }
+    for (Py_ssize_t i = 0; i < n; i++) {
+        if (i < n - 1) {
+            ADDOP_I(c, LOC(s), COPY, 1);
+        }
+        VISIT(c, expr,
+                (expr_ty)asdl_seq_GET(s->v.Assign.targets, i));
+    }
+    if (binop != NULL) {
+        _PyInstruction *instr = _PyInstructionSequence_LastInstruction(INSTR_SEQUENCE(c));
+        if (instr->i_opcode == STORE_FAST) {
+            binop->i_oparg |= NB_OVERWRITE_FLAG;
+        }
+    }
+    return SUCCESS;
+}
+
 static int
 codegen_visit_stmt(compiler *c, stmt_ty s)
 {
@@ -2857,18 +2906,7 @@ codegen_visit_stmt(compiler *c, stmt_ty s)
         VISIT_SEQ(c, expr, s->v.Delete.targets)
         break;
     case Assign_kind:
-    {
-        Py_ssize_t n = asdl_seq_LEN(s->v.Assign.targets);
-        VISIT(c, expr, s->v.Assign.value);
-        for (Py_ssize_t i = 0; i < n; i++) {
-            if (i < n - 1) {
-                ADDOP_I(c, LOC(s), COPY, 1);
-            }
-            VISIT(c, expr,
-                  (expr_ty)asdl_seq_GET(s->v.Assign.targets, i));
-        }
-        break;
-    }
+        return codegen_assign(c, s);
     case AugAssign_kind:
         return codegen_augassign(c, s);
     case AnnAssign_kind:
@@ -5073,10 +5111,20 @@ codegen_augassign(compiler *c, stmt_ty s)
     }
 
     loc = LOC(s);
-
+    bool load_fast = false;
+    _PyInstruction *instr = _PyInstructionSequence_LastInstruction(INSTR_SEQUENCE(c));
+    if (instr->i_opcode == LOAD_FAST) {
+        load_fast = true;
+    }
     VISIT(c, expr, s->v.AugAssign.value);
     ADDOP_INPLACE(c, loc, s->v.AugAssign.op);
-
+    /* If target is a 'fast' local, then mark BINARY_OP to show that the local
+     * is about to be overwritten */
+    if (load_fast) {
+        instr = _PyInstructionSequence_LastInstruction(INSTR_SEQUENCE(c));
+        assert(instr->i_opcode == BINARY_OP);
+        instr->i_oparg |= NB_OVERWRITE_FLAG;
+    }
     loc = LOC(e);
 
     switch (e->kind) {

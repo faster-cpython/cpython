@@ -36,6 +36,9 @@ extern "C" {
 
 #define NB_OPARG_LAST                           25
 
+#define NB_OPERATOR_MASK                        31
+#define NB_OVERWRITE_FLAG                      128
+
 #ifdef __cplusplus
 }
 #endif

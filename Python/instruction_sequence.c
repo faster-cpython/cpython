@@ -143,6 +143,12 @@ _PyInstructionSequence_InsertInstruction(instr_sequence *seq, int pos,
     return SUCCESS;
 }
 
+_PyInstruction *_PyInstructionSequence_LastInstruction(_PyInstructionSequence *seq)
+{
+    assert(seq->s_used >= 1);
+    return &seq->s_instrs[seq->s_used-1];
+}
+
 int
 _PyInstructionSequence_AddNested(instr_sequence *seq, instr_sequence *nested)
 {

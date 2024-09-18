@@ -5127,8 +5127,8 @@
             lhs = stack_pointer[-2];
             PyObject *lhs_o = PyStackRef_AsPyObjectBorrow(lhs);
             PyObject *rhs_o = PyStackRef_AsPyObjectBorrow(rhs);
-            assert(_PyEval_BinaryOps[oparg]);
-            PyObject *res_o = _PyEval_BinaryOps[oparg](lhs_o, rhs_o);
+            assert(_PyEval_BinaryOps[oparg & NB_OPERATOR_MASK]);
+            PyObject *res_o = _PyEval_BinaryOps[oparg & NB_OPERATOR_MASK](lhs_o, rhs_o);
             PyStackRef_CLOSE(lhs);
             PyStackRef_CLOSE(rhs);
             if (res_o == NULL) JUMP_TO_ERROR();

@@ -1794,7 +1794,7 @@ expected_opinfo_jumpy = [
   Instruction(opname='POP_TOP', opcode=29, arg=None, argval=None, argrepr='', offset=148, start_offset=148, starts_line=False, line_number=12, label=None, positions=None, cache_info=None),
   Instruction(opname='LOAD_FAST', opcode=81, arg=0, argval='i', argrepr='i', offset=150, start_offset=150, starts_line=True, line_number=13, label=None, positions=None, cache_info=None),
   Instruction(opname='LOAD_CONST', opcode=79, arg=5, argval=1, argrepr='1', offset=152, start_offset=152, starts_line=False, line_number=13, label=None, positions=None, cache_info=None),
-  Instruction(opname='BINARY_OP', opcode=42, arg=23, argval=23, argrepr='-=', offset=154, start_offset=154, starts_line=False, line_number=13, label=None, positions=None, cache_info=[('counter', 1, b'\x00\x00')]),
+  Instruction(opname='BINARY_OP', opcode=42, arg=151, argval=151, argrepr='-=', offset=154, start_offset=154, starts_line=False, line_number=13, label=None, positions=None, cache_info=[('counter', 1, b'\x00\x00')]),
   Instruction(opname='STORE_FAST', opcode=107, arg=0, argval='i', argrepr='i', offset=158, start_offset=158, starts_line=False, line_number=13, label=None, positions=None, cache_info=None),
   Instruction(opname='LOAD_FAST', opcode=81, arg=0, argval='i', argrepr='i', offset=160, start_offset=160, starts_line=True, line_number=14, label=None, positions=None, cache_info=None),
   Instruction(opname='LOAD_CONST', opcode=79, arg=3, argval=6, argrepr='6', offset=162, start_offset=162, starts_line=False, line_number=14, label=None, positions=None, cache_info=None),
