@@ -1470,6 +1470,9 @@ gc_collect_increment(PyThreadState *tstate, struct gc_collection_stats *stats)
         scale_factor = 1;
     }
     Py_ssize_t increment_size = 0;
+    gc_list_merge(&gcstate->young.head, &increment);
+    gcstate->young.count = 0;
+    gc_list_validate_space(&increment, gcstate->visited_space);
     while (increment_size < gcstate->work_to_do) {
         if (gc_list_is_empty(not_visited)) {
             break;
@@ -1881,7 +1884,6 @@ _PyGC_Collect(PyThreadState *tstate, int generation, _PyGC_Reason reason)
             gc_collect_young(tstate, &stats);
             break;
         case 1:
-            gc_collect_young(tstate, &stats);
             gc_collect_increment(tstate, &stats);
             break;
         case 2:
