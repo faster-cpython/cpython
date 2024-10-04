@@ -1951,11 +1951,37 @@ make_super_instruction(cfg_instr *inst1, cfg_instr *inst2, int super_op)
 static int
 insert_superinstructions(cfg_builder *g)
 {
+    uint64_t used = 0;
+    uint64_t used_twice = 0;
+    for (basicblock *b = g->g_entryblock; b != NULL; b = b->b_next) {
+        for (int i = 0; i < b->b_iused; i++) {
+            cfg_instr *inst = &b->b_instr[i];
+            int oparg = inst->i_oparg;
+            if (inst->i_opcode == STORE_FAST && oparg < 64) {
+                if (used & (1 << oparg)) {
+                    used_twice |= (1 << oparg);
+                }
+                used |= (1 << oparg);
+            }
+        }
+    }
+    for (basicblock *b = g->g_entryblock; b != NULL; b = b->b_next) {
+        for (int i = 0; i < b->b_iused; i++) {
+            cfg_instr *inst = &b->b_instr[i];
+            int oparg = inst->i_oparg;
+            if (inst->i_opcode == LOAD_FAST && oparg < 64) {
+                if ((used_twice & (1 << oparg)) == 0) {
+                    inst->i_opcode = LOAD_FAST_DEFERRED;
+                }
+            }
+        }
+    }
     for (basicblock *b = g->g_entryblock; b != NULL; b = b->b_next) {
 
         for (int i = 0; i < b->b_iused; i++) {
             cfg_instr *inst = &b->b_instr[i];
             int nextop = i+1 < b->b_iused ? b->b_instr[i+1].i_opcode : 0;
+            int oparg = inst->i_oparg;
             switch(inst->i_opcode) {
                 case LOAD_FAST:
                     if (nextop == LOAD_FAST) {
@@ -1963,6 +1989,12 @@ insert_superinstructions(cfg_builder *g)
                     }
                     break;
                 case STORE_FAST:
+                    if (oparg < 64) {
+                        if (used & (1 << oparg)) {
+                            used_twice |= (1 << oparg);
+                        }
+                        used |= (1 << oparg);
+                    }
                     switch (nextop) {
                         case LOAD_FAST:
                             make_super_instruction(inst, &b->b_instr[i + 1], STORE_FAST_LOAD_FAST);
