@@ -222,36 +222,10 @@ PyAPI_FUNC(void) Py_DecRef(PyObject *);
 PyAPI_FUNC(void) _Py_IncRef(PyObject *);
 PyAPI_FUNC(void) _Py_DecRef(PyObject *);
 
-static inline Py_ALWAYS_INLINE void Py_INCREF(PyObject *op)
+#if !defined(Py_GIL_DISABLED)
+static inline Py_ALWAYS_INLINE void Py_INCREF_MORTAL(PyObject *op)
 {
-#if defined(Py_LIMITED_API) && (Py_LIMITED_API+0 >= 0x030c0000 || defined(Py_REF_DEBUG))
-    // Stable ABI implements Py_INCREF() as a function call on limited C API
-    // version 3.12 and newer, and on Python built in debug mode. _Py_IncRef()
-    // was added to Python 3.10.0a7, use Py_IncRef() on older Python versions.
-    // Py_IncRef() accepts NULL whereas _Py_IncRef() doesn't.
-#  if Py_LIMITED_API+0 >= 0x030a00A7
-    _Py_IncRef(op);
-#  else
-    Py_IncRef(op);
-#  endif
-#else
-    // Non-limited C API and limited C API for Python 3.9 and older access
-    // directly PyObject.ob_refcnt.
-#if defined(Py_GIL_DISABLED)
-    uint32_t local = _Py_atomic_load_uint32_relaxed(&op->ob_ref_local);
-    uint32_t new_local = local + 1;
-    if (new_local == 0) {
-        _Py_INCREF_IMMORTAL_STAT_INC();
-        // local is equal to _Py_IMMORTAL_REFCNT_LOCAL: do nothing
-        return;
-    }
-    if (_Py_IsOwnedByCurrentThread(op)) {
-        _Py_atomic_store_uint32_relaxed(&op->ob_ref_local, new_local);
-    }
-    else {
-        _Py_atomic_add_ssize(&op->ob_ref_shared, (1 << _Py_REF_SHARED_SHIFT));
-    }
-#elif SIZEOF_VOID_P > 4
+#if SIZEOF_VOID_P > 4
     PY_UINT32_T cur_refcnt = op->ob_refcnt_split[PY_BIG_ENDIAN];
     if (((int32_t)cur_refcnt) < 0) {
         // the object is immortal
@@ -267,9 +241,48 @@ static inline Py_ALWAYS_INLINE void Py_INCREF(PyObject *op)
     op->ob_refcnt++;
 #endif
     _Py_INCREF_STAT_INC();
-#ifdef Py_REF_DEBUG
+#if defined(Py_REF_DEBUG) && !defined(Py_LIMITED_API)
     _Py_INCREF_IncRefTotal();
 #endif
+#endif
+}
+
+static inline Py_ALWAYS_INLINE void Py_INCREF(PyObject *op)
+{
+#if defined(Py_LIMITED_API) && (Py_LIMITED_API+0 >= 0x030c0000 || defined(Py_REF_DEBUG))
+    // Stable ABI implements Py_INCREF() as a function call on limited C API
+    // version 3.12 and newer, and on Python built in debug mode. _Py_IncRef()
+    // was added to Python 3.10.0a7, use Py_IncRef() on older Python versions.
+    // Py_IncRef() accepts NULL whereas _Py_IncRef() doesn't.
+#  if Py_LIMITED_API+0 >= 0x030a00A7
+    _Py_IncRef(op);
+#  else
+    Py_IncRef(op);
+#  endif
+#else
+    // Non-limited C API and limited C API for Python 3.9 and older access
+    // directly PyObject.ob_refcnt.
+#  if defined(Py_GIL_DISABLED)
+    uint32_t local = _Py_atomic_load_uint32_relaxed(&op->ob_ref_local);
+    uint32_t new_local = local + 1;
+    if (new_local == 0) {
+        _Py_INCREF_IMMORTAL_STAT_INC();
+        // local is equal to _Py_IMMORTAL_REFCNT_LOCAL: do nothing
+        return;
+    }
+    if (_Py_IsOwnedByCurrentThread(op)) {
+        _Py_atomic_store_uint32_relaxed(&op->ob_ref_local, new_local);
+    }
+    else {
+        _Py_atomic_add_ssize(&op->ob_ref_shared, (1 << _Py_REF_SHARED_SHIFT));
+    }
+#  else
+    if (_Py_IsImmortal(op)) {
+        _Py_INCREF_IMMORTAL_STAT_INC();
+        return;
+    }
+    Py_INCREF_MORTAL(op);
+#  endif
 #endif
 }
 #if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 < 0x030b0000
@@ -352,6 +365,15 @@ static inline void Py_DECREF(PyObject *op)
 #define Py_DECREF(op) Py_DECREF(_PyObject_CAST(op))
 
 #elif defined(Py_REF_DEBUG)
+static inline Py_ALWAYS_INLINE void Py_DECREF_MORTAL(PyObject *op)
+{
+    _Py_DECREF_STAT_INC();
+    _Py_DECREF_DecRefTotal();
+    if (--op->ob_refcnt == 0) {
+        _Py_Dealloc(op);
+    }
+}
+
 static inline void Py_DECREF(const char *filename, int lineno, PyObject *op)
 {
     if (op->ob_refcnt <= 0) {
@@ -361,15 +383,19 @@ static inline void Py_DECREF(const char *filename, int lineno, PyObject *op)
         _Py_DECREF_IMMORTAL_STAT_INC();
         return;
     }
-    _Py_DECREF_STAT_INC();
-    _Py_DECREF_DecRefTotal();
-    if (--op->ob_refcnt == 0) {
-        _Py_Dealloc(op);
-    }
+    Py_DECREF_MORTAL(op);
 }
 #define Py_DECREF(op) Py_DECREF(__FILE__, __LINE__, _PyObject_CAST(op))
 
 #else
+static inline Py_ALWAYS_INLINE void Py_DECREF_MORTAL(PyObject *op)
+{
+    _Py_DECREF_STAT_INC();
+    if (--op->ob_refcnt == 0) {
+        _Py_Dealloc(op);
+    }
+}
+
 static inline Py_ALWAYS_INLINE void Py_DECREF(PyObject *op)
 {
     // Non-limited C API and limited C API for Python 3.9 and older access
@@ -378,10 +404,7 @@ static inline Py_ALWAYS_INLINE void Py_DECREF(PyObject *op)
         _Py_DECREF_IMMORTAL_STAT_INC();
         return;
     }
-    _Py_DECREF_STAT_INC();
-    if (--op->ob_refcnt == 0) {
-        _Py_Dealloc(op);
-    }
+    Py_DECREF_MORTAL(op);
 }
 #define Py_DECREF(op) Py_DECREF(_PyObject_CAST(op))
 #endif
