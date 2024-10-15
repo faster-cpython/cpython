@@ -547,6 +547,7 @@ _PyGC_VisitFrameStack(_PyInterpreterFrame *frame, visitproc visit, void *arg)
     _PyStackRef *ref = _PyFrame_GetLocalsArray(frame);
     /* locals and stack */
     for (; ref < frame->stackpointer; ref++) {
+        assert(PyStackRef_IsHeapSafe(*ref));
         Py_VISIT(PyStackRef_AsPyObjectBorrow(*ref));
     }
     return 0;

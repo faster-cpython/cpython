@@ -281,9 +281,6 @@ partial_new(PyTypeObject *type, PyObject *args, PyObject *kw)
         if (kw == NULL) {
             pto->kw = PyDict_New();
         }
-        else if (Py_REFCNT(kw) == 1) {
-            pto->kw = Py_NewRef(kw);
-        }
         else {
             pto->kw = PyDict_Copy(kw);
         }

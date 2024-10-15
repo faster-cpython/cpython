@@ -547,6 +547,7 @@ NON_ESCAPING_FUNCTIONS = (
     "PyStackRef_FromPyObjectNew",
     "PyStackRef_FromPyObjectSteal",
     "PyStackRef_HasCount",
+    "PyStackRef_HeapSafe",
     "PyStackRef_Is",
     "PyStackRef_IsHeapSafe",
     "PyStackRef_IsNull",

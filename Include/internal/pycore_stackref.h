@@ -224,7 +224,9 @@ static inline PyObject *
 PyStackRef_AsPyObjectSteal(_PyStackRef ref)
 {
     if (PyStackRef_HasCount(ref)) {
-        return Py_NewRef(BITS_TO_PTR_MASKED(ref));
+        PyObject *obj = BITS_TO_PTR_MASKED(ref);
+        assert(Py_REFCNT(obj) > 0);
+        return Py_NewRef(obj);
     }
     else {
         return BITS_TO_PTR(ref);
@@ -249,6 +251,7 @@ _PyStackRef_FromPyObjectNew(PyObject *obj)
     if (_Py_IsDeferrable(obj)) {
         return (_PyStackRef){ .bits = ((uintptr_t)obj) | Py_TAG_REFCNT};
     }
+    assert(Py_REFCNT(obj) > 0);
     Py_INCREF(obj);
     _PyStackRef ref = (_PyStackRef){ .bits = (uintptr_t)obj };
     return ref;
@@ -259,6 +262,7 @@ _PyStackRef_FromPyObjectNew(PyObject *obj)
 static inline _PyStackRef
 _PyStackRef_FromPyObjectWithCount(PyObject *obj)
 {
+    assert(Py_REFCNT(obj) > 0);
     return (_PyStackRef){ .bits = (uintptr_t)obj | Py_TAG_REFCNT};
 }
 #define PyStackRef_FromPyObjectWithCount(obj) _PyStackRef_FromPyObjectWithCount(_PyObject_CAST(obj))
@@ -271,7 +275,9 @@ PyStackRef_DUP(_PyStackRef ref)
 {
     assert(!PyStackRef_IsNull(ref));
     if (!PyStackRef_HasCount(ref)) {
-        Py_INCREF_MORTAL(BITS_TO_PTR(ref));
+        PyObject *obj = BITS_TO_PTR(ref);
+        assert(Py_REFCNT(obj) > 0);
+        Py_INCREF_MORTAL(obj);
     }
     return ref;
 }
@@ -292,6 +298,7 @@ PyStackRef_HeapSafe(_PyStackRef ref)
     if (PyStackRef_HasCount(ref)) {
         PyObject *obj = BITS_TO_PTR_MASKED(ref);
         if (obj != NULL && !_Py_IsImmortal(obj)) {
+            assert(Py_REFCNT(obj) > 0);
             Py_INCREF_MORTAL(obj);
             ref.bits = (uintptr_t)obj;
         }

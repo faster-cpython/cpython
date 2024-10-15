@@ -4921,8 +4921,8 @@
                 #if TIER_ONE
                 assert(frame != &entry_frame);
                 #endif
-                _PyStackRef temp = retval;
-                assert(PyStackRef_IsHeapSafe(temp));
+                /* We should be able to avoid this with static analysis. */
+                _PyStackRef temp = PyStackRef_HeapSafe(retval);
                 stack_pointer += -1;
                 assert(WITHIN_STACK_BOUNDS());
                 _PyFrame_SetStackPointer(frame, stack_pointer);
@@ -4967,8 +4967,8 @@
                 #if TIER_ONE
                 assert(frame != &entry_frame);
                 #endif
-                _PyStackRef temp = retval;
-                assert(PyStackRef_IsHeapSafe(temp));
+                /* We should be able to avoid this with static analysis. */
+                _PyStackRef temp = PyStackRef_HeapSafe(retval);
                 stack_pointer += -1;
                 assert(WITHIN_STACK_BOUNDS());
                 _PyFrame_SetStackPointer(frame, stack_pointer);
@@ -5996,7 +5996,8 @@
             INSTRUCTION_STATS(LOAD_FAST_DEFERRED);
             _PyStackRef value;
             assert(!PyStackRef_IsNull(GETLOCAL(oparg)));
-            value = PyStackRef_DUP(GETLOCAL(oparg));
+            value = GETLOCAL(oparg);
+            value.bits |= Py_TAG_REFCNT;
             stack_pointer[0] = value;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
@@ -6995,8 +6996,8 @@
                 #if TIER_ONE
                 assert(frame != &entry_frame);
                 #endif
-                _PyStackRef temp = retval;
-                assert(PyStackRef_IsHeapSafe(temp));
+                /* We should be able to avoid this with static analysis. */
+                _PyStackRef temp = PyStackRef_HeapSafe(retval);
                 _PyFrame_SetStackPointer(frame, stack_pointer);
                 assert(EMPTY());
                 _Py_LeaveRecursiveCallPy(tstate);
@@ -7058,8 +7059,8 @@
             #if TIER_ONE
             assert(frame != &entry_frame);
             #endif
-            _PyStackRef temp = retval;
-            assert(PyStackRef_IsHeapSafe(temp));
+            /* We should be able to avoid this with static analysis. */
+            _PyStackRef temp = PyStackRef_HeapSafe(retval);
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
             _PyFrame_SetStackPointer(frame, stack_pointer);

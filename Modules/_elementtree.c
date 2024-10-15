@@ -893,27 +893,6 @@ deepcopy(elementtreestate *st, PyObject *object, PyObject *memo)
         return Py_NewRef(object);
     }
 
-    if (Py_REFCNT(object) == 1) {
-        if (PyDict_CheckExact(object)) {
-            PyObject *key, *value;
-            Py_ssize_t pos = 0;
-            int simple = 1;
-            while (PyDict_Next(object, &pos, &key, &value)) {
-                if (!PyUnicode_CheckExact(key) || !PyUnicode_CheckExact(value)) {
-                    simple = 0;
-                    break;
-                }
-            }
-            if (simple)
-                return PyDict_Copy(object);
-            /* Fall through to general case */
-        }
-        else if (Element_CheckExact(st, object)) {
-            return _elementtree_Element___deepcopy___impl(
-                (ElementObject *)object, memo);
-        }
-    }
-
     /* General case */
     if (!st->deepcopy_obj) {
         PyErr_SetString(PyExc_RuntimeError,
@@ -2749,16 +2728,7 @@ treebuilder_handle_data(TreeBuilderObject* self, PyObject* data)
         self->data = Py_NewRef(data);
     } else {
         /* more than one item; use a list to collect items */
-        if (PyBytes_CheckExact(self->data) && Py_REFCNT(self->data) == 1 &&
-            PyBytes_CheckExact(data) && PyBytes_GET_SIZE(data) == 1) {
-            /* XXX this code path unused in Python 3? */
-            /* expat often generates single character data sections; handle
-               the most common case by resizing the existing string... */
-            Py_ssize_t size = PyBytes_GET_SIZE(self->data);
-            if (_PyBytes_Resize(&self->data, size + 1) < 0)
-                return NULL;
-            PyBytes_AS_STRING(self->data)[size] = PyBytes_AS_STRING(data)[0];
-        } else if (PyList_CheckExact(self->data)) {
+        if (PyList_CheckExact(self->data)) {
             if (PyList_Append(self->data, data) < 0)
                 return NULL;
         } else {

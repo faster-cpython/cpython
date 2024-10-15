@@ -43,6 +43,8 @@ tuple_alloc(Py_ssize_t size)
     if (index < PyTuple_MAXSAVESIZE) {
         PyTupleObject *op = _Py_FREELIST_POP(PyTupleObject, tuples[index]);
         if (op != NULL) {
+            assert(Py_SIZE(op) == -1);
+            Py_SET_SIZE(op, size);
             return op;
         }
     }
@@ -1142,6 +1144,7 @@ maybe_freelist_push(PyTupleObject *op)
     }
     Py_ssize_t index = Py_SIZE(op) - 1;
     if (index < PyTuple_MAXSAVESIZE) {
+        Py_SET_SIZE(op, -1);
         return _Py_FREELIST_PUSH(tuples[index], op, Py_tuple_MAXFREELIST);
     }
     return 0;

@@ -244,7 +244,8 @@ dummy_func(
 
         inst(LOAD_FAST_DEFERRED, (-- value)) {
             assert(!PyStackRef_IsNull(GETLOCAL(oparg)));
-            value = PyStackRef_DUP(GETLOCAL(oparg));
+            value = GETLOCAL(oparg);
+            value.bits |= Py_TAG_REFCNT;
         }
 
         inst(LOAD_FAST_AND_CLEAR, (-- value)) {
@@ -1001,8 +1002,8 @@ dummy_func(
             #if TIER_ONE
             assert(frame != &entry_frame);
             #endif
-            _PyStackRef temp = retval;
-            assert(PyStackRef_IsHeapSafe(temp));
+            /* We should be able to avoid this with static analysis. */
+            _PyStackRef temp = PyStackRef_HeapSafe(retval);
             DEAD(retval);
             SAVE_STACK();
             assert(EMPTY());
