@@ -1229,7 +1229,6 @@ static void
 gc_collect_region(PyThreadState *tstate,
                   PyGC_Head *from,
                   PyGC_Head *to,
-                  int untrack,
                   struct gc_collection_stats *stats);
 
 static inline Py_ssize_t
@@ -1291,7 +1290,7 @@ gc_collect_young(PyThreadState *tstate,
 
     PyGC_Head survivors;
     gc_list_init(&survivors);
-    gc_collect_region(tstate, young, &survivors, UNTRACK_TUPLES, stats);
+    gc_collect_region(tstate, young, &survivors, stats);
     Py_ssize_t survivor_count = 0;
     if (gcstate->visited_space) {
         /* objects in visited space have bit set, so we set it here */
@@ -1434,7 +1433,7 @@ gc_collect_increment(PyThreadState *tstate, struct gc_collection_stats *stats)
     gc_list_validate_space(&increment, gcstate->visited_space);
     PyGC_Head survivors;
     gc_list_init(&survivors);
-    gc_collect_region(tstate, &increment, &survivors, UNTRACK_TUPLES | UNTRACK_DICTS, stats);
+    gc_collect_region(tstate, &increment, &survivors, stats);
     gc_list_validate_space(&survivors, gcstate->visited_space);
     gc_list_merge(&survivors, visited);
     assert(gc_list_is_empty(&increment));
@@ -1466,9 +1465,7 @@ gc_collect_full(PyThreadState *tstate,
     gcstate->young.count = 0;
     gc_list_merge(pending, visited);
 
-    gc_collect_region(tstate, visited, visited,
-                      UNTRACK_TUPLES | UNTRACK_DICTS,
-                      stats);
+    gc_collect_region(tstate, visited, visited, stats);
     gcstate->young.count = 0;
     gcstate->old[0].count = 0;
     gcstate->old[1].count = 0;
@@ -1485,7 +1482,6 @@ static void
 gc_collect_region(PyThreadState *tstate,
                   PyGC_Head *from,
                   PyGC_Head *to,
-                  int untrack,
                   struct gc_collection_stats *stats)
 {
     PyGC_Head unreachable; /* non-problematic unreachable trash */
