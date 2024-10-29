@@ -725,35 +725,6 @@ move_unreachable(PyGC_Head *young, PyGC_Head *unreachable)
     unreachable->_gc_next &= _PyGC_PREV_MASK;
 }
 
-static void
-untrack_tuples(PyGC_Head *head)
-{
-    PyGC_Head *next, *gc = GC_NEXT(head);
-    while (gc != head) {
-        PyObject *op = FROM_GC(gc);
-        next = GC_NEXT(gc);
-        if (PyTuple_CheckExact(op)) {
-            _PyTuple_MaybeUntrack(op);
-        }
-        gc = next;
-    }
-}
-
-/* Try to untrack all currently tracked dictionaries */
-static void
-untrack_dicts(PyGC_Head *head)
-{
-    PyGC_Head *next, *gc = GC_NEXT(head);
-    while (gc != head) {
-        PyObject *op = FROM_GC(gc);
-        next = GC_NEXT(gc);
-        if (PyDict_CheckExact(op)) {
-            _PyDict_MaybeUntrack(op);
-        }
-        gc = next;
-    }
-}
-
 /* Return true if object has a pre-PEP 442 finalization method. */
 static int
 has_legacy_finalizer(PyObject *op)
@@ -1463,7 +1434,7 @@ gc_collect_increment(PyThreadState *tstate, struct gc_collection_stats *stats)
     gc_list_validate_space(&increment, gcstate->visited_space);
     PyGC_Head survivors;
     gc_list_init(&survivors);
-    gc_collect_region(tstate, &increment, &survivors, UNTRACK_TUPLES, stats);
+    gc_collect_region(tstate, &increment, &survivors, UNTRACK_TUPLES | UNTRACK_DICTS, stats);
     gc_list_validate_space(&survivors, gcstate->visited_space);
     gc_list_merge(&survivors, visited);
     assert(gc_list_is_empty(&increment));
@@ -1528,11 +1499,18 @@ gc_collect_region(PyThreadState *tstate,
     gc_list_init(&unreachable);
     deduce_unreachable(from, &unreachable);
     validate_consistent_old_space(from);
-    if (untrack & UNTRACK_TUPLES) {
-        untrack_tuples(from);
-    }
-    if (untrack & UNTRACK_DICTS) {
-        untrack_dicts(from);
+
+    gc = GC_NEXT(from);
+    while (gc != from) {
+        PyGC_Head *next = GC_NEXT(gc);
+        PyObject *op = FROM_GC(gc);
+        if (PyTuple_CheckExact(op)) {
+            _PyTuple_MaybeUntrack(op);
+        }
+        else if (PyDict_CheckExact(op)) {
+            _PyDict_MaybeUntrack(op);
+        }
+        gc = next;
     }
     validate_consistent_old_space(to);
     if (from != to) {
