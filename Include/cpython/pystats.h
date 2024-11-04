@@ -91,6 +91,12 @@ typedef struct _object_stats {
     uint64_t type_cache_dunder_hits;
     uint64_t type_cache_dunder_misses;
     uint64_t type_cache_collisions;
+    uint64_t dict_visits;
+    uint64_t list_visits;
+    uint64_t tuple_visits;
+    uint64_t immortal_object_visits;
+    uint64_t gc_object_visits;
+    uint64_t non_gc_object_visits;
     /* Temporary value used during GC */
     uint64_t object_visits;
 } ObjectStats;

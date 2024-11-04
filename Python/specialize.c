@@ -222,6 +222,13 @@ print_object_stats(FILE *out, ObjectStats *stats)
     fprintf(out, "Object method cache collisions: %" PRIu64 "\n", stats->type_cache_collisions);
     fprintf(out, "Object method cache dunder hits: %" PRIu64 "\n", stats->type_cache_dunder_hits);
     fprintf(out, "Object method cache dunder misses: %" PRIu64 "\n", stats->type_cache_dunder_misses);
+    fprintf(out, "Object tuple visits: %" PRIu64 "\n", stats->tuple_visits);
+    fprintf(out, "Object dict visits: %" PRIu64 "\n", stats->dict_visits);
+    fprintf(out, "Object list visits: %" PRIu64 "\n", stats->list_visits);
+    fprintf(out, "Object tuple visits: %" PRIu64 "\n", stats->tuple_visits);
+    fprintf(out, "Object immortal object visits: %" PRIu64 "\n", stats->immortal_object_visits);
+    fprintf(out, "Object GC object visits: %" PRIu64 "\n", stats->gc_object_visits);
+    fprintf(out, "Object non-GC object visits: %" PRIu64 "\n", stats->non_gc_object_visits);
 }
 
 static void

@@ -514,11 +514,36 @@ update_refs(PyGC_Head *containers)
     }
 }
 
+#ifdef Py_STATS
+void _PyStats_ObjectVisit(PyObject *op)
+{
+    OBJECT_STAT_INC(object_visits);
+    if (_Py_IsImmortal(op)) {
+        OBJECT_STAT_INC(immortal_object_visits);
+    }
+    else if (PyDict_CheckExact(op)) {
+        OBJECT_STAT_INC(dict_visits);
+    }
+    else if (PyList_CheckExact(op)) {
+        OBJECT_STAT_INC(list_visits);
+    }
+    else if (PyTuple_CheckExact(op)) {
+        OBJECT_STAT_INC(tuple_visits);
+    }
+    else if (_PyObject_IS_GC(op)) {
+        OBJECT_STAT_INC(gc_object_visits);
+    }
+    else {
+        OBJECT_STAT_INC(non_gc_object_visits);
+    }
+}
+#endif
+
 /* A traversal callback for subtract_refs. */
 static int
 visit_decref(PyObject *op, void *parent)
 {
-    OBJECT_STAT_INC(object_visits);
+    OBJECT_VISIT(op);
     _PyObject_ASSERT(_PyObject_CAST(parent), !_PyObject_IsFreed(op));
 
     if (_PyObject_IS_GC(op)) {
@@ -576,7 +601,7 @@ static int
 visit_reachable(PyObject *op, void *arg)
 {
     PyGC_Head *reachable = arg;
-    OBJECT_STAT_INC(object_visits);
+    OBJECT_VISIT(op);
     if (!_PyObject_IS_GC(op)) {
         return 0;
     }
@@ -816,7 +841,7 @@ static int
 visit_move(PyObject *op, void *arg)
 {
     PyGC_Head *tolist = arg;
-    OBJECT_STAT_INC(object_visits);
+    OBJECT_VISIT(op);
     if (_PyObject_IS_GC(op)) {
         PyGC_Head *gc = AS_GC(op);
         if (gc_is_collecting(gc)) {
@@ -1367,7 +1392,7 @@ struct container_and_flag {
 static int
 visit_add_to_container(PyObject *op, void *arg)
 {
-    OBJECT_STAT_INC(object_visits);
+    OBJECT_VISIT(op);
     struct container_and_flag *cf = (struct container_and_flag *)arg;
     int visited = cf->visited_space;
     assert(visited == get_gc_state()->visited_space);

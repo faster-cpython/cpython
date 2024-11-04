@@ -389,6 +389,9 @@ extern void _Py_Specialize_ContainsOp(_PyStackRef value, _Py_CODEUNIT *instr);
 // Export for '_opcode' shared extension
 PyAPI_FUNC(PyObject*) _Py_GetSpecializationStats(void);
 
+extern void _PyStats_ObjectVisit(PyObject *op);
+#define OBJECT_VISIT(op) _PyStats_ObjectVisit(op)
+
 #else
 #define STAT_INC(opname, name) ((void)0)
 #define STAT_DEC(opname, name) ((void)0)
@@ -396,6 +399,7 @@ PyAPI_FUNC(PyObject*) _Py_GetSpecializationStats(void);
 #define CALL_STAT_INC(name) ((void)0)
 #define OBJECT_STAT_INC(name) ((void)0)
 #define OBJECT_STAT_INC_COND(name, cond) ((void)0)
+#define OBJECT_VISIT(op) ((void)0)
 #define EVAL_CALL_STAT_INC(name) ((void)0)
 #define EVAL_CALL_STAT_INC_IF_FUNCTION(name, callable) ((void)0)
 #define GC_STAT_ADD(gen, name, n) ((void)0)
