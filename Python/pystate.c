@@ -811,8 +811,7 @@ interpreter_clear(PyInterpreterState *interp, PyThreadState *tstate)
 
 #ifdef _Py_TIER2
     _PyOptimizerObject *old = _Py_SetOptimizer(interp, NULL);
-    assert(old != NULL);
-    Py_DECREF(old);
+    Py_XDECREF(old);
 #endif
 
     /* It is possible that any of the objects below have a finalizer

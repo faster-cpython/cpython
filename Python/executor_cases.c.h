@@ -3275,6 +3275,16 @@
             break;
         }
 
+        case __JUMP_BACKWARD_NO_OPT: {
+            oparg = CURRENT_OPARG();
+            if (tstate->interp->optimizer != NULL) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            JUMPBY(-oparg);
+            break;
+        }
+
         /* _POP_JUMP_IF_FALSE is not a viable micro-op for tier 2 because it is replaced */
 
         /* _POP_JUMP_IF_TRUE is not a viable micro-op for tier 2 because it is replaced */

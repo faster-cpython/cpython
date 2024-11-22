@@ -83,6 +83,9 @@ _specializations = {
         "CONTAINS_OP_SET",
         "CONTAINS_OP_DICT",
     ],
+    "JUMP_BACKWARD": [
+        "_JUMP_BACKWARD_NO_OPT",
+    ],
     "FOR_ITER": [
         "FOR_ITER_LIST",
         "FOR_ITER_TUPLE",
@@ -198,6 +201,7 @@ _specialized_opmap = {
     'UNPACK_SEQUENCE_LIST': 225,
     'UNPACK_SEQUENCE_TUPLE': 226,
     'UNPACK_SEQUENCE_TWO_TUPLE': 227,
+    '_JUMP_BACKWARD_NO_OPT': 228,
 }
 
 opmap = {

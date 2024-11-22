@@ -2613,22 +2613,27 @@ dummy_func(
             _Py_BackoffCounter counter = this_instr[1].counter;
             if (backoff_counter_triggers(counter) && this_instr->op.code == JUMP_BACKWARD) {
                 _Py_CODEUNIT *start = this_instr;
-                /* Back up over EXTENDED_ARGs so optimizer sees the whole instruction */
-                while (oparg > 255) {
-                    oparg >>= 8;
-                    start--;
-                }
-                _PyExecutorObject *executor;
-                int optimized = _PyOptimizer_Optimize(frame, start, stack_pointer, &executor, 0);
-                if (optimized <= 0) {
-                    this_instr[1].counter = restart_backoff_counter(counter);
-                    ERROR_IF(optimized < 0, error);
+                if (tstate->interp->optimizer == NULL) {
+                    this_instr[1].op.code = _JUMP_BACKWARD_NO_OPT;
                 }
                 else {
-                    this_instr[1].counter = initial_jump_backoff_counter();
-                    assert(tstate->previous_executor == NULL);
-                    tstate->previous_executor = Py_None;
-                    GOTO_TIER_TWO(executor);
+                    /* Back up over EXTENDED_ARGs so optimizer sees the whole instruction */
+                    while (oparg > 255) {
+                        oparg >>= 8;
+                        start--;
+                    }
+                    _PyExecutorObject *executor;
+                    int optimized = _PyOptimizer_Optimize(frame, start, stack_pointer, &executor, 0);
+                    if (optimized <= 0) {
+                        this_instr[1].counter = restart_backoff_counter(counter);
+                        ERROR_IF(optimized < 0, error);
+                    }
+                    else {
+                        this_instr[1].counter = initial_jump_backoff_counter();
+                        assert(tstate->previous_executor == NULL);
+                        tstate->previous_executor = Py_None;
+                        GOTO_TIER_TWO(executor);
+                    }
                 }
             }
             else {
@@ -2638,9 +2643,18 @@ dummy_func(
             #endif /* _Py_TIER2 */
         }
 
+        inst(_JUMP_BACKWARD_NO_OPT, (unused/1 --)) {
+            DEOPT_IF(tstate->interp->optimizer != NULL);
+            JUMPBY(-oparg);
+        }
+
         macro(JUMP_BACKWARD) =
             _CHECK_PERIODIC +
             _JUMP_BACKWARD;
+
+        family(JUMP_BACKWARD, 1) = {
+            _JUMP_BACKWARD_NO_OPT,
+        };
 
         pseudo(JUMP, (--)) = {
             JUMP_FORWARD,

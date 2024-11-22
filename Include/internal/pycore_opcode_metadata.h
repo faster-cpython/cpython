@@ -483,6 +483,8 @@ int _PyOpcode_num_popped(int opcode, int oparg)  {
             return 5;
         case YIELD_VALUE:
             return 1;
+        case _JUMP_BACKWARD_NO_OPT:
+            return 0;
         default:
             return -1;
     }
@@ -942,6 +944,8 @@ int _PyOpcode_num_pushed(int opcode, int oparg)  {
             return 6;
         case YIELD_VALUE:
             return 1;
+        case _JUMP_BACKWARD_NO_OPT:
+            return 0;
         default:
             return -1;
     }
@@ -1228,6 +1232,7 @@ const struct opcode_metadata _PyOpcode_opcode_metadata[266] = {
     [UNPACK_SEQUENCE_TWO_TUPLE] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG | HAS_DEOPT_FLAG },
     [WITH_EXCEPT_START] = { true, INSTR_FMT_IX, HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [YIELD_VALUE] = { true, INSTR_FMT_IB, HAS_ARG_FLAG },
+    [_JUMP_BACKWARD_NO_OPT] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG | HAS_JUMP_FLAG | HAS_DEOPT_FLAG },
     [JUMP] = { true, -1, HAS_ARG_FLAG | HAS_JUMP_FLAG | HAS_EVAL_BREAK_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [JUMP_IF_FALSE] = { true, -1, HAS_ARG_FLAG | HAS_JUMP_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [JUMP_IF_TRUE] = { true, -1, HAS_ARG_FLAG | HAS_JUMP_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
@@ -1427,6 +1432,7 @@ _PyOpcode_macro_expansion[256] = {
     [UNPACK_SEQUENCE_TWO_TUPLE] = { .nuops = 1, .uops = { { _UNPACK_SEQUENCE_TWO_TUPLE, 0, 0 } } },
     [WITH_EXCEPT_START] = { .nuops = 1, .uops = { { _WITH_EXCEPT_START, 0, 0 } } },
     [YIELD_VALUE] = { .nuops = 1, .uops = { { _YIELD_VALUE, 0, 0 } } },
+    [_JUMP_BACKWARD_NO_OPT] = { .nuops = 1, .uops = { { __JUMP_BACKWARD_NO_OPT, 0, 0 } } },
 };
 #endif // NEED_OPCODE_METADATA
 
@@ -1657,6 +1663,7 @@ const char *_PyOpcode_OpName[266] = {
     [UNPACK_SEQUENCE_TWO_TUPLE] = "UNPACK_SEQUENCE_TWO_TUPLE",
     [WITH_EXCEPT_START] = "WITH_EXCEPT_START",
     [YIELD_VALUE] = "YIELD_VALUE",
+    [_JUMP_BACKWARD_NO_OPT] = "_JUMP_BACKWARD_NO_OPT",
 };
 #endif
 
@@ -1903,6 +1910,7 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [UNPACK_SEQUENCE_TWO_TUPLE] = UNPACK_SEQUENCE,
     [WITH_EXCEPT_START] = WITH_EXCEPT_START,
     [YIELD_VALUE] = YIELD_VALUE,
+    [_JUMP_BACKWARD_NO_OPT] = JUMP_BACKWARD,
 };
 
 #endif // NEED_OPCODE_METADATA
@@ -1941,7 +1949,6 @@ const uint8_t _PyOpcode_Deopt[256] = {
     case 146: \
     case 147: \
     case 148: \
-    case 228: \
     case 229: \
     case 230: \
     case 231: \

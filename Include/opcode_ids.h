@@ -205,6 +205,7 @@ extern "C" {
 #define UNPACK_SEQUENCE_LIST                   225
 #define UNPACK_SEQUENCE_TUPLE                  226
 #define UNPACK_SEQUENCE_TWO_TUPLE              227
+#define _JUMP_BACKWARD_NO_OPT                  228
 #define INSTRUMENTED_END_FOR                   237
 #define INSTRUMENTED_END_SEND                  238
 #define INSTRUMENTED_LOAD_SUPER_ATTR           239

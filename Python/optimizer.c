@@ -90,20 +90,6 @@ insert_executor(PyCodeObject *code, _Py_CODEUNIT *instr, int index, _PyExecutorO
     instr->op.arg = index;
 }
 
-
-static int
-never_optimize(
-    _PyOptimizerObject* self,
-    _PyInterpreterFrame *frame,
-    _Py_CODEUNIT *instr,
-    _PyExecutorObject **exec,
-    int Py_UNUSED(stack_entries),
-    bool Py_UNUSED(progress_needed))
-{
-    // This may be called if the optimizer is reset
-    return 0;
-}
-
 PyTypeObject _PyDefaultOptimizer_Type = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
     .tp_name = "noop_optimizer",
@@ -112,19 +98,11 @@ PyTypeObject _PyDefaultOptimizer_Type = {
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
 };
 
-static _PyOptimizerObject _PyOptimizer_Default = {
-    PyObject_HEAD_INIT(&_PyDefaultOptimizer_Type)
-    .optimize = never_optimize,
-};
-
 _PyOptimizerObject *
 _Py_GetOptimizer(void)
 {
     PyInterpreterState *interp = _PyInterpreterState_GET();
-    if (interp->optimizer == &_PyOptimizer_Default) {
-        return NULL;
-    }
-    Py_INCREF(interp->optimizer);
+    Py_XINCREF(interp->optimizer);
     return interp->optimizer;
 }
 
@@ -136,14 +114,8 @@ static const _PyBloomFilter EMPTY_FILTER = { 0 };
 _PyOptimizerObject *
 _Py_SetOptimizer(PyInterpreterState *interp, _PyOptimizerObject *optimizer)
 {
-    if (optimizer == NULL) {
-        optimizer = &_PyOptimizer_Default;
-    }
     _PyOptimizerObject *old = interp->optimizer;
-    if (old == NULL) {
-        old = &_PyOptimizer_Default;
-    }
-    Py_INCREF(optimizer);
+    Py_XINCREF(optimizer);
     interp->optimizer = optimizer;
     return old;
 }
@@ -154,7 +126,7 @@ _Py_SetTier2Optimizer(_PyOptimizerObject *optimizer)
     PyInterpreterState *interp = _PyInterpreterState_GET();
     _PyOptimizerObject *old = _Py_SetOptimizer(interp, optimizer);
     Py_XDECREF(old);
-    return old == NULL ? -1 : 0;
+    return 0;
 }
 
 /* Returns 1 if optimized, 0 if not optimized, and -1 for an error.
@@ -178,6 +150,9 @@ _PyOptimizer_Optimize(
         return 0;
     }
     _PyOptimizerObject *opt = interp->optimizer;
+    if (opt == NULL) {
+        return 0;
+    }
     int err = opt->optimize(opt, frame, start, executor_ptr, (int)(stack_pointer - _PyFrame_Stackbase(frame)), progress_needed);
     if (err <= 0) {
         return err;

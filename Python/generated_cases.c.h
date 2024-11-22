@@ -5057,10 +5057,12 @@
         }
 
         TARGET(JUMP_BACKWARD) {
-            _Py_CODEUNIT* const this_instr = frame->instr_ptr = next_instr;
-            (void)this_instr;
+            frame->instr_ptr = next_instr;
             next_instr += 2;
             INSTRUCTION_STATS(JUMP_BACKWARD);
+            PREDICTED(JUMP_BACKWARD);
+            _Py_CODEUNIT* const this_instr = next_instr - 2;
+            (void)this_instr;
             // _CHECK_PERIODIC
             {
                 _Py_CHECK_EMSCRIPTEN_SIGNALS_PERIODICALLY();
@@ -5083,26 +5085,31 @@
                 _Py_BackoffCounter counter = this_instr[1].counter;
                 if (backoff_counter_triggers(counter) && this_instr->op.code == JUMP_BACKWARD) {
                     _Py_CODEUNIT *start = this_instr;
-                    /* Back up over EXTENDED_ARGs so optimizer sees the whole instruction */
-                    while (oparg > 255) {
-                        oparg >>= 8;
-                        start--;
-                    }
-                    _PyExecutorObject *executor;
-                    _PyFrame_SetStackPointer(frame, stack_pointer);
-                    int optimized = _PyOptimizer_Optimize(frame, start, stack_pointer, &executor, 0);
-                    stack_pointer = _PyFrame_GetStackPointer(frame);
-                    if (optimized <= 0) {
-                        this_instr[1].counter = restart_backoff_counter(counter);
-                        if (optimized < 0) goto error;
+                    if (tstate->interp->optimizer == NULL) {
+                        this_instr[1].op.code = _JUMP_BACKWARD_NO_OPT;
                     }
                     else {
+                        /* Back up over EXTENDED_ARGs so optimizer sees the whole instruction */
+                        while (oparg > 255) {
+                            oparg >>= 8;
+                            start--;
+                        }
+                        _PyExecutorObject *executor;
                         _PyFrame_SetStackPointer(frame, stack_pointer);
-                        this_instr[1].counter = initial_jump_backoff_counter();
+                        int optimized = _PyOptimizer_Optimize(frame, start, stack_pointer, &executor, 0);
                         stack_pointer = _PyFrame_GetStackPointer(frame);
-                        assert(tstate->previous_executor == NULL);
-                        tstate->previous_executor = Py_None;
-                        GOTO_TIER_TWO(executor);
+                        if (optimized <= 0) {
+                            this_instr[1].counter = restart_backoff_counter(counter);
+                            if (optimized < 0) goto error;
+                        }
+                        else {
+                            _PyFrame_SetStackPointer(frame, stack_pointer);
+                            this_instr[1].counter = initial_jump_backoff_counter();
+                            stack_pointer = _PyFrame_GetStackPointer(frame);
+                            assert(tstate->previous_executor == NULL);
+                            tstate->previous_executor = Py_None;
+                            GOTO_TIER_TWO(executor);
+                        }
                     }
                 }
                 else {
@@ -8178,6 +8185,17 @@
             stack_pointer[0] = value;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
+            DISPATCH();
+        }
+
+        TARGET(_JUMP_BACKWARD_NO_OPT) {
+            frame->instr_ptr = next_instr;
+            next_instr += 2;
+            INSTRUCTION_STATS(_JUMP_BACKWARD_NO_OPT);
+            static_assert(1 == 1, "incorrect cache size");
+            /* Skip 1 cache entry */
+            DEOPT_IF(tstate->interp->optimizer != NULL, JUMP_BACKWARD);
+            JUMPBY(-oparg);
             DISPATCH();
         }
 #undef TIER_ONE

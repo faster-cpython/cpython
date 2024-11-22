@@ -227,7 +227,7 @@ static void *opcode_targets[256] = {
     &&TARGET_UNPACK_SEQUENCE_LIST,
     &&TARGET_UNPACK_SEQUENCE_TUPLE,
     &&TARGET_UNPACK_SEQUENCE_TWO_TUPLE,
-    &&_unknown_opcode,
+    &&TARGET__JUMP_BACKWARD_NO_OPT,
     &&_unknown_opcode,
     &&_unknown_opcode,
     &&_unknown_opcode,
