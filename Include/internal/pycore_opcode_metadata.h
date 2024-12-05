@@ -267,6 +267,8 @@ int _PyOpcode_num_popped(int opcode, int oparg)  {
             return 0;
         case JUMP_BACKWARD_NO_INTERRUPT:
             return 0;
+        case JUMP_BACKWARD_NO_JIT:
+            return 0;
         case JUMP_FORWARD:
             return 0;
         case JUMP_IF_FALSE:
@@ -725,6 +727,8 @@ int _PyOpcode_num_pushed(int opcode, int oparg)  {
         case JUMP_BACKWARD:
             return 0;
         case JUMP_BACKWARD_NO_INTERRUPT:
+            return 0;
+        case JUMP_BACKWARD_NO_JIT:
             return 0;
         case JUMP_FORWARD:
             return 0;
@@ -1435,6 +1439,10 @@ int _PyOpcode_max_stack_effect(int opcode, int oparg, int *effect)  {
             *effect = 0;
             return 0;
         }
+        case JUMP_BACKWARD_NO_JIT: {
+            *effect = 0;
+            return 0;
+        }
         case JUMP_FORWARD: {
             *effect = 0;
             return 0;
@@ -2054,6 +2062,7 @@ const struct opcode_metadata _PyOpcode_opcode_metadata[266] = {
     [IS_OP] = { true, INSTR_FMT_IB, HAS_ARG_FLAG },
     [JUMP_BACKWARD] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG | HAS_JUMP_FLAG | HAS_EVAL_BREAK_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [JUMP_BACKWARD_NO_INTERRUPT] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_JUMP_FLAG },
+    [JUMP_BACKWARD_NO_JIT] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG | HAS_JUMP_FLAG },
     [JUMP_FORWARD] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_JUMP_FLAG },
     [LIST_APPEND] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_ERROR_FLAG },
     [LIST_EXTEND] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
@@ -2262,6 +2271,7 @@ _PyOpcode_macro_expansion[256] = {
     [IMPORT_FROM] = { .nuops = 1, .uops = { { _IMPORT_FROM, 0, 0 } } },
     [IMPORT_NAME] = { .nuops = 1, .uops = { { _IMPORT_NAME, 0, 0 } } },
     [IS_OP] = { .nuops = 1, .uops = { { _IS_OP, 0, 0 } } },
+    [JUMP_BACKWARD_NO_JIT] = { .nuops = 1, .uops = { { _JUMP_BACKWARD_NO_JIT, 0, 0 } } },
     [LIST_APPEND] = { .nuops = 1, .uops = { { _LIST_APPEND, 0, 0 } } },
     [LIST_EXTEND] = { .nuops = 1, .uops = { { _LIST_EXTEND, 0, 0 } } },
     [LOAD_ATTR] = { .nuops = 1, .uops = { { _LOAD_ATTR, 0, 0 } } },
@@ -2474,6 +2484,7 @@ const char *_PyOpcode_OpName[266] = {
     [JUMP] = "JUMP",
     [JUMP_BACKWARD] = "JUMP_BACKWARD",
     [JUMP_BACKWARD_NO_INTERRUPT] = "JUMP_BACKWARD_NO_INTERRUPT",
+    [JUMP_BACKWARD_NO_JIT] = "JUMP_BACKWARD_NO_JIT",
     [JUMP_FORWARD] = "JUMP_FORWARD",
     [JUMP_IF_FALSE] = "JUMP_IF_FALSE",
     [JUMP_IF_TRUE] = "JUMP_IF_TRUE",
@@ -2729,6 +2740,7 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [IS_OP] = IS_OP,
     [JUMP_BACKWARD] = JUMP_BACKWARD,
     [JUMP_BACKWARD_NO_INTERRUPT] = JUMP_BACKWARD_NO_INTERRUPT,
+    [JUMP_BACKWARD_NO_JIT] = JUMP_BACKWARD,
     [JUMP_FORWARD] = JUMP_FORWARD,
     [LIST_APPEND] = LIST_APPEND,
     [LIST_EXTEND] = LIST_EXTEND,
@@ -2866,7 +2878,6 @@ const uint8_t _PyOpcode_Deopt[256] = {
     case 146: \
     case 147: \
     case 148: \
-    case 228: \
     case 229: \
     case 230: \
     case 231: \

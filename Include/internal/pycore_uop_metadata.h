@@ -180,6 +180,7 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_CHECK_EXC_MATCH] = HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_IMPORT_NAME] = HAS_ARG_FLAG | HAS_NAME_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_IMPORT_FROM] = HAS_ARG_FLAG | HAS_NAME_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
+    [_JUMP_BACKWARD_NO_JIT] = HAS_ARG_FLAG | HAS_JUMP_FLAG,
     [_IS_NONE] = 0,
     [_GET_LEN] = HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_MATCH_CLASS] = HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
@@ -445,6 +446,7 @@ const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_ITER_NEXT_LIST] = "_ITER_NEXT_LIST",
     [_ITER_NEXT_RANGE] = "_ITER_NEXT_RANGE",
     [_ITER_NEXT_TUPLE] = "_ITER_NEXT_TUPLE",
+    [_JUMP_BACKWARD_NO_JIT] = "_JUMP_BACKWARD_NO_JIT",
     [_JUMP_TO_TOP] = "_JUMP_TO_TOP",
     [_LIST_APPEND] = "_LIST_APPEND",
     [_LIST_EXTEND] = "_LIST_EXTEND",
@@ -900,6 +902,8 @@ int _PyUop_num_popped(int opcode, int oparg)
         case _IMPORT_NAME:
             return 2;
         case _IMPORT_FROM:
+            return 0;
+        case _JUMP_BACKWARD_NO_JIT:
             return 0;
         case _IS_NONE:
             return 1;

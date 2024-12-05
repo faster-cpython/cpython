@@ -465,6 +465,9 @@ _PyCode_Quicken(_Py_CODEUNIT *instructions, Py_ssize_t size, PyObject *consts,
             switch (opcode) {
                 case JUMP_BACKWARD:
                     instructions[i + 1].counter = jump_counter;
+#if defined(_Py_TIER2) && (_Py_TIER2 == 3 || _Py_TIER2 == 6)
+                    instructions[i].op.code = JUMP_BACKWARD_NO_JIT;
+#endif
                     break;
                 case POP_JUMP_IF_FALSE:
                 case POP_JUMP_IF_TRUE:

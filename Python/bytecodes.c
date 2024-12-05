@@ -2659,9 +2659,17 @@ dummy_func(
             #endif /* _Py_TIER2 */
         }
 
+        inst(JUMP_BACKWARD_NO_JIT, (unused/1 --)) {
+            JUMPBY(-oparg);
+        }
+
         macro(JUMP_BACKWARD) =
             _CHECK_PERIODIC +
             _JUMP_BACKWARD;
+
+        family(JUMP_BACKWARD, 1) = {
+            JUMP_BACKWARD_NO_JIT,
+        };
 
         pseudo(JUMP, (--)) = {
             JUMP_FORWARD,

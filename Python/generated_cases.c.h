@@ -5058,10 +5058,12 @@
         }
 
         TARGET(JUMP_BACKWARD) {
-            _Py_CODEUNIT* const this_instr = frame->instr_ptr = next_instr;
-            (void)this_instr;
+            frame->instr_ptr = next_instr;
             next_instr += 2;
             INSTRUCTION_STATS(JUMP_BACKWARD);
+            PREDICTED(JUMP_BACKWARD);
+            _Py_CODEUNIT* const this_instr = next_instr - 2;
+            (void)this_instr;
             // _CHECK_PERIODIC
             {
                 _Py_CHECK_EMSCRIPTEN_SIGNALS_PERIODICALLY();
@@ -5124,6 +5126,16 @@
              * generator or coroutine, so we deliberately do not check it here.
              * (see bpo-30039).
              */
+            JUMPBY(-oparg);
+            DISPATCH();
+        }
+
+        TARGET(JUMP_BACKWARD_NO_JIT) {
+            frame->instr_ptr = next_instr;
+            next_instr += 2;
+            INSTRUCTION_STATS(JUMP_BACKWARD_NO_JIT);
+            static_assert(1 == 1, "incorrect cache size");
+            /* Skip 1 cache entry */
             JUMPBY(-oparg);
             DISPATCH();
         }

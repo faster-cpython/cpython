@@ -3313,6 +3313,12 @@
             break;
         }
 
+        case _JUMP_BACKWARD_NO_JIT: {
+            oparg = CURRENT_OPARG();
+            JUMPBY(-oparg);
+            break;
+        }
+
         /* _POP_JUMP_IF_FALSE is not a viable micro-op for tier 2 because it is replaced */
 
         /* _POP_JUMP_IF_TRUE is not a viable micro-op for tier 2 because it is replaced */
