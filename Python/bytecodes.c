@@ -5064,6 +5064,10 @@ dummy_func(
             null = PyStackRef_NULL;
         }
 
+        tier2 op(_LOAD_DICT_KEYS, (ptr/4 -- keys: PyDictKeysObject *)) {
+            keys = (PyDictKeysObject *)ptr;
+        }
+
         tier2 op(_CHECK_FUNCTION, (func_version/2 -- )) {
             assert(PyStackRef_FunctionCheck(frame->f_funcobj));
             PyFunctionObject *func = (PyFunctionObject *)PyStackRef_AsPyObjectBorrow(frame->f_funcobj);
@@ -5086,7 +5090,15 @@ dummy_func(
             DEOPT_IF(res_o == NULL);
             Py_INCREF(res_o);
             res = PyStackRef_FromPyObjectSteal(res_o);
-         }
+        }
+
+        tier2 op(_REPLACE_DICT_KEYS_WITH_CONST, (ptr/4, keys -- value)) {
+            value = PyStackRef_FromPyObjectNew(ptr);
+        }
+
+        tier2 op(_REPLACE_DICT_KEYS_WITH_CONST_IMMORTAL, (ptr/4, keys -- value)) {
+            value = PyStackRef_FromPyObjectImmortal(ptr);
+        }
 
         tier2 op(_LOAD_ATTR_MODULE, (index/1, owner -- attr)) {
             PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);

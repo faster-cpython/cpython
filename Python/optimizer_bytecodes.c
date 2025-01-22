@@ -17,11 +17,14 @@ typedef struct _Py_UOpsAbstractFrame _Py_UOpsAbstractFrame;
 #define sym_new_type _Py_uop_sym_new_type
 #define sym_is_null _Py_uop_sym_is_null
 #define sym_new_const _Py_uop_sym_new_const
+#define sym_new_dict_keys _Py_uop_sym_new_dict_keys
+#define sym_get_dict_keys _Py_uop_sym_get_dict_keys
 #define sym_new_null _Py_uop_sym_new_null
 #define sym_matches_type _Py_uop_sym_matches_type
 #define sym_matches_type_version _Py_uop_sym_matches_type_version
 #define sym_get_type _Py_uop_sym_get_type
 #define sym_has_type _Py_uop_sym_has_type
+#define sym_set_function_version _Py_uop_sym_set_function_version
 #define sym_set_null(SYM) _Py_uop_sym_set_null(ctx, SYM)
 #define sym_set_non_null(SYM) _Py_uop_sym_set_non_null(ctx, SYM)
 #define sym_set_type(SYM, TYPE) _Py_uop_sym_set_type(ctx, SYM, TYPE)
@@ -542,7 +545,7 @@ dummy_func(void) {
             if (PyModule_CheckExact(cnst)) {
                 PyModuleObject *mod = (PyModuleObject *)cnst;
                 PyObject *dict = mod->md_dict;
-                uint64_t watched_mutations = get_mutations(dict);
+                uint64_t watched_mutations = get_mutations((PyDictObject *)dict);
                 if (watched_mutations < _Py_MAX_ALLOWED_GLOBALS_MODIFICATIONS) {
                     PyDict_Watch(GLOBALS_WATCHER_ID, dict);
                     _Py_BloomFilter_Add(dependencies, dict);
@@ -649,6 +652,9 @@ dummy_func(void) {
             REPLACE_OP(this_instr, _CHECK_FUNCTION_VERSION_INLINE, 0, func_version);
             this_instr->operand1 = (uintptr_t)sym_get_const(callable);
         }
+        else {
+            sym_set_function_version(ctx, callable, func_version);
+        }
         sym_set_type(callable, &PyFunction_Type);
     }
 
@@ -682,7 +688,6 @@ dummy_func(void) {
             ctx->done = true;
             break;
         }
-
 
         assert(self_or_null != NULL);
         assert(args != NULL);
@@ -938,17 +943,89 @@ dummy_func(void) {
     }
 
     op(_GUARD_GLOBALS_VERSION_PUSH_KEYS, (version/1 -- globals_keys)) {
-        globals_keys = sym_new_unknown(ctx);
-        (void)version;
+        if (optimize_guard_globals_version(this_instr, version, ctx)) {
+            REPLACE_OP(this_instr, _LOAD_DICT_KEYS, 0, (uintptr_t)ctx->frame->function->func_globals);
+            globals_keys = sym_new_dict_keys(ctx, ctx->frame->function->func_globals);
+        }
+        else {
+            globals_keys = sym_new_unknown(ctx);
+        }
+    }
+
+    op(_LOAD_GLOBAL_BUILTINS_FROM_KEYS, (index/1, keys -- res)) {
+        res = NULL;
+        PyDictKeysObject *builtins_keys = sym_get_dict_keys(keys);
+        if (builtins_keys != NULL) {
+            if (ctx->frame->builtins_watched) {
+                assert(DK_IS_UNICODE(builtins_keys));
+                PyDictUnicodeEntry* entries = DK_UNICODE_ENTRIES(builtins_keys);
+                PyObject *val = entries[index].me_value;
+                if (val != NULL) {
+                    int op = _Py_IsImmortal(val) ?
+                        _REPLACE_DICT_KEYS_WITH_CONST_IMMORTAL :
+                        _REPLACE_DICT_KEYS_WITH_CONST;
+                    REPLACE_OP(this_instr, op, 0, (uintptr_t)val);
+                    res = sym_new_const(ctx, val);
+                }
+            }
+        }
+        if (res == NULL) {
+            res = sym_new_unknown(ctx);
+        }
+    }
+
+    op(_LOAD_DICT_KEYS, (ptr/4 -- keys)) {
+        (void)ptr;
+        keys = sym_new_unknown(ctx);
+    }
+
+    op(_GUARD_GLOBALS_VERSION, (version/1 --)) {
+        optimize_guard_globals_version(this_instr, version, ctx);
     }
 
     op(_GUARD_BUILTINS_VERSION_PUSH_KEYS, (version/1 -- builtins_keys)) {
-        builtins_keys = sym_new_unknown(ctx);
-        (void)version;
+        PyInterpreterState *interp = PyInterpreterState_Get();
+        builtins_keys = NULL;
+        if (interp->rare_events.builtin_dict >= _Py_MAX_ALLOWED_BUILTINS_MODIFICATIONS) {
+            goto done;
+        }
+        if (ctx->frame->function == NULL) {
+            goto done;
+        }
+        PyDictObject *builtins = (PyDictObject *)ctx->frame->function->func_builtins;
+        if (!PyDict_CheckExact(builtins)) {
+            goto done;
+        }
+        if ((PyObject *)builtins != interp->builtins) {
+            OPT_STAT_INC(remove_globals_builtins_changed);
+            goto done;
+        }
+        if (builtins->ma_keys->dk_version != version) {
+            OPT_STAT_INC(remove_globals_incorrect_keys);
+            goto done;
+        }
+        if (!ctx->frame->builtins_watched) {
+            PyDict_Watch(BUILTINS_WATCHER_ID, (PyObject *)builtins);
+            ctx->frame->builtins_watched = true;
+        }
+        REPLACE_OP(this_instr, _LOAD_DICT_KEYS, 0, (uintptr_t)ctx->frame->function->func_builtins);
+        builtins_keys = sym_new_dict_keys(ctx, (PyObject *)builtins);
+    done:
+        if (builtins_keys == NULL) {
+            builtins_keys = sym_new_unknown(ctx);
+        }
     }
 
     op(_REPLACE_WITH_TRUE, (value -- res)) {
         res = sym_new_const(ctx, Py_True);
+    }
+
+    op(_REPLACE_DICT_KEYS_WITH_CONST, (ptr/4, keys -- value)) {
+        value = sym_new_const(ctx, (PyObject *)(uintptr_t)ptr);
+    }
+
+    op(_REPLACE_DICT_KEYS_WITH_CONST_IMMORTAL, (ptr/4, keys -- value)) {
+        value = sym_new_const(ctx, (PyObject *)(uintptr_t)ptr);
     }
 
     op(_BUILD_TUPLE, (values[oparg] -- tup)) {

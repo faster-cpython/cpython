@@ -279,9 +279,12 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_POP_TOP_LOAD_CONST_INLINE_BORROW] = HAS_ESCAPES_FLAG | HAS_PURE_FLAG,
     [_LOAD_CONST_INLINE_WITH_NULL] = HAS_PURE_FLAG,
     [_LOAD_CONST_INLINE_BORROW_WITH_NULL] = HAS_PURE_FLAG,
+    [_LOAD_DICT_KEYS] = 0,
     [_CHECK_FUNCTION] = HAS_DEOPT_FLAG,
     [_LOAD_GLOBAL_MODULE] = HAS_DEOPT_FLAG,
     [_LOAD_GLOBAL_BUILTINS] = HAS_DEOPT_FLAG,
+    [_REPLACE_DICT_KEYS_WITH_CONST] = 0,
+    [_REPLACE_DICT_KEYS_WITH_CONST_IMMORTAL] = 0,
     [_LOAD_ATTR_MODULE] = HAS_DEOPT_FLAG,
     [_DYNAMIC_EXIT] = HAS_ESCAPES_FLAG,
     [_START_EXECUTOR] = HAS_ESCAPES_FLAG,
@@ -469,6 +472,7 @@ const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_LOAD_CONST_INLINE_WITH_NULL] = "_LOAD_CONST_INLINE_WITH_NULL",
     [_LOAD_CONST_MORTAL] = "_LOAD_CONST_MORTAL",
     [_LOAD_DEREF] = "_LOAD_DEREF",
+    [_LOAD_DICT_KEYS] = "_LOAD_DICT_KEYS",
     [_LOAD_FAST] = "_LOAD_FAST",
     [_LOAD_FAST_0] = "_LOAD_FAST_0",
     [_LOAD_FAST_1] = "_LOAD_FAST_1",
@@ -521,6 +525,8 @@ const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_PUSH_NULL] = "_PUSH_NULL",
     [_PY_FRAME_GENERAL] = "_PY_FRAME_GENERAL",
     [_PY_FRAME_KW] = "_PY_FRAME_KW",
+    [_REPLACE_DICT_KEYS_WITH_CONST] = "_REPLACE_DICT_KEYS_WITH_CONST",
+    [_REPLACE_DICT_KEYS_WITH_CONST_IMMORTAL] = "_REPLACE_DICT_KEYS_WITH_CONST_IMMORTAL",
     [_REPLACE_WITH_TRUE] = "_REPLACE_WITH_TRUE",
     [_RESUME_CHECK] = "_RESUME_CHECK",
     [_RETURN_GENERATOR] = "_RETURN_GENERATOR",
@@ -1097,12 +1103,18 @@ int _PyUop_num_popped(int opcode, int oparg)
             return 0;
         case _LOAD_CONST_INLINE_BORROW_WITH_NULL:
             return 0;
+        case _LOAD_DICT_KEYS:
+            return 0;
         case _CHECK_FUNCTION:
             return 0;
         case _LOAD_GLOBAL_MODULE:
             return 0;
         case _LOAD_GLOBAL_BUILTINS:
             return 0;
+        case _REPLACE_DICT_KEYS_WITH_CONST:
+            return 1;
+        case _REPLACE_DICT_KEYS_WITH_CONST_IMMORTAL:
+            return 1;
         case _LOAD_ATTR_MODULE:
             return 1;
         case _DYNAMIC_EXIT:

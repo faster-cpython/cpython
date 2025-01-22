@@ -108,6 +108,7 @@ _Py_uop_sym_get_const(JitOptSymbol *sym)
     if (sym->tag == JIT_SYM_KNOWN_VALUE_TAG) {
         return sym->value.value;
     }
+
     return NULL;
 }
 
@@ -121,6 +122,11 @@ _Py_uop_sym_set_type(JitOptContext *ctx, JitOptSymbol *sym, PyTypeObject *typ)
             return;
         case JIT_SYM_KNOWN_CLASS_TAG:
             if (sym->cls.type != typ) {
+                sym_set_bottom(ctx, sym);
+            }
+            return;
+        case JIT_SYM_FUNCTION_TAG:
+            if (typ != &PyFunction_Type) {
                 sym_set_bottom(ctx, sym);
             }
             return;
@@ -153,6 +159,10 @@ _Py_uop_sym_set_type(JitOptContext *ctx, JitOptSymbol *sym, PyTypeObject *typ)
             sym->cls.version = 0;
             sym->cls.type = typ;
             return;
+        case JIT_SYM_DICT_KEYS_TAG:
+            Py_CLEAR(sym->keys.dict);
+            sym_set_bottom(ctx, sym);
+            return;
     }
 }
 
@@ -178,6 +188,7 @@ _Py_uop_sym_set_type_version(JitOptContext *ctx, JitOptSymbol *sym, unsigned int
             sym_set_bottom(ctx, sym);
             return false;
         case JIT_SYM_TUPLE_TAG:
+        case JIT_SYM_FUNCTION_TAG:
             sym_set_bottom(ctx, sym);
             return false;
         case JIT_SYM_TYPE_VERSION_TAG:
@@ -193,6 +204,10 @@ _Py_uop_sym_set_type_version(JitOptContext *ctx, JitOptSymbol *sym, unsigned int
             sym->tag = JIT_SYM_TYPE_VERSION_TAG;
             sym->version.version = version;
             return true;
+        case JIT_SYM_DICT_KEYS_TAG:
+            Py_CLEAR(sym->keys.dict);
+            sym_set_bottom(ctx, sym);
+            return false;
     }
     Py_UNREACHABLE();
 }
@@ -227,6 +242,9 @@ _Py_uop_sym_set_const(JitOptContext *ctx, JitOptSymbol *sym, PyObject *const_val
         case JIT_SYM_TUPLE_TAG:
             sym_set_bottom(ctx, sym);
             return;
+        case JIT_SYM_FUNCTION_TAG:
+            sym_set_bottom(ctx, sym);
+            return;
         case JIT_SYM_TYPE_VERSION_TAG:
             if (sym->version.version != Py_TYPE(const_val)->tp_version_tag) {
                 sym_set_bottom(ctx, sym);
@@ -239,6 +257,68 @@ _Py_uop_sym_set_const(JitOptContext *ctx, JitOptSymbol *sym, PyObject *const_val
         case JIT_SYM_NON_NULL_TAG:
         case JIT_SYM_UNKNOWN_TAG:
             make_const(sym, const_val);
+            return;
+        case JIT_SYM_DICT_KEYS_TAG:
+            Py_CLEAR(sym->keys.dict);
+            sym_set_bottom(ctx, sym);
+            return;
+    }
+}
+
+static void
+make_function(JitOptSymbol *sym, uint32_t version)
+{
+    sym->tag = JIT_SYM_FUNCTION_TAG;
+    sym->function.version = version;
+    sym->function.arg_count = 0;
+    sym->function.code = NULL;
+}
+
+void
+_Py_uop_sym_set_function_version(JitOptContext *ctx, JitOptSymbol *sym, uint32_t version)
+{
+    JitSymType tag = sym->tag;
+    switch(tag) {
+        case JIT_SYM_NULL_TAG:
+            sym_set_bottom(ctx, sym);
+            return;
+        case JIT_SYM_KNOWN_CLASS_TAG:
+            if (sym->cls.type == &PyFunction_Type) {
+                make_function(sym, version);
+            }
+            else {
+                sym_set_bottom(ctx, sym);
+            }
+            return;
+        case JIT_SYM_KNOWN_VALUE_TAG:
+            if (Py_TYPE(sym->value.value) == &PyFunction_Type) {
+                make_function(sym, version);
+            }
+            else {
+                Py_CLEAR(sym->value.value);
+                sym_set_bottom(ctx, sym);
+            }
+            return;
+        case JIT_SYM_TUPLE_TAG:
+            sym_set_bottom(ctx, sym);
+            return;
+        case JIT_SYM_FUNCTION_TAG:
+            if (sym->function.version != version) {
+                sym_set_bottom(ctx, sym);
+            }
+            return;
+        case JIT_SYM_TYPE_VERSION_TAG:
+            sym_set_bottom(ctx, sym);
+            return;
+        case JIT_SYM_BOTTOM_TAG:
+            return;
+        case JIT_SYM_NON_NULL_TAG:
+        case JIT_SYM_UNKNOWN_TAG:
+            make_function(sym, version);
+            return;
+        case JIT_SYM_DICT_KEYS_TAG:
+            Py_CLEAR(sym->keys.dict);
+            sym_set_bottom(ctx, sym);
             return;
     }
 }
@@ -260,7 +340,7 @@ _Py_uop_sym_set_non_null(JitOptContext *ctx, JitOptSymbol *sym)
     if (sym->tag == JIT_SYM_UNKNOWN_TAG) {
         sym->tag = JIT_SYM_NON_NULL_TAG;
     }
-    else if (sym->tag == JIT_SYM_NULL_TAG) {
+    else if (sym->tag == JIT_SYM_NULL_TAG || sym->tag == JIT_SYM_DICT_KEYS_TAG) {
         sym_set_bottom(ctx, sym);
     }
 }
@@ -332,6 +412,7 @@ _Py_uop_sym_get_type(JitOptSymbol *sym)
         case JIT_SYM_BOTTOM_TAG:
         case JIT_SYM_NON_NULL_TAG:
         case JIT_SYM_UNKNOWN_TAG:
+        case JIT_SYM_DICT_KEYS_TAG:
             return NULL;
         case JIT_SYM_KNOWN_CLASS_TAG:
             return sym->cls.type;
@@ -339,6 +420,8 @@ _Py_uop_sym_get_type(JitOptSymbol *sym)
             return Py_TYPE(sym->value.value);
         case JIT_SYM_TUPLE_TAG:
             return &PyTuple_Type;
+        case JIT_SYM_FUNCTION_TAG:
+            return &PyFunction_Type;
     }
     Py_UNREACHABLE();
 }
@@ -352,6 +435,7 @@ _Py_uop_sym_get_type_version(JitOptSymbol *sym)
         case JIT_SYM_BOTTOM_TAG:
         case JIT_SYM_NON_NULL_TAG:
         case JIT_SYM_UNKNOWN_TAG:
+        case JIT_SYM_DICT_KEYS_TAG:
             return 0;
         case JIT_SYM_TYPE_VERSION_TAG:
             return sym->version.version;
@@ -361,6 +445,8 @@ _Py_uop_sym_get_type_version(JitOptSymbol *sym)
             return Py_TYPE(sym->value.value)->tp_version_tag;
         case JIT_SYM_TUPLE_TAG:
             return PyTuple_Type.tp_version_tag;
+        case JIT_SYM_FUNCTION_TAG:
+            return PyFunction_Type.tp_version_tag;
     }
     Py_UNREACHABLE();
 }
@@ -375,10 +461,12 @@ _Py_uop_sym_has_type(JitOptSymbol *sym)
         case JIT_SYM_BOTTOM_TAG:
         case JIT_SYM_NON_NULL_TAG:
         case JIT_SYM_UNKNOWN_TAG:
+        case JIT_SYM_DICT_KEYS_TAG:
             return false;
         case JIT_SYM_KNOWN_CLASS_TAG:
         case JIT_SYM_KNOWN_VALUE_TAG:
         case JIT_SYM_TUPLE_TAG:
+        case JIT_SYM_FUNCTION_TAG:
             return true;
     }
     Py_UNREACHABLE();
@@ -406,6 +494,7 @@ _Py_uop_sym_truthiness(JitOptSymbol *sym)
         case JIT_SYM_BOTTOM_TAG:
         case JIT_SYM_NON_NULL_TAG:
         case JIT_SYM_UNKNOWN_TAG:
+        case JIT_SYM_DICT_KEYS_TAG:
             return -1;
         case JIT_SYM_KNOWN_CLASS_TAG:
             /* TODO :
@@ -416,6 +505,8 @@ _Py_uop_sym_truthiness(JitOptSymbol *sym)
             break;
         case JIT_SYM_TUPLE_TAG:
             return sym->tuple.length != 0;
+        case JIT_SYM_FUNCTION_TAG:
+            return 1;
     }
     PyObject *value = sym->value.value;
     /* Only handle a few known safe types */
@@ -493,6 +584,31 @@ _Py_uop_sym_tuple_length(JitOptSymbol *sym)
     return -1;
 }
 
+JitOptSymbol *
+_Py_uop_sym_new_dict_keys(JitOptContext *ctx, PyObject *dict)
+{
+    JitOptSymbol *res = sym_new(ctx);
+    if (res == NULL) {
+        return out_of_space(ctx);
+    }
+    if (!PyDict_CheckExact(dict)) {
+        sym_set_bottom(ctx, res);
+        return res;
+    }
+    res->tag = JIT_SYM_DICT_KEYS_TAG;
+    res->keys.dict = (PyDictObject *)Py_NewRef(dict);
+    return res;
+}
+
+PyDictKeysObject *
+_Py_uop_sym_get_dict_keys(JitOptSymbol *sym)
+{
+    if (sym->tag == JIT_SYM_DICT_KEYS_TAG) {
+        return sym->keys.dict->ma_keys;
+    }
+    return NULL;
+}
+
 // Return true if known to be immortal.
 bool
 _Py_uop_sym_is_immortal(JitOptSymbol *sym)
@@ -547,6 +663,10 @@ _Py_uop_frame_new(
         JitOptSymbol *stackvar = _Py_uop_sym_new_unknown(ctx);
         frame->stack[i] = stackvar;
     }
+    frame->function = NULL;
+    frame->function_checked = false;
+    frame->builtins_watched = false;
+    frame->globals_watched = false;
 
     return frame;
 }
@@ -563,6 +683,9 @@ _Py_uop_abstractcontext_fini(JitOptContext *ctx)
         JitOptSymbol *sym = &ctx->t_arena.arena[i];
         if (sym->tag == JIT_SYM_KNOWN_VALUE_TAG) {
             Py_CLEAR(sym->value.value);
+        }
+        else if (sym->tag == JIT_SYM_DICT_KEYS_TAG) {
+            Py_CLEAR(sym->keys.dict);
         }
     }
 }

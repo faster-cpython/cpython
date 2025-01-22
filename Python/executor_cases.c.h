@@ -5995,6 +5995,16 @@
             break;
         }
 
+        case _LOAD_DICT_KEYS: {
+            PyDictKeysObject *keys;
+            PyObject *ptr = (PyObject *)CURRENT_OPERAND0();
+            keys = (PyDictKeysObject *)ptr;
+            stack_pointer[0].bits = (uintptr_t)keys;
+            stack_pointer += 1;
+            assert(WITHIN_STACK_BOUNDS());
+            break;
+        }
+
         case _CHECK_FUNCTION: {
             uint32_t func_version = (uint32_t)CURRENT_OPERAND0();
             assert(PyStackRef_FunctionCheck(frame->f_funcobj));
@@ -6039,6 +6049,22 @@
             stack_pointer[0] = res;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
+            break;
+        }
+
+        case _REPLACE_DICT_KEYS_WITH_CONST: {
+            _PyStackRef value;
+            PyObject *ptr = (PyObject *)CURRENT_OPERAND0();
+            value = PyStackRef_FromPyObjectNew(ptr);
+            stack_pointer[-1] = value;
+            break;
+        }
+
+        case _REPLACE_DICT_KEYS_WITH_CONST_IMMORTAL: {
+            _PyStackRef value;
+            PyObject *ptr = (PyObject *)CURRENT_OPERAND0();
+            value = PyStackRef_FromPyObjectImmortal(ptr);
+            stack_pointer[-1] = value;
             break;
         }
 

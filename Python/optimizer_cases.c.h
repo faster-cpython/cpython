@@ -936,14 +936,21 @@
         }
 
         case _GUARD_GLOBALS_VERSION: {
+            uint16_t version = (uint16_t)this_instr->operand0;
+            optimize_guard_globals_version(this_instr, version, ctx);
             break;
         }
 
         case _GUARD_GLOBALS_VERSION_PUSH_KEYS: {
             JitOptSymbol *globals_keys;
             uint16_t version = (uint16_t)this_instr->operand0;
-            globals_keys = sym_new_unknown(ctx);
-            (void)version;
+            if (optimize_guard_globals_version(this_instr, version, ctx)) {
+                REPLACE_OP(this_instr, _LOAD_DICT_KEYS, 0, (uintptr_t)ctx->frame->function->func_globals);
+                globals_keys = sym_new_dict_keys(ctx, ctx->frame->function->func_globals);
+            }
+            else {
+                globals_keys = sym_new_unknown(ctx);
+            }
             stack_pointer[0] = globals_keys;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
@@ -953,8 +960,41 @@
         case _GUARD_BUILTINS_VERSION_PUSH_KEYS: {
             JitOptSymbol *builtins_keys;
             uint16_t version = (uint16_t)this_instr->operand0;
-            builtins_keys = sym_new_unknown(ctx);
-            (void)version;
+            PyInterpreterState *interp = PyInterpreterState_Get();
+            builtins_keys = NULL;
+            if (interp->rare_events.builtin_dict >= _Py_MAX_ALLOWED_BUILTINS_MODIFICATIONS) {
+                goto done;
+            }
+            if (ctx->frame->function == NULL) {
+                goto done;
+            }
+            PyDictObject *builtins = (PyDictObject *)ctx->frame->function->func_builtins;
+            if (!PyDict_CheckExact(builtins)) {
+                goto done;
+            }
+            if ((PyObject *)builtins != interp->builtins) {
+                OPT_STAT_INC(remove_globals_builtins_changed);
+                goto done;
+            }
+            if (builtins->ma_keys->dk_version != version) {
+                OPT_STAT_INC(remove_globals_incorrect_keys);
+                goto done;
+            }
+            if (!ctx->frame->builtins_watched) {
+                stack_pointer[0] = builtins_keys;
+                stack_pointer += 1;
+                assert(WITHIN_STACK_BOUNDS());
+                PyDict_Watch(BUILTINS_WATCHER_ID, (PyObject *)builtins);
+                ctx->frame->builtins_watched = true;
+                stack_pointer += -1;
+                assert(WITHIN_STACK_BOUNDS());
+            }
+            REPLACE_OP(this_instr, _LOAD_DICT_KEYS, 0, (uintptr_t)ctx->frame->function->func_builtins);
+            builtins_keys = sym_new_dict_keys(ctx, (PyObject *)builtins);
+            done:
+            if (builtins_keys == NULL) {
+                builtins_keys = sym_new_unknown(ctx);
+            }
             stack_pointer[0] = builtins_keys;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
@@ -969,8 +1009,29 @@
         }
 
         case _LOAD_GLOBAL_BUILTINS_FROM_KEYS: {
+            JitOptSymbol *keys;
             JitOptSymbol *res;
-            res = sym_new_not_null(ctx);
+            keys = stack_pointer[-1];
+            uint16_t index = (uint16_t)this_instr->operand0;
+            res = NULL;
+            PyDictKeysObject *builtins_keys = sym_get_dict_keys(keys);
+            if (builtins_keys != NULL) {
+                if (ctx->frame->builtins_watched) {
+                    assert(DK_IS_UNICODE(builtins_keys));
+                    PyDictUnicodeEntry* entries = DK_UNICODE_ENTRIES(builtins_keys);
+                    PyObject *val = entries[index].me_value;
+                    if (val != NULL) {
+                        int op = _Py_IsImmortal(val) ?
+                        _REPLACE_DICT_KEYS_WITH_CONST_IMMORTAL :
+                        _REPLACE_DICT_KEYS_WITH_CONST;
+                        REPLACE_OP(this_instr, op, 0, (uintptr_t)val);
+                        res = sym_new_const(ctx, val);
+                    }
+                }
+            }
+            if (res == NULL) {
+                res = sym_new_unknown(ctx);
+            }
             stack_pointer[-1] = res;
             break;
         }
@@ -1205,7 +1266,7 @@
                     stack_pointer[0] = mod_keys;
                     stack_pointer += 1;
                     assert(WITHIN_STACK_BOUNDS());
-                    uint64_t watched_mutations = get_mutations(dict);
+                    uint64_t watched_mutations = get_mutations((PyDictObject *)dict);
                     if (watched_mutations < _Py_MAX_ALLOWED_GLOBALS_MODIFICATIONS) {
                         PyDict_Watch(GLOBALS_WATCHER_ID, dict);
                         _Py_BloomFilter_Add(dependencies, dict);
@@ -1822,6 +1883,9 @@
                 assert(PyFunction_Check(sym_get_const(callable)));
                 REPLACE_OP(this_instr, _CHECK_FUNCTION_VERSION_INLINE, 0, func_version);
                 this_instr->operand1 = (uintptr_t)sym_get_const(callable);
+            }
+            else {
+                sym_set_function_version(ctx, callable, func_version);
             }
             sym_set_type(callable, &PyFunction_Type);
             break;
@@ -2610,6 +2674,17 @@
             break;
         }
 
+        case _LOAD_DICT_KEYS: {
+            JitOptSymbol *keys;
+            PyObject *ptr = (PyObject *)this_instr->operand0;
+            (void)ptr;
+            keys = sym_new_unknown(ctx);
+            stack_pointer[0] = keys;
+            stack_pointer += 1;
+            assert(WITHIN_STACK_BOUNDS());
+            break;
+        }
+
         case _CHECK_FUNCTION: {
             break;
         }
@@ -2629,6 +2704,22 @@
             stack_pointer[0] = res;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
+            break;
+        }
+
+        case _REPLACE_DICT_KEYS_WITH_CONST: {
+            JitOptSymbol *value;
+            PyObject *ptr = (PyObject *)this_instr->operand0;
+            value = sym_new_const(ctx, (PyObject *)(uintptr_t)ptr);
+            stack_pointer[-1] = value;
+            break;
+        }
+
+        case _REPLACE_DICT_KEYS_WITH_CONST_IMMORTAL: {
+            JitOptSymbol *value;
+            PyObject *ptr = (PyObject *)this_instr->operand0;
+            value = sym_new_const(ctx, (PyObject *)(uintptr_t)ptr);
+            stack_pointer[-1] = value;
             break;
         }
 

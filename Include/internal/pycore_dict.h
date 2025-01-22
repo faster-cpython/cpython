@@ -104,6 +104,7 @@ extern uint32_t _PyDict_GetKeysVersionForCurrentState(
 extern size_t _PyDict_KeysSize(PyDictKeysObject *keys);
 
 extern void _PyDictKeys_DecRef(PyDictKeysObject *keys);
+extern void _PyDictKeys_IncRef(PyDictKeysObject *keys);
 
 /* _Py_dict_lookup() returns index of entry which can be used like DK_ENTRIES(dk)[index].
  * -1 when no entry found, -3 when compare raises error.

@@ -7506,6 +7506,12 @@ _PyDictKeys_DecRef(PyDictKeysObject *keys)
     dictkeys_decref(interp, keys, false);
 }
 
+void
+_PyDictKeys_IncRef(PyDictKeysObject *keys)
+{
+    dictkeys_incref(keys);
+}
+
 static inline uint32_t
 get_next_dict_keys_version(PyInterpreterState *interp)
 {

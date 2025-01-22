@@ -1,4 +1,4 @@
-#ifdef _Py_TIER2
+//#ifdef _Py_TIER2
 
 /*
  * This file contains the support code for CPython's uops optimizer.
@@ -53,7 +53,7 @@
 #endif
 
 static int
-get_mutations(PyObject* dict) {
+get_mutations(PyDictObject* dict) {
     assert(PyDict_CheckExact(dict));
     PyDictObject *d = (PyDictObject *)dict;
     return (d->_ma_watcher_tag >> DICT_MAX_WATCHERS) & ((1 << DICT_WATCHED_MUTATION_BITS)-1);
@@ -77,7 +77,7 @@ globals_watcher_callback(PyDict_WatchEvent event, PyObject* dict,
                          PyObject* key, PyObject* new_value)
 {
     RARE_EVENT_STAT_INC(watched_globals_modification);
-    assert(get_mutations(dict) < _Py_MAX_ALLOWED_GLOBALS_MODIFICATIONS);
+    assert(get_mutations((PyDictObject *)dict) < _Py_MAX_ALLOWED_GLOBALS_MODIFICATIONS);
     _Py_Executors_InvalidateDependency(_PyInterpreterState_GET(), dict, 1);
     increment_mutations(dict);
     PyDict_Unwatch(GLOBALS_WATCHER_ID, dict);
@@ -149,6 +149,39 @@ check_next_uop(_PyUOpInstruction *buffer, int size, int pc, uint16_t expected)
         return 0;
     }
     return 1;
+}
+
+int
+optimize_guard_globals_version(
+    _PyUOpInstruction *instr,
+    uint32_t version,
+    JitOptContext *ctx
+)
+{
+    if (ctx->frame->function == NULL) {
+        return -1;
+    }
+    PyDictObject *globals = (PyDictObject *)ctx->frame->function->func_globals;
+    if (!PyDict_CheckExact(globals)) {
+        ctx->done = true;
+        return -1;
+    }
+    if (globals->ma_keys->dk_version != version) {
+        OPT_STAT_INC(remove_globals_incorrect_keys);
+        ctx->done = true;
+        return -1;
+    }
+    uint64_t watched_mutations = get_mutations(globals);
+    if (watched_mutations >= _Py_MAX_ALLOWED_GLOBALS_MODIFICATIONS) {
+        return -1;
+    }
+    if (!ctx->frame->globals_watched) {
+        PyDict_Watch(GLOBALS_WATCHER_ID, (PyObject *)globals);
+        ctx->frame->globals_watched = true;
+    }
+    instr->opcode = _NOP;
+    instr->oparg = 0;
+    return 0;
 }
 
 /* Returns 1 if successfully optimized
@@ -229,7 +262,7 @@ remove_globals(_PyInterpreterFrame *frame, _PyUOpInstruction *buffer,
                     OPT_STAT_INC(remove_globals_incorrect_keys);
                     return 0;
                 }
-                uint64_t watched_mutations = get_mutations(globals);
+                uint64_t watched_mutations = get_mutations((PyDictObject *)globals);
                 if (watched_mutations >= _Py_MAX_ALLOWED_GLOBALS_MODIFICATIONS) {
                     continue;
                 }
@@ -354,11 +387,14 @@ remove_globals(_PyInterpreterFrame *frame, _PyUOpInstruction *buffer,
 #define sym_new_type _Py_uop_sym_new_type
 #define sym_is_null _Py_uop_sym_is_null
 #define sym_new_const _Py_uop_sym_new_const
+#define sym_new_dict_keys _Py_uop_sym_new_dict_keys
+#define sym_get_dict_keys _Py_uop_sym_get_dict_keys
 #define sym_new_null _Py_uop_sym_new_null
 #define sym_has_type _Py_uop_sym_has_type
 #define sym_get_type _Py_uop_sym_get_type
 #define sym_matches_type _Py_uop_sym_matches_type
 #define sym_matches_type_version _Py_uop_sym_matches_type_version
+#define sym_set_function_version _Py_uop_sym_set_function_version
 #define sym_set_null(SYM) _Py_uop_sym_set_null(ctx, SYM)
 #define sym_set_non_null(SYM) _Py_uop_sym_set_non_null(ctx, SYM)
 #define sym_set_type(SYM, TYPE) _Py_uop_sym_set_type(ctx, SYM, TYPE)
@@ -673,4 +709,4 @@ _Py_uop_analyze_and_optimize(
     return length;
 }
 
-#endif /* _Py_TIER2 */
+// #endif /* _Py_TIER2 */

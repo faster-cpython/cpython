@@ -197,6 +197,8 @@ typedef enum _JitSymType {
     JIT_SYM_KNOWN_CLASS_TAG = 6,
     JIT_SYM_KNOWN_VALUE_TAG = 7,
     JIT_SYM_TUPLE_TAG = 8,
+    JIT_SYM_FUNCTION_TAG = 9,
+    JIT_SYM_DICT_KEYS_TAG = 10,
 } JitSymType;
 
 typedef struct _jit_opt_known_class {
@@ -223,24 +225,38 @@ typedef struct _jit_opt_tuple {
     uint16_t items[MAX_SYMBOLIC_TUPLE_SIZE];
 } JitOptTuple;
 
+typedef struct _jit_opt_function {
+    uint8_t tag;
+    uint16_t arg_count;
+    uint32_t version;
+    PyCodeObject *code;
+} JitOptFunction;
+
+typedef struct _jit_opt_dict_keys {
+    PyDictObject *dict;
+} JitOptDictKeys;
+
 typedef union _jit_opt_symbol {
     uint8_t tag;
     JitOptKnownClass cls;
     JitOptKnownValue value;
     JitOptKnownVersion version;
     JitOptTuple tuple;
+    JitOptFunction function;
+    JitOptDictKeys keys;
 } JitOptSymbol;
-
-
 
 struct _Py_UOpsAbstractFrame {
     // Max stacklen
     int stack_len;
     int locals_len;
-
+    PyFunctionObject *function;
     JitOptSymbol **stack_pointer;
     JitOptSymbol **stack;
     JitOptSymbol **locals;
+    bool function_checked;
+    bool builtins_watched;
+    bool globals_watched;
 };
 
 typedef struct _Py_UOpsAbstractFrame _Py_UOpsAbstractFrame;
@@ -285,6 +301,7 @@ extern void _Py_uop_sym_set_null(JitOptContext *ctx, JitOptSymbol *sym);
 extern void _Py_uop_sym_set_non_null(JitOptContext *ctx, JitOptSymbol *sym);
 extern void _Py_uop_sym_set_type(JitOptContext *ctx, JitOptSymbol *sym, PyTypeObject *typ);
 extern bool _Py_uop_sym_set_type_version(JitOptContext *ctx, JitOptSymbol *sym, unsigned int version);
+extern void _Py_uop_sym_set_function_version(JitOptContext *ctx, JitOptSymbol *sym, uint32_t version);
 extern void _Py_uop_sym_set_const(JitOptContext *ctx, JitOptSymbol *sym, PyObject *const_val);
 extern bool _Py_uop_sym_is_bottom(JitOptSymbol *sym);
 extern int _Py_uop_sym_truthiness(JitOptSymbol *sym);
@@ -293,6 +310,8 @@ extern bool _Py_uop_sym_is_immortal(JitOptSymbol *sym);
 extern JitOptSymbol *_Py_uop_sym_new_tuple(JitOptContext *ctx, int size, JitOptSymbol **args);
 extern JitOptSymbol *_Py_uop_sym_tuple_getitem(JitOptContext *ctx, JitOptSymbol *sym, int item);
 extern int _Py_uop_sym_tuple_length(JitOptSymbol *sym);
+extern JitOptSymbol *_Py_uop_sym_new_dict_keys(JitOptContext *ctx, PyObject *dict);
+extern PyDictKeysObject *_Py_uop_sym_get_dict_keys(JitOptSymbol *sym);
 
 extern void _Py_uop_abstractcontext_init(JitOptContext *ctx);
 extern void _Py_uop_abstractcontext_fini(JitOptContext *ctx);
