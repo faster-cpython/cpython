@@ -193,26 +193,12 @@ class Emitter:
         next(tkn_iter)  # RPAREN
         next(tkn_iter)  # Semi colon
         storage.clear_inputs("at ERROR_IF")
-        c_offset = storage.stack.peek_offset()
-        try:
-            offset = -int(c_offset)
-        except ValueError:
-            offset = -1
-        if offset > 0:
-            self.out.emit(f"goto pop_{offset}_")
-            self.out.emit(label)
-            self.out.emit(";\n")
-        elif offset == 0:
-            self.out.emit("goto ")
-            self.out.emit(label)
-            self.out.emit(";\n")
-        else:
-            self.out.emit("{\n")
-            storage.copy().flush(self.out)
-            self.out.emit("goto ")
-            self.out.emit(label)
-            self.out.emit(";\n")
-            self.out.emit("}\n")
+        self.out.emit("{\n")
+        storage.copy().flush(self.out)
+        self.out.emit("goto ")
+        self.out.emit(label)
+        self.out.emit(";\n")
+        self.out.emit("}\n")
         return not unconditional
 
     def error_no_pop(
