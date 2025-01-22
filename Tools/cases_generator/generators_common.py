@@ -188,17 +188,17 @@ class Emitter:
             self.out.emit_at("if ", tkn)
             self.emit(lparen)
             emit_to(self.out, tkn_iter, "COMMA")
-            self.out.emit(") ")
+            self.out.emit(") {\n")
         label = next(tkn_iter).text
         next(tkn_iter)  # RPAREN
         next(tkn_iter)  # Semi colon
         storage.clear_inputs("at ERROR_IF")
-        self.out.emit("{\n")
         storage.copy().flush(self.out)
         self.out.emit("goto ")
         self.out.emit(label)
         self.out.emit(";\n")
-        self.out.emit("}\n")
+        if not unconditional:
+            self.out.emit("}\n")
         return not unconditional
 
     def error_no_pop(
