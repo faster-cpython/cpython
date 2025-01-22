@@ -2137,8 +2137,7 @@ dummy_func(
                 PyStackRef_CLOSE(self_st);
                 self_or_null = PyStackRef_NULL;
             }
-            PyStackRef_CLOSE(class_st);
-            PyStackRef_CLOSE(global_super_st);
+            DECREF_INPUTS();
 
             attr = PyStackRef_FromPyObjectSteal(attr_o);
         }

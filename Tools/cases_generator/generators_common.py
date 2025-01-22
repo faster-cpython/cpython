@@ -303,7 +303,7 @@ class Emitter:
         name: Token,
         storage: Storage,
         escapes: bool
-    ) -> bool:
+    ) -> None:
         live = ""
         for var in reversed(storage.inputs):
             if var.name == name.text:
@@ -315,7 +315,6 @@ class Emitter:
                 break
             if var.defined:
                 live = var.name
-        return True
 
     def stackref_close(
         self,
@@ -325,16 +324,20 @@ class Emitter:
         storage: Storage,
         inst: Instruction | None,
     ) -> bool:
-        self.out.emit(tkn)
-        tkn = next(tkn_iter)
-        assert tkn.kind == "LPAREN"
-        self.out.emit(tkn)
+        paren = next(tkn_iter)
+        assert paren.kind == "LPAREN"
         name = next(tkn_iter)
-        self.out.emit(name)
         if name.kind == "IDENTIFIER":
-            return self.stackref_kill(name, storage, True)
+            self.stackref_kill(name, storage, True)
+        storage.save(self.out)
+        self.out.emit(tkn)
+        self.out.emit(paren)
+        self.out.emit(name)
         rparen = emit_to(self.out, tkn_iter, "RPAREN")
         self.emit(rparen)
+        semi = next(tkn_iter)
+        self.emit(semi)
+        storage.reload(self.out)
         return True
 
     def stackref_close_specialized(
@@ -345,26 +348,31 @@ class Emitter:
         storage: Storage,
         inst: Instruction | None,
     ) -> bool:
-
-        self.out.emit(tkn)
-        tkn = next(tkn_iter)
-        assert tkn.kind == "LPAREN"
-        self.out.emit(tkn)
+        paren = next(tkn_iter)
+        assert paren.kind == "LPAREN"
         name = next(tkn_iter)
-        self.out.emit(name)
         comma = next(tkn_iter)
         if comma.kind != "COMMA":
             raise analysis_error("Expected comma", comma)
-        self.out.emit(comma)
         dealloc = next(tkn_iter)
         if dealloc.kind != "IDENTIFIER":
              raise analysis_error("Expected identifier", dealloc)
-        self.out.emit(dealloc)
         if name.kind == "IDENTIFIER":
             escapes = dealloc.text not in NON_ESCAPING_DEALLOCS
-            return self.stackref_kill(name, storage, escapes)
+            self.stackref_kill(name, storage, escapes)
+        if escapes:
+            storage.save(self.out)
+        self.out.emit(tkn)
+        self.out.emit(paren)
+        self.out.emit(name)
+        self.out.emit(comma)
+        self.out.emit(dealloc)
         rparen = emit_to(self.out, tkn_iter, "RPAREN")
         self.emit(rparen)
+        semi = next(tkn_iter)
+        self.emit(semi)
+        if escapes:
+            storage.reload(self.out)
         return True
 
     def stackref_steal(
@@ -382,7 +390,7 @@ class Emitter:
         name = next(tkn_iter)
         self.out.emit(name)
         if name.kind == "IDENTIFIER":
-            return self.stackref_kill(name, storage, False)
+            self.stackref_kill(name, storage, False)
         rparen = emit_to(self.out, tkn_iter, "RPAREN")
         self.emit(rparen)
         return True
