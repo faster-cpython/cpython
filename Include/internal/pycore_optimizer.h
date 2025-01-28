@@ -251,6 +251,7 @@ struct _Py_UOpsAbstractFrame {
     int stack_len;
     int locals_len;
     PyFunctionObject *function;
+    PyCodeObject *code;
     JitOptSymbol **stack_pointer;
     JitOptSymbol **stack;
     JitOptSymbol **locals;

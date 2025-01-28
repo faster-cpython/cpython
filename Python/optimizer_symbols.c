@@ -636,6 +636,7 @@ _Py_uop_frame_new(
 
     frame->stack_len = co->co_stacksize;
     frame->locals_len = co->co_nlocalsplus;
+    frame->code = co;
 
     frame->locals = ctx->n_consumed;
     frame->stack = frame->locals + co->co_nlocalsplus;

@@ -445,27 +445,6 @@ eliminate_pop_guard(_PyUOpInstruction *this_instr, bool exit)
  * PyCodeObject *. Retrieve the code object if possible.
  */
 static PyCodeObject *
-get_code(_PyUOpInstruction *op)
-{
-    assert(op->opcode == _PUSH_FRAME || op->opcode == _RETURN_VALUE || op->opcode == _RETURN_GENERATOR);
-    PyCodeObject *co = NULL;
-    uint64_t operand = op->operand0;
-    if (operand == 0) {
-        return NULL;
-    }
-    if (operand & 1) {
-        co = (PyCodeObject *)(operand & ~1);
-    }
-    else {
-        PyFunctionObject *func = (PyFunctionObject *)operand;
-        assert(PyFunction_Check(func));
-        co = (PyCodeObject *)func->func_code;
-    }
-    assert(PyCode_Check(co));
-    return co;
-}
-
-static PyCodeObject *
 get_code_with_logging(_PyUOpInstruction *op)
 {
     PyCodeObject *co = NULL;
@@ -492,7 +471,7 @@ get_code_with_logging(_PyUOpInstruction *op)
 /* 1 for success, 0 for not ready, cannot error at the moment. */
 static int
 optimize_uops(
-    PyCodeObject *co,
+    PyCodeObject *code,
     _PyUOpInstruction *trace,
     int trace_len,
     int curr_stacklen,
@@ -509,7 +488,7 @@ optimize_uops(
     _PyUOpInstruction *corresponding_check_stack = NULL;
 
     _Py_uop_abstractcontext_init(ctx);
-    _Py_UOpsAbstractFrame *frame = _Py_uop_frame_new(ctx, co, curr_stacklen, NULL, 0);
+    _Py_UOpsAbstractFrame *frame = _Py_uop_frame_new(ctx, code, curr_stacklen, NULL, 0);
     if (frame == NULL) {
         return -1;
     }

@@ -62,7 +62,7 @@
 
         case _LOAD_CONST_MORTAL: {
             JitOptSymbol *value;
-            PyObject *val = PyTuple_GET_ITEM(co->co_consts, this_instr->oparg);
+            PyObject *val = PyTuple_GET_ITEM(ctx->frame->code->co_consts, this_instr->oparg);
             int opcode = _Py_IsImmortal(val) ? _LOAD_CONST_INLINE_BORROW : _LOAD_CONST_INLINE;
             REPLACE_OP(this_instr, opcode, 0, (uintptr_t)val);
             value = sym_new_const(ctx, val);
@@ -74,7 +74,7 @@
 
         case _LOAD_CONST_IMMORTAL: {
             JitOptSymbol *value;
-            PyObject *val = PyTuple_GET_ITEM(co->co_consts, this_instr->oparg);
+            PyObject *val = PyTuple_GET_ITEM(ctx->frame->code->co_consts, this_instr->oparg);
             REPLACE_OP(this_instr, _LOAD_CONST_INLINE_BORROW, 0, (uintptr_t)val);
             value = sym_new_const(ctx, val);
             stack_pointer[0] = value;
@@ -722,20 +722,15 @@
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
             ctx->frame->stack_pointer = stack_pointer;
+            int framesize = ctx->frame->code->co_framesize;
             frame_pop(ctx);
             stack_pointer = ctx->frame->stack_pointer;
             /* Stack space handling */
             assert(corresponding_check_stack == NULL);
-            assert(co != NULL);
-            int framesize = co->co_framesize;
+            assert(ctx->frame->code != NULL);
             assert(framesize > 0);
             assert(framesize <= curr_space);
             curr_space -= framesize;
-            co = get_code(this_instr);
-            if (co == NULL) {
-                // might be impossible, but bailing is still safe
-                ctx->done = true;
-            }
             res = retval;
             stack_pointer[0] = res;
             stack_pointer += 1;
@@ -944,8 +939,9 @@
         case _GUARD_GLOBALS_VERSION_PUSH_KEYS: {
             JitOptSymbol *globals_keys;
             uint16_t version = (uint16_t)this_instr->operand0;
-            if (optimize_guard_globals_version(this_instr, version, ctx)) {
-                REPLACE_OP(this_instr, _LOAD_DICT_KEYS, 0, (uintptr_t)ctx->frame->function->func_globals);
+            if (optimize_guard_globals_version(this_instr, version, ctx) == 0) {
+                PyDictKeysObject *keys = ((PyDictObject *)ctx->frame->function->func_globals)->ma_keys;
+                REPLACE_OP(this_instr, _LOAD_DICT_KEYS, 0, (uintptr_t)keys);
                 globals_keys = sym_new_dict_keys(ctx, ctx->frame->function->func_globals);
             }
             else {
@@ -989,7 +985,7 @@
                 stack_pointer += -1;
                 assert(WITHIN_STACK_BOUNDS());
             }
-            REPLACE_OP(this_instr, _LOAD_DICT_KEYS, 0, (uintptr_t)ctx->frame->function->func_builtins);
+            REPLACE_OP(this_instr, _LOAD_DICT_KEYS, 0, (uintptr_t)builtins->ma_keys);
             builtins_keys = sym_new_dict_keys(ctx, (PyObject *)builtins);
             done:
             if (builtins_keys == NULL) {
@@ -1858,9 +1854,8 @@
             assert(WITHIN_STACK_BOUNDS());
             (void)(self_or_null);
             (void)(callable);
-            PyCodeObject *co = NULL;
             assert((this_instr + 2)->opcode == _PUSH_FRAME);
-            co = get_code_with_logging((this_instr + 2));
+            PyCodeObject *co = get_code_with_logging((this_instr + 2));
             if (co == NULL) {
                 ctx->done = true;
                 break;
@@ -1989,11 +1984,10 @@
             callable = stack_pointer[-2 - oparg];
             int argcount = oparg;
             (void)callable;
-            PyCodeObject *co = NULL;
             assert((this_instr + 2)->opcode == _PUSH_FRAME);
             stack_pointer += -2 - oparg;
             assert(WITHIN_STACK_BOUNDS());
-            co = get_code_with_logging((this_instr + 2));
+            PyCodeObject *co = get_code_with_logging((this_instr + 2));
             if (co == NULL) {
                 ctx->done = true;
                 break;
@@ -2025,14 +2019,14 @@
             ctx->frame = new_frame;
             ctx->curr_frame_depth++;
             stack_pointer = new_frame->stack_pointer;
-            co = get_code(this_instr);
-            if (co == NULL) {
-                // should be about to _EXIT_TRACE anyway
-                ctx->done = true;
-                break;
+            uint64_t operand = this_instr->operand0;
+            assert(new_frame->code != NULL);
+            if (operand != 0 && (operand & 1) == 0) {
+                new_frame->function = (PyFunctionObject *)operand;
+                assert(new_frame->code == (PyCodeObject *)new_frame->function->func_code);
             }
             /* Stack space handling */
-            int framesize = co->co_framesize;
+            int framesize = new_frame->code->co_framesize;
             assert(framesize > 0);
             curr_space += framesize;
             if (curr_space < 0 || curr_space > INT32_MAX) {
@@ -2332,24 +2326,18 @@
         case _RETURN_GENERATOR: {
             JitOptSymbol *res;
             ctx->frame->stack_pointer = stack_pointer;
+            int framesize = ctx->frame->code->co_framesize;
             frame_pop(ctx);
             stack_pointer = ctx->frame->stack_pointer;
             res = sym_new_unknown(ctx);
             /* Stack space handling */
             assert(corresponding_check_stack == NULL);
-            assert(co != NULL);
-            int framesize = co->co_framesize;
             assert(framesize > 0);
             assert(framesize <= curr_space);
             curr_space -= framesize;
             stack_pointer[0] = res;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
-            co = get_code(this_instr);
-            if (co == NULL) {
-                // might be impossible, but bailing is still safe
-                ctx->done = true;
-            }
             break;
         }
 
