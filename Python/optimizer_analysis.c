@@ -668,6 +668,18 @@ remove_unneeded_uops(_PyUOpInstruction *buffer, int buffer_size)
     Py_UNREACHABLE();
 }
 
+static void
+init_watchers(void)
+{
+    PyInterpreterState *interp = _PyInterpreterState_GET();
+    if (interp->dict_state.watchers[GLOBALS_WATCHER_ID] == NULL) {
+        interp->dict_state.watchers[GLOBALS_WATCHER_ID] = globals_watcher_callback;
+    }
+    if (interp->type_watchers[TYPE_WATCHER_ID] == NULL) {
+        interp->type_watchers[TYPE_WATCHER_ID] = type_watcher_callback;
+    }
+}
+
 //  0 - failure, no error raised, just fall back to Tier 1
 // -1 - failure, and raise error
 //  > 0 - length of optimized trace
@@ -681,11 +693,12 @@ _Py_uop_analyze_and_optimize(
 )
 {
     OPT_STAT_INC(optimizer_attempts);
+    init_watchers();
 
-    int err = 1; // remove_globals(frame, buffer, length, dependencies);
-    if (err <= 0) {
-        return err;
-    }
+//     int err = remove_globals(frame, buffer, length, dependencies);
+//     if (err <= 0) {
+//         return err;
+//     }
 
     length = optimize_uops(
         _PyFrame_GetCode(frame), buffer,
