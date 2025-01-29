@@ -1083,7 +1083,12 @@ tier2_dispatch:
         uopcode = next_uop->opcode;
 #ifdef Py_DEBUG
         if (frame->lltrace >= 3) {
-            dump_stack(frame, stack_pointer);
+            if (uopcode != _LOAD_GLOBAL_MODULE_FROM_KEYS &&
+                uopcode != _LOAD_GLOBAL_BUILTINS_FROM_KEYS &&
+                uopcode != _LOAD_ATTR_MODULE_FROM_KEYS
+            ) {
+                dump_stack(frame, stack_pointer);
+            }
             if (next_uop->opcode == _START_EXECUTOR) {
                 printf("%4d uop: ", 0);
             }

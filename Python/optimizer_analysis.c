@@ -155,9 +155,17 @@ int
 optimize_guard_globals_version(
     _PyUOpInstruction *instr,
     uint32_t version,
-    JitOptContext *ctx
+    JitOptContext *ctx,
+    _PyBloomFilter *dependencies
 )
 {
+    PyInterpreterState *interp = _PyInterpreterState_GET();
+    if (interp->dict_state.watchers[GLOBALS_WATCHER_ID] == NULL) {
+        interp->dict_state.watchers[GLOBALS_WATCHER_ID] = globals_watcher_callback;
+    }
+    if (interp->type_watchers[TYPE_WATCHER_ID] == NULL) {
+        interp->type_watchers[TYPE_WATCHER_ID] = type_watcher_callback;
+    }
     if (ctx->frame->function == NULL) {
         return -1;
     }
@@ -176,7 +184,12 @@ optimize_guard_globals_version(
         return -1;
     }
     if (!ctx->frame->globals_watched) {
-        PyDict_Watch(GLOBALS_WATCHER_ID, (PyObject *)globals);
+        if (PyDict_Watch(GLOBALS_WATCHER_ID, (PyObject *)globals) < 0) {
+            assert(0);
+            PyErr_Clear();
+            return -1;
+        }
+        _Py_BloomFilter_Add(dependencies, globals);
         ctx->frame->globals_watched = true;
     }
     instr->opcode = _NOP;
@@ -515,6 +528,7 @@ optimize_uops(
         }
 #endif
 
+        assert(PyErr_Occurred() == NULL);
         switch (opcode) {
 
 #include "optimizer_cases.c.h"
@@ -668,7 +682,7 @@ _Py_uop_analyze_and_optimize(
 {
     OPT_STAT_INC(optimizer_attempts);
 
-    int err = remove_globals(frame, buffer, length, dependencies);
+    int err = 1; // remove_globals(frame, buffer, length, dependencies);
     if (err <= 0) {
         return err;
     }

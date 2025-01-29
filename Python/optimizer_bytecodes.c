@@ -926,7 +926,7 @@ dummy_func(void) {
     }
 
     op(_GUARD_GLOBALS_VERSION_PUSH_KEYS, (version/1 -- globals_keys)) {
-        if (optimize_guard_globals_version(this_instr, version, ctx) == 0) {
+        if (optimize_guard_globals_version(this_instr, version, ctx, dependencies) == 0) {
             PyDictKeysObject *keys = ((PyDictObject *)ctx->frame->function->func_globals)->ma_keys;
             REPLACE_OP(this_instr, _LOAD_DICT_KEYS, 0, (uintptr_t)keys);
             globals_keys = sym_new_dict_keys(ctx, ctx->frame->function->func_globals);
@@ -964,7 +964,7 @@ dummy_func(void) {
     }
 
     op(_GUARD_GLOBALS_VERSION, (version/1 --)) {
-        optimize_guard_globals_version(this_instr, version, ctx);
+        optimize_guard_globals_version(this_instr, version, ctx, dependencies);
     }
 
     op(_GUARD_BUILTINS_VERSION_PUSH_KEYS, (version/1 -- builtins_keys)) {

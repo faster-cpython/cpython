@@ -932,14 +932,14 @@
 
         case _GUARD_GLOBALS_VERSION: {
             uint16_t version = (uint16_t)this_instr->operand0;
-            optimize_guard_globals_version(this_instr, version, ctx);
+            optimize_guard_globals_version(this_instr, version, ctx, dependencies);
             break;
         }
 
         case _GUARD_GLOBALS_VERSION_PUSH_KEYS: {
             JitOptSymbol *globals_keys;
             uint16_t version = (uint16_t)this_instr->operand0;
-            if (optimize_guard_globals_version(this_instr, version, ctx) == 0) {
+            if (optimize_guard_globals_version(this_instr, version, ctx, dependencies) == 0) {
                 PyDictKeysObject *keys = ((PyDictObject *)ctx->frame->function->func_globals)->ma_keys;
                 REPLACE_OP(this_instr, _LOAD_DICT_KEYS, 0, (uintptr_t)keys);
                 globals_keys = sym_new_dict_keys(ctx, ctx->frame->function->func_globals);
