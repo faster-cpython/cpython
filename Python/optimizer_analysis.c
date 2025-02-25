@@ -1,4 +1,4 @@
-#ifdef _Py_TIER2
+// #ifdef _Py_TIER2
 
 /*
  * This file contains the support code for CPython's uops optimizer.
@@ -124,36 +124,122 @@ convert_global_to_const(_PyUOpInstruction *inst, PyObject *obj, bool pop)
 }
 
 static int
-incorrect_keys(_PyUOpInstruction *inst, PyObject *obj)
+incorrect_keys(uint32_t version, PyObject *obj)
 {
     if (!PyDict_CheckExact(obj)) {
         return 1;
     }
     PyDictObject *dict = (PyDictObject *)obj;
-    if (dict->ma_keys->dk_version != inst->operand0) {
+    if (dict->ma_keys->dk_version != version) {
         return 1;
     }
     return 0;
 }
 
-static int
-check_next_uop(_PyUOpInstruction *buffer, int size, int pc, uint16_t expected)
+int
+optimize_guard_globals_version(
+    _PyUOpInstruction *instr,
+    uint32_t version,
+    JitOptContext *ctx
+)
 {
-    if (pc + 1 >= size) {
-        DPRINTF(1, "Cannot rewrite %s at pc %d: buffer too small\n",
-                _PyOpcode_uop_name[buffer[pc].opcode], pc);
-        return 0;
+    if (ctx->frame->function == NULL) {
+        return -1;
     }
-    uint16_t next_opcode = buffer[pc + 1].opcode;
-    if (next_opcode != expected) {
-        DPRINTF(1,
-                "Cannot rewrite %s at pc %d: unexpected next opcode %s, "
-                "expected %s\n",
-                _PyOpcode_uop_name[buffer[pc].opcode], pc,
-                _PyOpcode_uop_name[next_opcode], _PyOpcode_uop_name[expected]);
-        return 0;
+    PyDictObject *globals = (PyDictObject *)ctx->frame->function->func_globals;
+    if (!PyDict_CheckExact(globals)) {
+        ctx->done = true;
+        return -1;
     }
-    return 1;
+    if (globals->ma_keys->dk_version != version) {
+        OPT_STAT_INC(remove_globals_incorrect_keys);
+        ctx->done = true;
+        return -1;
+    }
+    uint64_t watched_mutations = get_mutations(globals);
+    if (watched_mutations >= _Py_MAX_ALLOWED_GLOBALS_MODIFICATIONS) {
+        return -1;
+    }
+    if (!ctx->frame->globals_watched) {
+        PyDict_Watch(GLOBALS_WATCHER_ID, (PyObject *)globals);
+        ctx->frame->globals_watched = true;
+    }
+    instr->opcode = _NOP;
+    instr->oparg = 0;
+    return 0;
+}
+
+JitOptSymbol *
+optimize_load_global_module(
+    _PyUOpInstruction *instr,
+    uint32_t version,
+    JitOptContext *ctx
+)
+{
+    if (ctx->frame->function == NULL) {
+        goto no_opt;
+    }
+    PyObject *globals = ctx->frame->function->func_globals;
+    if (incorrect_keys(version, globals)) {
+        OPT_STAT_INC(remove_globals_incorrect_keys);
+        ctx->done = true;
+        goto no_opt;
+    }
+    if (get_mutations(globals) >= _Py_MAX_ALLOWED_GLOBALS_MODIFICATIONS) {
+        goto no_opt;
+    }
+    if (!ctx->frame->globals_watched) {
+        PyDict_Watch(GLOBALS_WATCHER_ID, globals);
+        _Py_BloomFilter_Add(ctx->dependencies, globals);
+        ctx->frame->globals_watched = true;
+    }
+    if (!ctx->frame->function_checked && instr[-1].opcode == _NOP) {
+        instr[-1].opcode = _CHECK_FUNCTION;
+        instr[-1].operand0 = func_version;
+        ctx->frame->function_checked = true;
+    }
+    if (ctx->frame->function_checked) {
+        PyObject *cnst = convert_global_to_const(instr, globals, false);
+        if (cnst != NULL) {
+            return _Py_uop_sym_new_const(ctx, cnst);
+        }
+    }
+no_opt:
+    return _Py_uop_sym_new_not_null(ctx);
+}
+
+
+JitOptSymbol *
+optimize_load_global_builtins(
+    _PyUOpInstruction *instr,
+    uint32_t version,
+    JitOptContext *ctx
+)
+{
+    if (ctx->frame->function == NULL) {
+        goto no_opt;
+    }
+    PyObject *builtins = ctx->frame->function->func_builtins;
+    if (incorrect_keys(version, builtins)) {
+        OPT_STAT_INC(remove_globals_incorrect_keys);
+        ctx->done = true;
+        goto no_opt;
+    }
+    if (ctx->interp->rare_events.builtin_dict >= _Py_MAX_ALLOWED_BUILTINS_MODIFICATIONS) {
+        goto no_opt;
+    }
+    if (!ctx->frame->builtins_watched) {
+        PyDict_Watch(BUILTINS_WATCHER_ID, builtins);
+        ctx->frame->builtins_watched = true;
+    }
+    if (ctx->frame->function_checked) {
+        PyObject *cnst = convert_global_to_const(instr, builtins, false);
+        if (cnst != NULL) {
+            return _Py_uop_sym_new_const(ctx, cnst);
+        }
+    }
+no_opt:
+    return _Py_uop_sym_new_not_null(ctx);
 }
 
 /* Returns 1 if successfully optimized
@@ -200,7 +286,7 @@ remove_globals(_PyInterpreterFrame *frame, _PyUOpInstruction *buffer,
         int opcode = inst->opcode;
         switch(opcode) {
             case _GUARD_GLOBALS_VERSION:
-                if (incorrect_keys(inst, globals)) {
+                if (incorrect_keys(inst->operand0, globals)) {
                     OPT_STAT_INC(remove_globals_incorrect_keys);
                     return 0;
                 }
@@ -222,7 +308,7 @@ remove_globals(_PyInterpreterFrame *frame, _PyUOpInstruction *buffer,
                 }
                 break;
             case _LOAD_GLOBAL_BUILTINS:
-                if (incorrect_keys(inst, builtins)) {
+                if (incorrect_keys(inst->operand0, builtins)) {
                     OPT_STAT_INC(remove_globals_incorrect_keys);
                     return 0;
                 }
@@ -238,7 +324,7 @@ remove_globals(_PyInterpreterFrame *frame, _PyUOpInstruction *buffer,
                 }
                 break;
             case _LOAD_GLOBAL_MODULE:
-                if (incorrect_keys(inst, globals)) {
+                if (incorrect_keys(inst->operand0, globals)) {
                     OPT_STAT_INC(remove_globals_incorrect_keys);
                     return 0;
                 }
@@ -350,6 +436,8 @@ remove_globals(_PyInterpreterFrame *frame, _PyUOpInstruction *buffer,
 #define sym_get_type _Py_uop_sym_get_type
 #define sym_matches_type _Py_uop_sym_matches_type
 #define sym_matches_type_version _Py_uop_sym_matches_type_version
+#define sym_get_function_version _Py_uop_sym_get_function_version
+#define sym_set_function_version _Py_uop_sym_set_function_version
 #define sym_set_null(SYM) _Py_uop_sym_set_null(ctx, SYM)
 #define sym_set_non_null(SYM) _Py_uop_sym_set_non_null(ctx, SYM)
 #define sym_set_type(SYM, TYPE) _Py_uop_sym_set_type(ctx, SYM, TYPE)
@@ -447,14 +535,16 @@ get_code_with_logging(_PyUOpInstruction *op)
 /* 1 for success, 0 for not ready, cannot error at the moment. */
 static int
 optimize_uops(
-    PyCodeObject *co,
+    _PyInterpreterFrame *real_frame,
     _PyUOpInstruction *trace,
     int trace_len,
     int curr_stacklen,
     _PyBloomFilter *dependencies
 )
 {
-
+    PyFunctionObject *func = (PyFunctionObject *)PyStackRef_AsPyObjectBorrow(real_frame->f_funcobj);
+    PyCodeObject *co = _PyFrame_GetCode(real_frame);
+    assert(PyFunction_Check(func));
     JitOptContext context;
     JitOptContext *ctx = &context;
     uint32_t opcode = UINT16_MAX;
@@ -468,11 +558,14 @@ optimize_uops(
     if (frame == NULL) {
         return -1;
     }
+    frame->function = (PyFunctionObject *)func;
     ctx->curr_frame_depth++;
     ctx->frame = frame;
     ctx->done = false;
     ctx->out_of_space = false;
     ctx->contradiction = false;
+    ctx->dependencies = dependencies;
+    ctx->interp = _PyInterpreterState_GET();
 
     _PyUOpInstruction *this_instr = NULL;
     for (int i = 0; !ctx->done; i++) {
@@ -649,7 +742,7 @@ _Py_uop_analyze_and_optimize(
     }
 
     length = optimize_uops(
-        _PyFrame_GetCode(frame), buffer,
+        frame, buffer,
         length, curr_stacklen, dependencies);
 
     if (length <= 0) {

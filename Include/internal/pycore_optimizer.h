@@ -172,6 +172,7 @@ typedef enum _JitSymType {
     JIT_SYM_KNOWN_CLASS_TAG = 6,
     JIT_SYM_KNOWN_VALUE_TAG = 7,
     JIT_SYM_TUPLE_TAG = 8,
+    JIT_SYM_FUNCTION_TAG = 9,
 } JitSymType;
 
 typedef struct _jit_opt_known_class {
@@ -198,24 +199,34 @@ typedef struct _jit_opt_tuple {
     uint16_t items[MAX_SYMBOLIC_TUPLE_SIZE];
 } JitOptTuple;
 
+typedef struct _jit_opt_function {
+    uint8_t tag;
+    uint16_t arg_count;
+    uint32_t version;
+    PyCodeObject *code;
+} JitOptFunction;
+
 typedef union _jit_opt_symbol {
     uint8_t tag;
     JitOptKnownClass cls;
     JitOptKnownValue value;
     JitOptKnownVersion version;
     JitOptTuple tuple;
+    JitOptFunction function;
 } JitOptSymbol;
-
 
 
 struct _Py_UOpsAbstractFrame {
     // Max stacklen
     int stack_len;
     int locals_len;
-
+    PyFunctionObject *function;
     JitOptSymbol **stack_pointer;
     JitOptSymbol **stack;
     JitOptSymbol **locals;
+    bool function_checked;
+    bool builtins_watched;
+    bool globals_watched;
 };
 
 typedef struct _Py_UOpsAbstractFrame _Py_UOpsAbstractFrame;
@@ -234,6 +245,8 @@ typedef struct _JitOptContext {
     _Py_UOpsAbstractFrame *frame;
     _Py_UOpsAbstractFrame frames[MAX_ABSTRACT_FRAME_DEPTH];
     int curr_frame_depth;
+    PyInterpreterState *interp;
+    _PyBloomFilter *dependencies;
 
     // Arena for the symbolic types.
     ty_arena t_arena;
@@ -260,6 +273,8 @@ extern void _Py_uop_sym_set_null(JitOptContext *ctx, JitOptSymbol *sym);
 extern void _Py_uop_sym_set_non_null(JitOptContext *ctx, JitOptSymbol *sym);
 extern void _Py_uop_sym_set_type(JitOptContext *ctx, JitOptSymbol *sym, PyTypeObject *typ);
 extern bool _Py_uop_sym_set_type_version(JitOptContext *ctx, JitOptSymbol *sym, unsigned int version);
+extern void _Py_uop_sym_set_function_version(JitOptContext *ctx, JitOptSymbol *sym, uint32_t version);
+extern uint32_t _Py_uop_sym_get_function_version(JitOptSymbol *sym);
 extern void _Py_uop_sym_set_const(JitOptContext *ctx, JitOptSymbol *sym, PyObject *const_val);
 extern bool _Py_uop_sym_is_bottom(JitOptSymbol *sym);
 extern int _Py_uop_sym_truthiness(JitOptSymbol *sym);

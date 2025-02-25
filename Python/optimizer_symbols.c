@@ -124,6 +124,11 @@ _Py_uop_sym_set_type(JitOptContext *ctx, JitOptSymbol *sym, PyTypeObject *typ)
                 sym_set_bottom(ctx, sym);
             }
             return;
+        case JIT_SYM_FUNCTION_TAG:
+            if (typ != &PyFunction_Type) {
+                sym_set_bottom(ctx, sym);
+            }
+            return;
         case JIT_SYM_TYPE_VERSION_TAG:
             if (sym->version.version == typ->tp_version_tag) {
                 sym->tag = JIT_SYM_KNOWN_CLASS_TAG;
@@ -178,6 +183,7 @@ _Py_uop_sym_set_type_version(JitOptContext *ctx, JitOptSymbol *sym, unsigned int
             sym_set_bottom(ctx, sym);
             return false;
         case JIT_SYM_TUPLE_TAG:
+        case JIT_SYM_FUNCTION_TAG:
             sym_set_bottom(ctx, sym);
             return false;
         case JIT_SYM_TYPE_VERSION_TAG:
@@ -225,6 +231,7 @@ _Py_uop_sym_set_const(JitOptContext *ctx, JitOptSymbol *sym, PyObject *const_val
             }
             return;
         case JIT_SYM_TUPLE_TAG:
+        case JIT_SYM_FUNCTION_TAG:
             sym_set_bottom(ctx, sym);
             return;
         case JIT_SYM_TYPE_VERSION_TAG:
@@ -239,6 +246,69 @@ _Py_uop_sym_set_const(JitOptContext *ctx, JitOptSymbol *sym, PyObject *const_val
         case JIT_SYM_NON_NULL_TAG:
         case JIT_SYM_UNKNOWN_TAG:
             make_const(sym, const_val);
+            return;
+    }
+}
+
+static void
+make_function(JitOptSymbol *sym, uint32_t version)
+{
+    sym->tag = JIT_SYM_FUNCTION_TAG;
+    sym->function.version = version;
+    sym->function.arg_count = 0;
+    sym->function.code = NULL;
+}
+
+uint32_t
+_Py_uop_sym_get_function_version(JitOptSymbol *sym)
+{
+    if (sym->tag == JIT_SYM_FUNCTION_TAG) {
+        return sym->function.version;
+    }
+    return 0;
+}
+
+void
+_Py_uop_sym_set_function_version(JitOptContext *ctx, JitOptSymbol *sym, uint32_t version)
+{
+    JitSymType tag = sym->tag;
+    switch(tag) {
+        case JIT_SYM_NULL_TAG:
+            sym_set_bottom(ctx, sym);
+            return;
+        case JIT_SYM_KNOWN_CLASS_TAG:
+            if (sym->cls.type == &PyFunction_Type) {
+                make_function(sym, version);
+            }
+            else {
+                sym_set_bottom(ctx, sym);
+            }
+            return;
+        case JIT_SYM_KNOWN_VALUE_TAG:
+            if (Py_TYPE(sym->value.value) == &PyFunction_Type) {
+                make_function(sym, version);
+            }
+            else {
+                Py_CLEAR(sym->value.value);
+                sym_set_bottom(ctx, sym);
+            }
+            return;
+        case JIT_SYM_TUPLE_TAG:
+            sym_set_bottom(ctx, sym);
+            return;
+        case JIT_SYM_FUNCTION_TAG:
+            if (sym->function.version != version) {
+                sym_set_bottom(ctx, sym);
+            }
+            return;
+        case JIT_SYM_TYPE_VERSION_TAG:
+            sym_set_bottom(ctx, sym);
+            return;
+        case JIT_SYM_BOTTOM_TAG:
+            return;
+        case JIT_SYM_NON_NULL_TAG:
+        case JIT_SYM_UNKNOWN_TAG:
+            make_function(sym, version);
             return;
     }
 }
@@ -339,6 +409,8 @@ _Py_uop_sym_get_type(JitOptSymbol *sym)
             return Py_TYPE(sym->value.value);
         case JIT_SYM_TUPLE_TAG:
             return &PyTuple_Type;
+        case JIT_SYM_FUNCTION_TAG:
+            return &PyFunction_Type;
     }
     Py_UNREACHABLE();
 }
@@ -361,6 +433,8 @@ _Py_uop_sym_get_type_version(JitOptSymbol *sym)
             return Py_TYPE(sym->value.value)->tp_version_tag;
         case JIT_SYM_TUPLE_TAG:
             return PyTuple_Type.tp_version_tag;
+        case JIT_SYM_FUNCTION_TAG:
+            return PyFunction_Type.tp_version_tag;
     }
     Py_UNREACHABLE();
 }
@@ -379,6 +453,7 @@ _Py_uop_sym_has_type(JitOptSymbol *sym)
         case JIT_SYM_KNOWN_CLASS_TAG:
         case JIT_SYM_KNOWN_VALUE_TAG:
         case JIT_SYM_TUPLE_TAG:
+        case JIT_SYM_FUNCTION_TAG:
             return true;
     }
     Py_UNREACHABLE();
@@ -547,6 +622,10 @@ _Py_uop_frame_new(
         JitOptSymbol *stackvar = _Py_uop_sym_new_unknown(ctx);
         frame->stack[i] = stackvar;
     }
+    frame->function = NULL;
+    frame->function_checked = false;
+    frame->builtins_watched = false;
+    frame->globals_watched = false;
 
     return frame;
 }

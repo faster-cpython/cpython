@@ -20,6 +20,8 @@ typedef struct _Py_UOpsAbstractFrame _Py_UOpsAbstractFrame;
 #define sym_new_null _Py_uop_sym_new_null
 #define sym_matches_type _Py_uop_sym_matches_type
 #define sym_matches_type_version _Py_uop_sym_matches_type_version
+#define sym_get_function_version _Py_uop_sym_get_function_version
+#define sym_set_function_version _Py_uop_sym_set_function_version
 #define sym_get_type _Py_uop_sym_get_type
 #define sym_has_type _Py_uop_sym_has_type
 #define sym_set_null(SYM) _Py_uop_sym_set_null(ctx, SYM)
@@ -596,12 +598,18 @@ dummy_func(void) {
     }
 
     op(_CHECK_FUNCTION_VERSION, (func_version/2, callable, self_or_null, unused[oparg] -- callable, self_or_null, unused[oparg])) {
-        if (sym_is_const(callable) && sym_matches_type(callable, &PyFunction_Type)) {
-            assert(PyFunction_Check(sym_get_const(callable)));
-            REPLACE_OP(this_instr, _CHECK_FUNCTION_VERSION_INLINE, 0, func_version);
-            this_instr->operand1 = (uintptr_t)sym_get_const(callable);
+        assert(func_version != 0);
+        if (sym_get_function_version(callable) == func_version) {
+            REPLACE_OP(this_instr, _NOP, 0, 0);
         }
-        sym_set_type(callable, &PyFunction_Type);
+        else {
+            if (sym_is_const(callable) && sym_matches_type(callable, &PyFunction_Type)) {
+                assert(PyFunction_Check(sym_get_const(callable)));
+                REPLACE_OP(this_instr, _CHECK_FUNCTION_VERSION_INLINE, 0, func_version);
+                this_instr->operand1 = (uintptr_t)sym_get_const(callable);
+            }
+            sym_set_function_version(ctx, callable, func_version);
+        }
     }
 
     op(_CHECK_FUNCTION_EXACT_ARGS, (callable, self_or_null, unused[oparg] -- callable, self_or_null, unused[oparg])) {
@@ -762,13 +770,21 @@ dummy_func(void) {
         ctx->frame = new_frame;
         ctx->curr_frame_depth++;
         stack_pointer = new_frame->stack_pointer;
-        co = get_code(this_instr);
-        if (co == NULL) {
+        uint64_t operand = this_instr->operand0;
+        if (operand == 0) {
             // should be about to _EXIT_TRACE anyway
             ctx->done = true;
             break;
         }
-
+        if (operand & 1) {
+            co = (PyCodeObject *)(operand & ~1);
+        }
+        else {
+            PyFunctionObject *func = (PyFunctionObject *)operand;
+            assert(PyFunction_Check(func));
+            co = (PyCodeObject *)func->func_code;
+            new_frame->function = func;
+        }
         /* Stack space handling */
         int framesize = co->co_framesize;
         assert(framesize > 0);
@@ -887,6 +903,20 @@ dummy_func(void) {
         for (int i = 0; i < oparg; i++) {
             values[i] = sym_tuple_getitem(ctx, seq, i);
         }
+    }
+
+    op(_GUARD_GLOBALS_VERSION, (version/1 --)) {
+        optimize_guard_globals_version(this_instr, version, ctx);
+    }
+
+    op(_LOAD_GLOBAL_MODULE, (version/1, unused/1, index/1 -- res)) {
+        (void)index;
+        res = optimize_load_global_module(this_instr, version, ctx);
+    }
+
+    op(_LOAD_GLOBAL_BUILTINS, (version/1, index/1 -- res)) {
+        (void)index;
+        res = optimize_load_global_builtins(this_instr, version, ctx);
     }
 
 

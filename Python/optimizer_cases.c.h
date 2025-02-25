@@ -929,12 +929,17 @@
         }
 
         case _GUARD_GLOBALS_VERSION: {
+            uint16_t version = (uint16_t)this_instr->operand0;
+            optimize_guard_globals_version(this_instr, version, ctx);
             break;
         }
 
         case _LOAD_GLOBAL_MODULE: {
             JitOptSymbol *res;
-            res = sym_new_not_null(ctx);
+            uint16_t version = (uint16_t)this_instr->operand0;
+            uint16_t index = (uint16_t)this_instr->operand0;
+            (void)index;
+            res = optimize_load_global_module(this_instr, version, ctx);
             stack_pointer[0] = res;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
@@ -943,7 +948,10 @@
 
         case _LOAD_GLOBAL_BUILTINS: {
             JitOptSymbol *res;
-            res = sym_new_not_null(ctx);
+            uint16_t version = (uint16_t)this_instr->operand0;
+            uint16_t index = (uint16_t)this_instr->operand0;
+            (void)index;
+            res = optimize_load_global_builtins(this_instr, version, ctx);
             stack_pointer[0] = res;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
@@ -1667,12 +1675,18 @@
             JitOptSymbol *callable;
             callable = stack_pointer[-2 - oparg];
             uint32_t func_version = (uint32_t)this_instr->operand0;
-            if (sym_is_const(callable) && sym_matches_type(callable, &PyFunction_Type)) {
-                assert(PyFunction_Check(sym_get_const(callable)));
-                REPLACE_OP(this_instr, _CHECK_FUNCTION_VERSION_INLINE, 0, func_version);
-                this_instr->operand1 = (uintptr_t)sym_get_const(callable);
+            assert(func_version != 0);
+            if (sym_get_function_version(callable) == func_version) {
+                REPLACE_OP(this_instr, _NOP, 0, 0);
             }
-            sym_set_type(callable, &PyFunction_Type);
+            else {
+                if (sym_is_const(callable) && sym_matches_type(callable, &PyFunction_Type)) {
+                    assert(PyFunction_Check(sym_get_const(callable)));
+                    REPLACE_OP(this_instr, _CHECK_FUNCTION_VERSION_INLINE, 0, func_version);
+                    this_instr->operand1 = (uintptr_t)sym_get_const(callable);
+                }
+                sym_set_function_version(ctx, callable, func_version);
+            }
             break;
         }
 
@@ -1797,11 +1811,20 @@
             ctx->frame = new_frame;
             ctx->curr_frame_depth++;
             stack_pointer = new_frame->stack_pointer;
-            co = get_code(this_instr);
-            if (co == NULL) {
+            uint64_t operand = this_instr->operand0;
+            if (operand == 0) {
                 // should be about to _EXIT_TRACE anyway
                 ctx->done = true;
                 break;
+            }
+            if (operand & 1) {
+                co = (PyCodeObject *)(operand & ~1);
+            }
+            else {
+                PyFunctionObject *func = (PyFunctionObject *)operand;
+                assert(PyFunction_Check(func));
+                co = (PyCodeObject *)func->func_code;
+                new_frame->function = func;
             }
             /* Stack space handling */
             int framesize = co->co_framesize;
