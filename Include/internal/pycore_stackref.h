@@ -419,33 +419,33 @@ static inline void PyStackRef_CheckValid(_PyStackRef ref) {
 #endif
 
 /* Does this ref not have an embedded refcount and refer to a mortal object? */
-static inline int
+static inline Py_ALWAYS_INLINE int
 PyStackRef_IsUncountedMortal(_PyStackRef ref)
 {
     return (ref.bits & Py_TAG_BITS) == 0;
 }
 
 /* Does this ref have an embedded refcount and refer to a mortal object (NULL is not mortal)? */
-static inline bool
+static inline Py_ALWAYS_INLINE bool
 PyStackRef_IsCountedMortal(_PyStackRef ref)
 {
     return (ref.bits & Py_TAG_BITS) == Py_TAG_REFCNT;
 }
 
 /* Does this ref refer to a mortal object (NULL is not mortal) */
-static inline bool
+static inline Py_ALWAYS_INLINE bool
 PyStackRef_IsMortal(_PyStackRef ref)
 {
     return (ref.bits & Py_TAG_BITS) != Py_TAG_IMMORTAL;
 }
 
-static inline PyObject *
+static inline Py_ALWAYS_INLINE PyObject *
 PyStackRef_AsPyObjectBorrow(_PyStackRef ref)
 {
     return BITS_TO_PTR_MASKED(ref);
 }
 
-static inline PyObject *
+static inline Py_ALWAYS_INLINE PyObject *
 PyStackRef_AsPyObjectSteal(_PyStackRef ref)
 {
     if (PyStackRef_IsUncountedMortal(ref)) {
@@ -501,14 +501,14 @@ _PyStackRef_FromPyObjectNew(PyObject *obj)
 #define PyStackRef_FromPyObjectNew(obj) _PyStackRef_FromPyObjectNew(_PyObject_CAST(obj))
 
 /* Create a new reference from an object with an embedded reference count */
-static inline _PyStackRef
+static inline Py_ALWAYS_INLINE _PyStackRef
 PyStackRef_FromPyObjectImmortal(PyObject *obj)
 {
     assert(_Py_IsImmortal(obj));
     return (_PyStackRef){ .bits = (uintptr_t)obj | Py_TAG_IMMORTAL};
 }
 
-static inline _PyStackRef
+static inline Py_ALWAYS_INLINE _PyStackRef
 PyStackRef_DUP(_PyStackRef ref)
 {
     assert(!PyStackRef_IsNull(ref));
@@ -518,13 +518,13 @@ PyStackRef_DUP(_PyStackRef ref)
     return ref;
 }
 
-static inline bool
+static inline Py_ALWAYS_INLINE bool
 PyStackRef_IsHeapSafe(_PyStackRef ref)
 {
     return !PyStackRef_IsCountedMortal(ref);
 }
 
-static inline _PyStackRef
+static inline Py_ALWAYS_INLINE _PyStackRef
 PyStackRef_MakeHeapSafe(_PyStackRef ref)
 {
     if (!PyStackRef_IsCountedMortal(ref)) {
@@ -537,7 +537,7 @@ PyStackRef_MakeHeapSafe(_PyStackRef ref)
     return ref;
 }
 
-static inline void
+static inline Py_ALWAYS_INLINE void
 PyStackRef_CLOSE(_PyStackRef ref)
 {
     assert(!PyStackRef_IsNull(ref));
@@ -546,7 +546,7 @@ PyStackRef_CLOSE(_PyStackRef ref)
     }
 }
 
-static inline void
+static inline Py_ALWAYS_INLINE void
 PyStackRef_CLOSE_SPECIALIZED(_PyStackRef ref, destructor destruct)
 {
     assert(!PyStackRef_IsNull(ref));
@@ -555,7 +555,7 @@ PyStackRef_CLOSE_SPECIALIZED(_PyStackRef ref, destructor destruct)
     }
 }
 
-static inline void
+static inline Py_ALWAYS_INLINE void
 PyStackRef_XCLOSE(_PyStackRef ref)
 {
     assert(ref.bits != 0);
