@@ -269,7 +269,7 @@ Known values:
     Python 3.14a5 3614 (Add BINARY_OP_EXTEND)
     Python 3.14a5 3615 (CALL_FUNCTION_EX always take a kwargs argument)
     Python 3.14a5 3616 (Remove BINARY_SUBSCR and family. Make them BINARY_OPs)
-
+    Python 3.14a6 3617 (Branch monitoring for async for loops)
     Python 3.14a5 3618 (Renumbering)
 
     Python 3.15 will start with 3650
