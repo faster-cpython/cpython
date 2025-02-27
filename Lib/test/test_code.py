@@ -218,6 +218,7 @@ from opcode import opmap, opname
 from _testcapi import code_offset_to_line
 
 COPY_FREE_VARS = opmap['COPY_FREE_VARS']
+RESUME = opmap['RESUME']
 
 
 def consts(t):
@@ -429,14 +430,15 @@ class CodeTest(unittest.TestCase):
         def foo():
             pass
 
-        # assert that opcode 127 is invalid
-        self.assertEqual(opname[127], '<127>')
+        # assert that the opcode before RESUME is invalid
+        invalid = RESUME - 1
+        self.assertEqual(opname[invalid], f'<{invalid}>')
 
-        # change first opcode to 0x7f (=127)
+        # change first opcode to invalid
         foo.__code__ = foo.__code__.replace(
-            co_code=b'\x7f' + foo.__code__.co_code[1:])
+            co_code=bytes([invalid]) + foo.__code__.co_code[1:])
 
-        msg = "unknown opcode 127"
+        msg = f"unknown opcode {invalid}"
         with self.assertRaisesRegex(SystemError, msg):
             foo()
 
