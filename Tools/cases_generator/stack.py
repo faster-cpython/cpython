@@ -134,6 +134,18 @@ class StackOffset:
     def __neg__(self) -> "StackOffset":
         return StackOffset(self.pushed, self.popped)
 
+    def is_negative(self) -> bool:
+        self.simplify()
+        if not self.pushed:
+            return bool(self.popped)
+        return False
+
+    def is_non_negative(self) -> bool:
+        self.simplify()
+        if not self.popped:
+            return True
+        return False
+
     def simplify(self) -> None:
         "Remove matching values from both the popped and pushed list"
         if not self.popped:
@@ -163,6 +175,16 @@ class StackOffset:
         self.pushed.extend(pushed)
         self.pushed.sort()
         self.popped.sort()
+
+    def minimum(self, other: "StackOffset") -> "StackOffset":
+        self.simplify()
+        other.simplify()
+        diff = self - other
+        if diff.is_non_negative():
+            return other.copy()
+        if diff.is_negative():
+            return self.copy()
+        raise StackError("Cannot determine minimum")
 
     def to_c(self) -> str:
         self.simplify()
@@ -384,47 +406,6 @@ class Stack:
             self_var.defined = self_var.defined and other_var.defined
             self_var.in_memory = self_var.in_memory and other_var.in_memory
         self.align(other, out)
-
-
-def stacks(inst: Instruction | PseudoInstruction) -> Iterator[StackEffect]:
-    if isinstance(inst, Instruction):
-        for uop in inst.parts:
-            if isinstance(uop, Uop):
-                yield uop.stack
-    else:
-        assert isinstance(inst, PseudoInstruction)
-        yield inst.stack
-
-
-def apply_stack_effect(stack: Stack, effect: StackEffect) -> None:
-    locals: dict[str, Local] = {}
-    for var in reversed(effect.inputs):
-        _, local = stack.pop(var)
-        if var.name != "unused":
-            locals[local.name] = local
-    for var in effect.outputs:
-        if var.name in locals:
-            local = locals[var.name]
-        else:
-            local = Local.unused(var)
-        stack.push(local)
-
-
-def get_stack_effect(inst: Instruction | PseudoInstruction) -> Stack:
-    stack = Stack()
-    for s in stacks(inst):
-        apply_stack_effect(stack, s)
-    return stack
-
-
-def get_stack_effects(inst: Instruction | PseudoInstruction) -> list[Stack]:
-    """Returns a list of stack effects after each uop"""
-    result = []
-    stack = Stack()
-    for s in stacks(inst):
-        apply_stack_effect(stack, s)
-        result.append(stack.copy())
-    return result
 
 
 @dataclass

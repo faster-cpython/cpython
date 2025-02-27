@@ -25,7 +25,7 @@ from generators_common import (
 )
 from cwriter import CWriter
 from typing import TextIO, Callable
-from stack import Local, Stack, StackError, get_stack_effect, Storage
+from stack import Local, Stack, StackError, Storage
 
 DEFAULT_OUTPUT = ROOT / "Python/generated_cases.c.h"
 
@@ -47,22 +47,17 @@ def declare_variable(var: StackItem, out: CWriter) -> None:
 
 
 def declare_variables(inst: Instruction, out: CWriter) -> None:
-    try:
-        stack = get_stack_effect(inst)
-    except StackError as ex:
-        raise analysis_error(ex.args[0], inst.where) from None
-    required = set(stack.defined)
-    required.discard("unused")
+    declared = {"unused"}
     for part in inst.parts:
         if not isinstance(part, Uop):
             continue
         for var in part.stack.inputs:
-            if var.name in required:
-                required.remove(var.name)
+            if var.used and var.name not in declared:
+                declared.add(var.name)
                 declare_variable(var, out)
         for var in part.stack.outputs:
-            if var.name in required:
-                required.remove(var.name)
+            if var.used and var.name not in declared:
+                declared.add(var.name)
                 declare_variable(var, out)
 
 

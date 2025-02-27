@@ -4,6 +4,7 @@ Writes the metadata to pycore_opcode_metadata.h by default.
 """
 
 import argparse
+from typing import Iterator
 
 from analyzer import (
     Analysis,
@@ -11,6 +12,7 @@ from analyzer import (
     PseudoInstruction,
     analyze_files,
     Uop,
+    StackEffect
 )
 from generators_common import (
     DEFAULT_INPUT,
@@ -21,7 +23,7 @@ from generators_common import (
 from cwriter import CWriter
 from dataclasses import dataclass
 from typing import TextIO
-from stack import Stack, get_stack_effect, get_stack_effects
+from stack import StackOffset
 
 # Constants used instead of size for macro expansions.
 # Note: 1, 2, 4 must match actual cache entry sizes.
@@ -93,16 +95,55 @@ def emit_stack_effect_function(
     out.emit("#endif\n\n")
 
 
+def stacks(inst: Instruction | PseudoInstruction) -> Iterator[StackEffect]:
+    if isinstance(inst, Instruction):
+        for uop in inst.parts:
+            if isinstance(uop, Uop):
+                yield uop.stack
+    else:
+        assert isinstance(inst, PseudoInstruction)
+        yield inst.stack
+
+
+def apply_stack_effect(stack: StackOffset, effect: StackEffect) -> None:
+    for var in reversed(effect.inputs):
+        stack.pop(var)
+    for var in effect.outputs:
+        stack.push(var)
+
+
+def get_stack_effect(inst: Instruction | PseudoInstruction) -> StackOffset:
+    stack = StackOffset.empty()
+    for s in stacks(inst):
+        apply_stack_effect(stack, s)
+    return stack
+
+
+def get_stack_effects(inst: Instruction | PseudoInstruction) -> list[StackOffset]:
+    """Returns a list of stack effects after each uop"""
+    result = []
+    stack = StackOffset.empty()
+    for s in stacks(inst):
+        apply_stack_effect(stack, s)
+        result.append(stack.copy())
+    return result
+
 def generate_stack_effect_functions(analysis: Analysis, out: CWriter) -> None:
     popped_data: list[tuple[str, str]] = []
     pushed_data: list[tuple[str, str]] = []
 
     def add(inst: Instruction | PseudoInstruction) -> None:
-        stack = get_stack_effect(inst)
-        popped = (-stack.base_offset).to_c()
-        pushed = (stack.top_offset - stack.base_offset).to_c()
-        popped_data.append((inst.name, popped))
-        pushed_data.append((inst.name, pushed))
+        popped = StackOffset.empty()
+        stack = StackOffset.empty()
+        for effect in stacks(inst):
+            for var in reversed(effect.inputs):
+                stack.pop(var)
+            popped = popped.minimum(stack)
+            for var in effect.outputs:
+                stack.push(var)
+        pushed = stack - popped
+        popped_data.append((inst.name, (-popped).to_c()))
+        pushed_data.append((inst.name, pushed.to_c()))
 
     for inst in analysis.instructions.values():
         add(inst)
@@ -152,8 +193,7 @@ class MaxStackEffectSet:
         self.int_effect = None
         self.cond_effects = set()
 
-    def add(self, stack: Stack) -> None:
-        top_off = stack.top_offset
+    def add(self, top_off: StackOffset) -> None:
         top_off_int = top_off.as_int()
         if top_off_int is not None:
             if self.int_effect is None or top_off_int > self.int_effect:
