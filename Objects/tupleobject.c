@@ -1166,7 +1166,7 @@ maybe_freelist_push(PyTupleObject *op)
     }
     Py_ssize_t index = Py_SIZE(op) - 1;
     if (index < PyTuple_MAXSAVESIZE) {
-        return _Py_FREELIST_PUSH(tuples[index], op, Py_tuple_MAXFREELIST);
+        return _Py_FREELIST_PUSH(tuples[index], op);
     }
     return 0;
 }
@@ -1180,7 +1180,7 @@ _PyTuple_DebugMallocStats(FILE *out)
         char buf[128];
         PyOS_snprintf(buf, sizeof(buf),
                       "free %d-sized PyTupleObject", len);
-        _PyDebugAllocatorStats(out, buf, _Py_FREELIST_SIZE(tuples[i]),
+        _PyDebugAllocatorStats(out, buf, _PyFreeList_Size(&_Py_freelists_GET()->tuples[i]),
                                _PyObject_VAR_SIZE(&PyTuple_Type, len));
     }
 }

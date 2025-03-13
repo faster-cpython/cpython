@@ -1822,7 +1822,7 @@ FutureIter_dealloc(futureiterobject *it)
     PyObject_GC_UnTrack(it);
     tp->tp_clear((PyObject *)it);
 
-    if (!_Py_FREELIST_PUSH(futureiters, it, Py_futureiters_MAXFREELIST)) {
+    if (!_Py_FREELIST_PUSH(futureiters, it)) {
         PyObject_GC_Del(it);
         Py_DECREF(tp);
     }

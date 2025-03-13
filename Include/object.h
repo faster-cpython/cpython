@@ -351,6 +351,7 @@ typedef int (*traverseproc)(PyObject *, visitproc, void *);
 
 typedef void (*freefunc)(void *);
 typedef void (*destructor)(PyObject *);
+typedef void (*destructor_tstate)(struct _ts *, PyObject *);
 typedef PyObject *(*getattrfunc)(PyObject *, char *);
 typedef PyObject *(*getattrofunc)(PyObject *, PyObject *);
 typedef int (*setattrfunc)(PyObject *, char *, PyObject *);

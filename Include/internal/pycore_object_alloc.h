@@ -4,6 +4,7 @@
 #include "pycore_object.h"      // _PyType_HasFeature()
 #include "pycore_pystate.h"     // _PyThreadState_GET()
 #include "pycore_tstate.h"      // _PyThreadStateImpl
+#include "pycore_freelist.h"     // _PyFreeList_Pop()
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,6 +65,43 @@ _PyObject_ReallocWithType(PyTypeObject *tp, void *ptr, size_t size)
 #endif
     return mem;
 }
+
+static inline PyObject *
+_PyObject_NewTstate(PyThreadState *ts, PyTypeObject *tp, size_t size)
+{
+    assert(size > 0);
+    if (size <= SMALL_REQUEST_THRESHOLD) {
+        int size_cls = (size - 1) >> ALIGNMENT_SHIFT;
+        struct _Py_freelist *fl = &ts->interp->object_state.freelists.by_size[size_cls];
+        PyObject *op = (PyObject *)_PyFreeList_Pop(fl);
+        if (op != NULL) {
+            Py_SET_TYPE(op, tp);
+            op->ob_refcnt = 1;
+            return op;
+        }
+    }
+    PyObject *op = (PyObject *) PyObject_Malloc(size);
+    if (op == NULL) {
+        return PyErr_NoMemory();
+    }
+    _PyObject_Init(op, tp);
+    return op;
+}
+
+static inline void
+_PyObject_FreeTstate(PyThreadState *ts, PyObject *obj, size_t size)
+{
+    assert(size > 0);
+    if (size <= SMALL_REQUEST_THRESHOLD) {
+        int size_cls = (size - 1) >> ALIGNMENT_SHIFT;
+        struct _Py_freelist *fl = &ts->interp->object_state.freelists.by_size[size_cls];
+        if (_PyFreeList_Push(fl, obj)) {
+            return;
+        }
+    }
+    PyObject_Free(obj);
+}
+
 
 #ifdef __cplusplus
 }

@@ -31,9 +31,7 @@ struct _Py_float_runtime_state {
 };
 
 
-
-
-PyAPI_FUNC(void) _PyFloat_ExactDealloc(PyObject *op);
+PyAPI_FUNC(void) _PyFloat_ExactDealloc(PyThreadState *ts, PyObject *op);
 
 
 extern void _PyFloat_DebugMallocStats(FILE* out);

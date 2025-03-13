@@ -407,10 +407,10 @@ void
 _PyDict_DebugMallocStats(FILE *out)
 {
     _PyDebugAllocatorStats(out, "free PyDictObject",
-                           _Py_FREELIST_SIZE(dicts),
+                           _PyFreeList_Size(&_Py_freelists_GET()->dicts),
                            sizeof(PyDictObject));
     _PyDebugAllocatorStats(out, "free PyDictKeysObject",
-                           _Py_FREELIST_SIZE(dictkeys),
+                           _PyFreeList_Size(&_Py_freelists_GET()->dictkeys),
                            sizeof(PyDictKeysObject));
 }
 

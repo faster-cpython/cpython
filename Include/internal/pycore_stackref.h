@@ -171,6 +171,7 @@ _PyStackRef_DUP(_PyStackRef ref, const char *filename, int linenumber)
 #define PyStackRef_DUP(REF) _PyStackRef_DUP(REF, __FILE__, __LINE__)
 
 extern void PyStackRef_CLOSE_SPECIALIZED(_PyStackRef ref, destructor destruct);
+extern void PyStackRef_CLOSE_SPECIALIZED_TSTATE(PyThreadState *tstate, _PyStackRef ref, destructor_tstate destruct);
 
 static inline _PyStackRef
 PyStackRef_MakeHeapSafe(_PyStackRef ref)
@@ -311,6 +312,13 @@ PyStackRef_FromPyObjectImmortal(PyObject *obj)
 
 static inline void
 PyStackRef_CLOSE_SPECIALIZED(_PyStackRef ref, destructor destruct)
+{
+    (void)destruct;
+    PyStackRef_CLOSE(ref);
+}
+
+static inline void
+PyStackRef_CLOSE_SPECIALIZED_TSTATE(PyThreadState *ts, _PyStackRef ref, destructor_tstate destruct)
 {
     (void)destruct;
     PyStackRef_CLOSE(ref);
@@ -572,6 +580,15 @@ PyStackRef_CLOSE_SPECIALIZED(_PyStackRef ref, destructor destruct)
     assert(!PyStackRef_IsNull(ref));
     if (PyStackRef_RefcountOnObject(ref)) {
         Py_DECREF_MORTAL_SPECIALIZED(BITS_TO_PTR(ref), destruct);
+    }
+}
+
+static inline void
+PyStackRef_CLOSE_SPECIALIZED_TSTATE(PyThreadState *tstate, _PyStackRef ref, destructor_tstate destruct)
+{
+    assert(!PyStackRef_IsNull(ref));
+    if (PyStackRef_RefcountOnObject(ref)) {
+        Py_DECREF_MORTAL_SPECIALIZED_TSTATE(tstate, BITS_TO_PTR(ref), destruct);
     }
 }
 

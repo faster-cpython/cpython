@@ -224,7 +224,7 @@ _PyList_DebugMallocStats(FILE *out)
 {
     _PyDebugAllocatorStats(out,
                            "free PyListObject",
-                            _Py_FREELIST_SIZE(lists),
+                            _PyFreeList_Size(&_Py_freelists_GET()->lists),
                            sizeof(PyListObject));
 }
 

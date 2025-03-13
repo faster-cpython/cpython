@@ -658,7 +658,7 @@ dummy_func(
             double dres =
                 ((PyFloatObject *)left_o)->ob_fval *
                 ((PyFloatObject *)right_o)->ob_fval;
-            res = _PyFloat_FromDouble_ConsumeInputs(left, right, dres);
+            res = _PyFloat_FromDouble_ConsumeInputs(tstate, left, right, dres);
             INPUTS_DEAD();
             ERROR_IF(PyStackRef_IsNull(res), error);
         }
@@ -673,7 +673,7 @@ dummy_func(
             double dres =
                 ((PyFloatObject *)left_o)->ob_fval +
                 ((PyFloatObject *)right_o)->ob_fval;
-            res = _PyFloat_FromDouble_ConsumeInputs(left, right, dres);
+            res = _PyFloat_FromDouble_ConsumeInputs(tstate, left, right, dres);
             INPUTS_DEAD();
             ERROR_IF(PyStackRef_IsNull(res), error);
         }
@@ -688,7 +688,7 @@ dummy_func(
             double dres =
                 ((PyFloatObject *)left_o)->ob_fval -
                 ((PyFloatObject *)right_o)->ob_fval;
-            res = _PyFloat_FromDouble_ConsumeInputs(left, right, dres);
+            res = _PyFloat_FromDouble_ConsumeInputs(tstate, left, right, dres);
             INPUTS_DEAD();
             ERROR_IF(PyStackRef_IsNull(res), error);
         }
@@ -878,7 +878,7 @@ dummy_func(
             assert(res_o != NULL);
             res = PyStackRef_FromPyObjectNew(res_o);
 #endif
-            STAT_INC(BINARY_SUBSCR, hit);
+            STAT_INC(BINARY_OP, hit);
             DECREF_INPUTS();
         }
 
@@ -2582,9 +2582,9 @@ dummy_func(
             double dright = PyFloat_AS_DOUBLE(right_o);
             // 1 if NaN, 2 if <, 4 if >, 8 if ==; this matches low four bits of the oparg
             int sign_ish = COMPARISON_BIT(dleft, dright);
-            PyStackRef_CLOSE_SPECIALIZED(left, _PyFloat_ExactDealloc);
+            PyStackRef_CLOSE_SPECIALIZED_TSTATE(tstate, left, _PyFloat_ExactDealloc);
             DEAD(left);
-            PyStackRef_CLOSE_SPECIALIZED(right, _PyFloat_ExactDealloc);
+            PyStackRef_CLOSE_SPECIALIZED_TSTATE(tstate, right, _PyFloat_ExactDealloc);
             DEAD(right);
             res = (sign_ish & oparg) ? PyStackRef_True : PyStackRef_False;
             // It's always a bool, so we don't care about oparg & 16.
