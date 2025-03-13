@@ -15,6 +15,7 @@
 #include "pycore_pymath.h"        // _PY_SHORT_FLOAT_REPR
 #include "pycore_pystate.h"       // _PyInterpreterState_GET()
 #include "pycore_structseq.h"     // _PyStructSequence_FiniBuiltin()
+#include "pycore_object_alloc.h"  // _PyObject_NewTstate()
 
 #include <float.h>                // DBL_MAX
 #include <stdlib.h>               // strtol()
@@ -120,57 +121,28 @@ PyFloat_GetInfo(void)
 }
 
 PyObject *
+PyFloat_FromDoubleTstate(PyThreadState *ts, double fval)
+{
+    PyObject *op = _PyObject_NewTstate(ts, &PyFloat_Type, 0, sizeof(PyFloatObject));
+    if (op == NULL) {
+        return NULL;
+    }
+    ((PyFloatObject *)op)->ob_fval = fval;
+    return op;
+}
+
+PyObject *
 PyFloat_FromDouble(double fval)
 {
-    PyFloatObject *op = _Py_FREELIST_POP(PyFloatObject, floats);
-    if (op == NULL) {
-        op = PyObject_Malloc(sizeof(PyFloatObject));
-        if (!op) {
-            return PyErr_NoMemory();
-        }
-        _PyObject_Init((PyObject*)op, &PyFloat_Type);
-    }
-    op->ob_fval = fval;
-    return (PyObject *) op;
+    return PyFloat_FromDoubleTstate(PyThreadState_GET(), fval);
 }
 
-#ifdef Py_GIL_DISABLED
-
-_PyStackRef _PyFloat_FromDouble_ConsumeInputs(_PyStackRef left, _PyStackRef right, double value)
+_PyStackRef _PyFloat_FromDouble_ConsumeInputs(PyThreadState *ts, _PyStackRef left, _PyStackRef right, double value)
 {
-    PyStackRef_CLOSE_SPECIALIZED(left, _PyFloat_ExactDealloc);
-    PyStackRef_CLOSE_SPECIALIZED(right, _PyFloat_ExactDealloc);
-    return PyStackRef_FromPyObjectSteal(PyFloat_FromDouble(value));
+    PyStackRef_CLOSE_SPECIALIZED_TSTATE(ts, left, _PyFloat_ExactDealloc);
+    PyStackRef_CLOSE_SPECIALIZED_TSTATE(ts, right, _PyFloat_ExactDealloc);
+    return PyStackRef_FromPyObjectSteal(PyFloat_FromDoubleTstate(ts, value));
 }
-
-#else // Py_GIL_DISABLED
-
-_PyStackRef _PyFloat_FromDouble_ConsumeInputs(_PyStackRef left, _PyStackRef right, double value)
-{
-    PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-    PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
-    if (Py_REFCNT(left_o) == 1) {
-        ((PyFloatObject *)left_o)->ob_fval = value;
-        PyStackRef_CLOSE_SPECIALIZED(right, _PyFloat_ExactDealloc);
-        return left;
-    }
-    else if (Py_REFCNT(right_o) == 1)  {
-        ((PyFloatObject *)right_o)->ob_fval = value;
-        PyStackRef_CLOSE_SPECIALIZED(left, _PyFloat_ExactDealloc);
-        return right;
-    }
-    else {
-        PyObject *result = PyFloat_FromDouble(value);
-        PyStackRef_CLOSE_SPECIALIZED(left, _PyFloat_ExactDealloc);
-        PyStackRef_CLOSE_SPECIALIZED(right, _PyFloat_ExactDealloc);
-        if (result == NULL) {
-            return PyStackRef_NULL;
-        }
-        return PyStackRef_FromPyObjectStealMortal(result);
-    }
-}
-
-#endif // Py_GIL_DISABLED
 
 static PyObject *
 float_from_string_inner(const char *s, Py_ssize_t len, void *obj)
@@ -263,10 +235,10 @@ PyFloat_FromString(PyObject *v)
 }
 
 void
-_PyFloat_ExactDealloc(PyObject *obj)
+_PyFloat_ExactDealloc(PyThreadState *tstate, PyObject *obj)
 {
     assert(PyFloat_CheckExact(obj));
-    _Py_FREELIST_FREE(floats, obj, PyObject_Free);
+    _PyMem_FreeTstate(tstate, obj, 0, sizeof(PyFloatObject));
 }
 
 static void
@@ -274,7 +246,7 @@ float_dealloc(PyObject *op)
 {
     assert(PyFloat_Check(op));
     if (PyFloat_CheckExact(op))
-        _PyFloat_ExactDealloc(op);
+        _PyFloat_ExactDealloc(PyThreadState_GET(), op);
     else
         Py_TYPE(op)->tp_free(op);
 }
@@ -2014,7 +1986,7 @@ _PyFloat_DebugMallocStats(FILE *out)
 {
     _PyDebugAllocatorStats(out,
                            "free PyFloatObject",
-                           _Py_FREELIST_SIZE(floats),
+                           _PyFreeList_Size(&_Py_freelists_GET()->floats),
                            sizeof(PyFloatObject));
 }
 

@@ -224,7 +224,7 @@ _PyList_DebugMallocStats(FILE *out)
 {
     _PyDebugAllocatorStats(out,
                            "free PyListObject",
-                            _Py_FREELIST_SIZE(lists),
+                            _PyFreeList_Size(&_Py_freelists_GET()->lists),
                            sizeof(PyListObject));
 }
 
@@ -536,7 +536,7 @@ list_dealloc(PyObject *self)
         op->ob_item = NULL;
     }
     if (PyList_CheckExact(op)) {
-        _Py_FREELIST_FREE(lists, op, PyObject_GC_Del);
+        PyObject_GC_DelTstate(tstate, self, sizeof(PyGC_Head), sizeof(PyListObject));
     }
     else {
         PyObject_GC_Del(op);

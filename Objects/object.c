@@ -898,10 +898,11 @@ clear_freelist(struct _Py_freelist *freelist, int is_finalization,
     while ((ptr = _PyFreeList_PopNoStats(freelist)) != NULL) {
         dofree(ptr);
     }
-    assert(freelist->size == 0 || freelist->size == -1);
+    assert(freelist->available == freelist->capacity);
     assert(freelist->freelist == NULL);
     if (is_finalization) {
-        freelist->size = -1;
+        freelist->capacity = 0;
+        freelist->available = 0;
     }
 }
 

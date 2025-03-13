@@ -420,6 +420,23 @@ static inline void _Py_DECREF_MORTAL_SPECIALIZED(const char *filename, int linen
 }
 #define Py_DECREF_MORTAL_SPECIALIZED(op, destruct) _Py_DECREF_MORTAL_SPECIALIZED(__FILE__, __LINE__, op, destruct)
 
+
+static inline void _Py_DECREF_MORTAL_SPECIALIZED_TSTATE(const char *filename, int lineno, PyThreadState *tstate, PyObject *op, destructor_tstate destruct)
+{
+    if (op->ob_refcnt <= 0) {
+        _Py_NegativeRefcount(filename, lineno, op);
+    }
+    _Py_DECREF_STAT_INC();
+    assert(!_Py_IsStaticImmortal(op));
+    if (!_Py_IsImmortal(op)) {
+        _Py_DECREF_DecRefTotal();
+    }
+    if (--op->ob_refcnt == 0) {
+        destruct(tstate, op);
+    }
+}
+#define Py_DECREF_MORTAL_SPECIALIZED_TSTATE(ts, op, destruct) _Py_DECREF_MORTAL_SPECIALIZED_TSTATE(__FILE__, __LINE__, ts, op, destruct)
+
 static inline void Py_DECREF(const char *filename, int lineno, PyObject *op)
 {
 #if SIZEOF_VOID_P > 4
@@ -463,6 +480,16 @@ static inline void Py_DECREF_MORTAL_SPECIALIZED(PyObject *op, destructor destruc
     }
 }
 #define Py_DECREF_MORTAL_SPECIALIZED(op, destruct) Py_DECREF_MORTAL_SPECIALIZED(_PyObject_CAST(op), destruct)
+
+static inline void Py_DECREF_MORTAL_SPECIALIZED_TSTATE(PyThreadState *tstate, PyObject *op, destructor_tstate destruct)
+{
+    assert(!_Py_IsStaticImmortal(op));
+    _Py_DECREF_STAT_INC();
+    if (--op->ob_refcnt == 0) {
+        destruct(tstate, op);
+    }
+}
+#define Py_DECREF_MORTAL_SPECIALIZED_TSTATE(tstate, op, destruct) Py_DECREF_MORTAL_SPECIALIZED_TSTATE(tstate, _PyObject_CAST(op), destruct)
 
 static inline Py_ALWAYS_INLINE void Py_DECREF(PyObject *op)
 {

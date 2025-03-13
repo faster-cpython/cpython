@@ -89,6 +89,9 @@ typedef struct _rare_events {
 
 /* interpreter state */
 
+typedef PyObject *(*alloc_func)(PyTypeObject *tp, size_t presize, size_t size);
+typedef PyObject *(*free_func)(PyObject *);
+
 /* PyInterpreterState holds the global state for one of the runtime's
    interpreters.  Typically the initial (main) interpreter is the only one.
 
@@ -100,6 +103,8 @@ struct _is {
      * which is by far the hottest field in this struct
      * and should be placed at the beginning. */
     struct _ceval_state ceval;
+    alloc_func alloc;
+    free_func free;
 
     PyInterpreterState *next;
 

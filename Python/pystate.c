@@ -588,6 +588,50 @@ free_interpreter(PyInterpreterState *interp)
         PyMem_RawFree(interp);
     }
 }
+
+static void
+init_freelists(struct _Py_freelists *freelists)
+{
+    _PyFreeList_Init(&freelists->floats, Py_floats_MAXFREELIST);
+
+    for (Py_ssize_t i = 0; i < NB_SMALL_SIZE_CLASSES; i++) {
+        uint32_t capacity = (NB_SMALL_SIZE_CLASSES-i)*80;
+        _PyFreeList_Init(&freelists->by_size[i], capacity);
+    }
+    for (Py_ssize_t i = 0; i < PyTuple_MAXSAVESIZE; i++) {
+        _PyFreeList_Init(&freelists->tuples[i], Py_tuple_MAXFREELIST);
+    }
+    _PyFreeList_Init(&freelists->lists, Py_lists_MAXFREELIST);
+    _PyFreeList_Init(&freelists->list_iters, Py_list_iters_MAXFREELIST);
+    _PyFreeList_Init(&freelists->tuple_iters, Py_tuple_iters_MAXFREELIST);
+    _PyFreeList_Init(&freelists->dicts, Py_dicts_MAXFREELIST);
+    _PyFreeList_Init(&freelists->dictkeys, Py_dictkeys_MAXFREELIST);
+    _PyFreeList_Init(&freelists->slices, Py_slices_MAXFREELIST);
+    _PyFreeList_Init(&freelists->contexts, Py_contexts_MAXFREELIST);
+    _PyFreeList_Init(&freelists->async_gens, Py_async_gens_MAXFREELIST);
+    _PyFreeList_Init(&freelists->async_gen_asends, Py_async_gen_asends_MAXFREELIST);
+    _PyFreeList_Init(&freelists->futureiters, Py_futureiters_MAXFREELIST);
+}
+
+PyObject *default_alloc(PyTypeObject *tp, size_t presize, size_t size)
+{
+    char *mem = PyObject_Malloc(size);
+    if (mem == NULL) {
+        return PyErr_NoMemory();
+    }
+    PyObject *op = (PyObject *)(PyObject *)(mem + presize);
+    _PyObject_Init(op, tp);
+    return op;
+}
+
+
+PyObject *default_free(PyObject *obj, size_t presize)
+{
+    char *mem = ((char *)obj) - presize;
+    _PyRuntime.allocators.standard.obj.free(_PyRuntime.allocators.standard.obj.ctx, mem);
+}
+
+
 #ifndef NDEBUG
 static inline int check_interpreter_whence(long);
 #endif
@@ -631,6 +675,8 @@ init_interpreter(PyInterpreterState *interp,
     interp->id = id;
 
     interp->id_refcount = 0;
+    interp->alloc = default_alloc;
+    interp->free = default_free;
 
     assert(runtime->interpreters.head == interp);
     assert(next != NULL || (interp == runtime->interpreters.main));
@@ -697,6 +743,7 @@ init_interpreter(PyInterpreterState *interp,
     _Py_stackref_associate(interp, Py_True, PyStackRef_True);
 #endif
 
+    init_freelists(&interp->object_state.freelists);
     interp->_initialized = 1;
     return _PyStatus_OK();
 }

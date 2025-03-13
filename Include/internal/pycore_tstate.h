@@ -9,7 +9,6 @@ extern "C" {
 #endif
 
 #include "pycore_brc.h"             // struct _brc_thread_state
-#include "pycore_freelist_state.h"  // struct _Py_freelists
 #include "pycore_mimalloc.h"        // struct _mimalloc_thread_state
 #include "pycore_qsbr.h"            // struct qsbr
 

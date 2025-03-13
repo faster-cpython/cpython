@@ -2255,14 +2255,14 @@ gc_alloc(PyTypeObject *tp, size_t basicsize, size_t presize)
     if (basicsize > PY_SSIZE_T_MAX - presize) {
         return _PyErr_NoMemory(tstate);
     }
-    size_t size = presize + basicsize;
-    char *mem = _PyObject_MallocWithType(tp, size);
-    if (mem == NULL) {
-        return _PyErr_NoMemory(tstate);
+    PyObject *op = _PyObject_NewTstate(tstate, tp, presize, basicsize);
+    if (op == NULL) {
+        return NULL;
     }
-    ((PyObject **)mem)[0] = NULL;
-    ((PyObject **)mem)[1] = NULL;
-    PyObject *op = (PyObject *)(mem + presize);
+    if (tp->tp_flags & Py_TPFLAGS_MANAGED_DICT) {
+        ((PyObject **)op)[MANAGED_WEAKREF_OFFSET] = NULL;
+        ((PyObject **)op)[MANAGED_DICT_OFFSET] = NULL;
+    }
     _PyObject_GC_Link(op);
     return op;
 }
@@ -2280,7 +2280,6 @@ _PyObject_GC_New(PyTypeObject *tp)
     if (op == NULL) {
         return NULL;
     }
-    _PyObject_Init(op, tp);
     if (tp->tp_flags & Py_TPFLAGS_INLINE_VALUES) {
         _PyObject_InitInlineValues(op, tp);
     }
@@ -2366,6 +2365,35 @@ PyObject_GC_Del(void *op)
     gcstate->heap_size--;
     PyObject_Free(((char *)op)-presize);
 }
+
+
+void
+PyObject_GC_DelTstate(PyThreadState *tstate, PyObject *op, size_t presize, size_t size)
+{
+    PyGC_Head *g = AS_GC(op);
+    if (_PyObject_GC_IS_TRACKED(op)) {
+        gc_list_remove(g);
+#ifdef Py_DEBUG
+        PyObject *exc = PyErr_GetRaisedException();
+        if (PyErr_WarnExplicitFormat(PyExc_ResourceWarning, "gc", 0,
+                                     "gc", NULL,
+                                     "Object of type %s is not untracked "
+                                     "before destruction",
+                                     Py_TYPE(op)->tp_name))
+        {
+            PyErr_FormatUnraisable("Exception ignored on object deallocation");
+        }
+        PyErr_SetRaisedException(exc);
+#endif
+    }
+    GCState *gcstate = &tstate->interp->gc;
+    if (gcstate->young.count > 0) {
+        gcstate->young.count--;
+    }
+    gcstate->heap_size--;
+    _PyMem_FreeTstate(tstate, op, presize, size);
+}
+
 
 int
 PyObject_GC_IsTracked(PyObject* obj)

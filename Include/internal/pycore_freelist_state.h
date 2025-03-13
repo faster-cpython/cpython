@@ -32,28 +32,10 @@ struct _Py_freelist {
     // For PyObjects, this overlaps with the `ob_refcnt` field or the `ob_tid`
     // field.
     void *freelist;
-
-    // The number of items in the free list or -1 if the free list is disabled
-    Py_ssize_t size;
-};
-
-struct _Py_freelists {
-    struct _Py_freelist floats;
-    struct _Py_freelist ints;
-    struct _Py_freelist tuples[PyTuple_MAXSAVESIZE];
-    struct _Py_freelist lists;
-    struct _Py_freelist list_iters;
-    struct _Py_freelist tuple_iters;
-    struct _Py_freelist dicts;
-    struct _Py_freelist dictkeys;
-    struct _Py_freelist slices;
-    struct _Py_freelist contexts;
-    struct _Py_freelist async_gens;
-    struct _Py_freelist async_gen_asends;
-    struct _Py_freelist futureiters;
-    struct _Py_freelist object_stack_chunks;
-    struct _Py_freelist unicode_writers;
-    struct _Py_freelist pymethodobjects;
+    // The remaining space in this freelist;
+    uint32_t available;
+    // The maximum number of items this freelist is allowed to hold
+    uint32_t capacity;
 };
 
 #ifdef __cplusplus

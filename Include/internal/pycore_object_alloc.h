@@ -4,6 +4,7 @@
 #include "pycore_object.h"      // _PyType_HasFeature()
 #include "pycore_pystate.h"     // _PyThreadState_GET()
 #include "pycore_tstate.h"      // _PyThreadStateImpl
+#include "pycore_freelist.h"     // _PyFreeList_Pop()
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,6 +64,58 @@ _PyObject_ReallocWithType(PyTypeObject *tp, void *ptr, size_t size)
     m->current_object_heap = &m->heaps[_Py_MIMALLOC_HEAP_OBJECT];
 #endif
     return mem;
+}
+
+static inline PyObject *
+_PyObject_NewTstate(PyThreadState *ts, PyTypeObject *tp, size_t presize, size_t size)
+{
+    size += presize;
+    assert(size > 0);
+    if (size <= SMALL_REQUEST_THRESHOLD) {
+        int size_cls = (size - 1) >> ALIGNMENT_SHIFT;
+        struct _Py_freelist *fl = &ts->interp->object_state.freelists.by_size[size_cls];
+        char *mem = _PyFreeList_Pop(fl);
+        PyObject *op = (PyObject *)
+        if (mem != NULL) {
+            PyObject *op = (PyObject *)(mem + presize);
+            Py_SET_TYPE(op, tp);
+            op->ob_refcnt = 1;
+            return op;
+        }
+    }
+    return ts->interp->alloc(tp, presize, size);
+    char *mem = PyObject_Malloc(size);
+    if (mem == NULL) {
+        return PyErr_NoMemory();
+    }
+    PyObject *op = (PyObject *)(PyObject *)(mem + presize);
+    _PyObject_Init(op, tp);
+    return op;
+}
+
+static inline void
+_PyMem_FreeTstate(PyThreadState *ts, PyObject *obj, size_t presize, size_t size)
+{
+    size += presize;
+    assert(size > 0);
+    char *mem = ((char *)obj) - presize;
+    if (size <= SMALL_REQUEST_THRESHOLD) {
+        int size_cls = (size - 1) >> ALIGNMENT_SHIFT;
+        struct _Py_freelist *fl = &ts->interp->object_state.freelists.by_size[size_cls];
+        if (_PyFreeList_Push(fl, mem)) {
+            return;
+        }
+    }
+    OBJECT_STAT_INC(frees);
+    ts->interp->free(obj, presize);
+    _PyRuntime.allocators.standard.obj.free(_PyRuntime.allocators.standard.obj.ctx, mem);
+}
+
+static inline void
+_PyObject_FreeTstate(PyThreadState *ts, PyObject *obj, size_t size)
+{
+    assert(!PyObject_IS_GC(obj));
+    _PyMem_FreeTstate(ts, obj, 0, size);
 }
 
 #ifdef __cplusplus
