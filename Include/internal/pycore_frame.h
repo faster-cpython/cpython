@@ -61,21 +61,15 @@ enum _frameowner {
     FRAME_OWNED_BY_CSTACK = 4,
 };
 
+struct _PyFrameCore {
+    _PyStackRef f_executable; /* Deferred or strong reference */
+    union _PyVMFrame *previous;
+    char owner;
+};
+
 typedef struct _PyInterpreterFrame {
     _PyStackRef f_executable; /* Deferred or strong reference (code object or None) */
-    struct _PyInterpreterFrame *previous;
-    _PyStackRef f_funcobj; /* Deferred or strong reference. Only valid if not on C stack */
-    PyObject *f_globals; /* Borrowed reference. Only valid if not on C stack */
-    PyObject *f_builtins; /* Borrowed reference. Only valid if not on C stack */
-    PyObject *f_locals; /* Strong reference, may be NULL. Only valid if not on C stack */
-    PyFrameObject *frame_obj; /* Strong reference, may be NULL. Only valid if not on C stack */
-    _Py_CODEUNIT *instr_ptr; /* Instruction currently executing (or about to begin) */
-    _PyStackRef *stackpointer;
-#ifdef Py_GIL_DISABLED
-    /* Index of thread-local bytecode containing instr_ptr. */
-    int32_t tlbc_index;
-#endif
-    uint16_t return_offset;  /* Only relevant during a function call */
+    union _PyVMFrame *previous;
     char owner;
 #ifdef Py_DEBUG
     uint8_t visited:1;
@@ -83,9 +77,27 @@ typedef struct _PyInterpreterFrame {
 #else
     uint8_t visited;
 #endif
+    uint16_t return_offset;  /* Only relevant during a function call */
+#ifdef Py_GIL_DISABLED
+    /* Index of thread-local bytecode containing instr_ptr. */
+    int32_t tlbc_index;
+#endif
+    _PyStackRef f_funcobj; /* Deferred or strong reference. Only valid if not on C stack */
+    PyObject *f_globals; /* Borrowed reference. Only valid if not on C stack */
+    PyObject *f_builtins; /* Borrowed reference. Only valid if not on C stack */
+    PyObject *f_locals; /* Strong reference, may be NULL. Only valid if not on C stack */
+    PyFrameObject *frame_obj; /* Strong reference, may be NULL. Only valid if not on C stack */
+    _Py_CODEUNIT *instr_ptr; /* Instruction currently executing (or about to begin) */
+    _PyStackRef *stackpointer;
     /* Locals and stack */
     _PyStackRef localsplus[1];
 } _PyInterpreterFrame;
+
+
+typedef union _PyVMFrame {
+    struct _PyFrameCore core;
+    _PyInterpreterFrame iframe;
+} _PyVMFrame;
 
 #define _PyInterpreterFrame_LASTI(IF) \
     ((int)((IF)->instr_ptr - _PyFrame_GetBytecode((IF))))
@@ -200,7 +212,7 @@ _PyFrame_Initialize(
     PyThreadState *tstate, _PyInterpreterFrame *frame, _PyStackRef func,
     PyObject *locals, PyCodeObject *code, int null_locals_from, _PyInterpreterFrame *previous)
 {
-    frame->previous = previous;
+    frame->previous = (_PyVMFrame *)previous;
     frame->f_funcobj = func;
     frame->f_executable = PyStackRef_FromPyObjectNew(code);
     PyFunctionObject *func_obj = (PyFunctionObject *)PyStackRef_AsPyObjectBorrow(func);
@@ -264,23 +276,32 @@ _PyFrame_SetStackPointer(_PyInterpreterFrame *frame, _PyStackRef *stack_pointer)
  * Frames owned by a generator are always complete.
  */
 static inline bool
-_PyFrame_IsIncomplete(_PyInterpreterFrame *frame)
+_PyVMFrame_IsIncomplete(_PyVMFrame *frame)
 {
-    if (frame->owner >= FRAME_OWNED_BY_INTERPRETER) {
+    if (frame->core.owner >= FRAME_OWNED_BY_INTERPRETER) {
         return true;
     }
-    return frame->owner != FRAME_OWNED_BY_GENERATOR &&
-           frame->instr_ptr < _PyFrame_GetBytecode(frame) +
-                                  _PyFrame_GetCode(frame)->_co_firsttraceable;
+    if (frame->core.owner == FRAME_OWNED_BY_GENERATOR) {
+        return false;
+    }
+    _PyInterpreterFrame *iframe = &frame->iframe;
+    return iframe->instr_ptr < _PyFrame_GetBytecode(iframe) +
+                                  _PyFrame_GetCode(iframe)->_co_firsttraceable;
+}
+
+static inline bool
+_PyFrame_IsIncomplete(_PyInterpreterFrame *frame)
+{
+    return _PyVMFrame_IsIncomplete((_PyVMFrame *)frame);
 }
 
 static inline _PyInterpreterFrame *
-_PyFrame_GetFirstComplete(_PyInterpreterFrame *frame)
+_PyFrame_GetFirstComplete(_PyVMFrame *frame)
 {
-    while (frame && _PyFrame_IsIncomplete(frame)) {
-        frame = frame->previous;
+    while (frame && _PyVMFrame_IsIncomplete(frame)) {
+        frame = frame->core.previous;
     }
-    return frame;
+    return (_PyInterpreterFrame *)frame;
 }
 
 static inline _PyInterpreterFrame *
@@ -376,7 +397,7 @@ _PyFrame_PushTrampolineUnchecked(PyThreadState *tstate, PyCodeObject *code, int 
     _PyInterpreterFrame *frame = (_PyInterpreterFrame *)tstate->datastack_top;
     tstate->datastack_top += code->co_framesize;
     assert(tstate->datastack_top < tstate->datastack_limit);
-    frame->previous = previous;
+    frame->previous = (_PyVMFrame *)previous;
     frame->f_funcobj = PyStackRef_None;
     frame->f_executable = PyStackRef_FromPyObjectNew(code);
 #ifdef Py_DEBUG

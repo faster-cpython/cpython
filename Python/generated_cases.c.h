@@ -633,9 +633,10 @@
                 stack_pointer += -2;
                 assert(WITHIN_STACK_BOUNDS());
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                assert(new_frame->previous == frame || new_frame->previous->previous == frame);
+                assert(new_frame->previous == (_PyVMFrame *)frame || new_frame->previous->core.previous == (_PyVMFrame *)frame);
                 CALL_STAT_INC(inlined_py_calls);
-                frame = tstate->current_frame = temp;
+                tstate->current_frame = (_PyVMFrame *)temp;
+                frame = temp;
                 tstate->py_recursion_remaining--;
                 LOAD_SP();
                 LOAD_IP(0);
@@ -1566,9 +1567,10 @@
                 assert(tstate->interp->eval_frame == NULL);
                 _PyInterpreterFrame *temp = new_frame;
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                assert(new_frame->previous == frame || new_frame->previous->previous == frame);
+                assert(new_frame->previous == (_PyVMFrame *)frame || new_frame->previous->core.previous == (_PyVMFrame *)frame);
                 CALL_STAT_INC(inlined_py_calls);
-                frame = tstate->current_frame = temp;
+                tstate->current_frame = (_PyVMFrame *)temp;
+                frame = temp;
                 tstate->py_recursion_remaining--;
                 LOAD_SP();
                 LOAD_IP(0);
@@ -1705,9 +1707,10 @@
                 stack_pointer += -2 - oparg;
                 assert(WITHIN_STACK_BOUNDS());
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                assert(new_frame->previous == frame || new_frame->previous->previous == frame);
+                assert(new_frame->previous == (_PyVMFrame *)frame || new_frame->previous->core.previous == (_PyVMFrame *)frame);
                 CALL_STAT_INC(inlined_py_calls);
-                frame = tstate->current_frame = temp;
+                tstate->current_frame = (_PyVMFrame *)temp;
+                frame = temp;
                 tstate->py_recursion_remaining--;
                 LOAD_SP();
                 LOAD_IP(0);
@@ -1827,9 +1830,10 @@
                 assert(tstate->interp->eval_frame == NULL);
                 _PyInterpreterFrame *temp = new_frame;
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                assert(new_frame->previous == frame || new_frame->previous->previous == frame);
+                assert(new_frame->previous == (_PyVMFrame *)frame || new_frame->previous->core.previous == (_PyVMFrame *)frame);
                 CALL_STAT_INC(inlined_py_calls);
-                frame = tstate->current_frame = temp;
+                tstate->current_frame = (_PyVMFrame *)temp;
+                frame = temp;
                 tstate->py_recursion_remaining--;
                 LOAD_SP();
                 LOAD_IP(0);
@@ -2922,9 +2926,10 @@
                 assert(tstate->interp->eval_frame == NULL);
                 _PyInterpreterFrame *temp = new_frame;
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                assert(new_frame->previous == frame || new_frame->previous->previous == frame);
+                assert(new_frame->previous == (_PyVMFrame *)frame || new_frame->previous->core.previous == (_PyVMFrame *)frame);
                 CALL_STAT_INC(inlined_py_calls);
-                frame = tstate->current_frame = temp;
+                tstate->current_frame = (_PyVMFrame *)temp;
+                frame = temp;
                 tstate->py_recursion_remaining--;
                 LOAD_SP();
                 LOAD_IP(0);
@@ -3162,9 +3167,10 @@
                 assert(tstate->interp->eval_frame == NULL);
                 _PyInterpreterFrame *temp = new_frame;
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                assert(new_frame->previous == frame || new_frame->previous->previous == frame);
+                assert(new_frame->previous == (_PyVMFrame *)frame || new_frame->previous->core.previous == (_PyVMFrame *)frame);
                 CALL_STAT_INC(inlined_py_calls);
-                frame = tstate->current_frame = temp;
+                tstate->current_frame = (_PyVMFrame *)temp;
+                frame = temp;
                 tstate->py_recursion_remaining--;
                 LOAD_SP();
                 LOAD_IP(0);
@@ -3986,9 +3992,10 @@
                 stack_pointer += -2 - oparg;
                 assert(WITHIN_STACK_BOUNDS());
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                assert(new_frame->previous == frame || new_frame->previous->previous == frame);
+                assert(new_frame->previous == (_PyVMFrame *)frame || new_frame->previous->core.previous == (_PyVMFrame *)frame);
                 CALL_STAT_INC(inlined_py_calls);
-                frame = tstate->current_frame = temp;
+                tstate->current_frame = (_PyVMFrame *)temp;
+                frame = temp;
                 tstate->py_recursion_remaining--;
                 LOAD_SP();
                 LOAD_IP(0);
@@ -4082,9 +4089,10 @@
                 assert(tstate->interp->eval_frame == NULL);
                 _PyInterpreterFrame *temp = new_frame;
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                assert(new_frame->previous == frame || new_frame->previous->previous == frame);
+                assert(new_frame->previous == (_PyVMFrame *)frame || new_frame->previous->core.previous == (_PyVMFrame *)frame);
                 CALL_STAT_INC(inlined_py_calls);
-                frame = tstate->current_frame = temp;
+                tstate->current_frame = (_PyVMFrame *)temp;
+                frame = temp;
                 tstate->py_recursion_remaining--;
                 LOAD_SP();
                 LOAD_IP(0);
@@ -5536,7 +5544,7 @@
                 gen->gi_frame_state = FRAME_EXECUTING;
                 gen->gi_exc_state.previous_item = tstate->exc_info;
                 tstate->exc_info = &gen->gi_exc_state;
-                gen_frame->previous = frame;
+                gen_frame->previous = (_PyVMFrame *)frame;
                 // oparg is the return offset from the next instruction.
                 frame->return_offset = (uint16_t)( 2 + oparg);
             }
@@ -5548,9 +5556,10 @@
                 assert(tstate->interp->eval_frame == NULL);
                 _PyInterpreterFrame *temp = new_frame;
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                assert(new_frame->previous == frame || new_frame->previous->previous == frame);
+                assert(new_frame->previous == (_PyVMFrame *)frame || new_frame->previous->core.previous == (_PyVMFrame *)frame);
                 CALL_STAT_INC(inlined_py_calls);
-                frame = tstate->current_frame = temp;
+                tstate->current_frame = (_PyVMFrame *)temp;
+                frame = temp;
                 tstate->py_recursion_remaining--;
                 LOAD_SP();
                 LOAD_IP(0);
@@ -7334,7 +7343,8 @@
                 _Py_LeaveRecursiveCallPy(tstate);
                 // GH-99729: We need to unlink the frame *before* clearing it:
                 _PyInterpreterFrame *dying = frame;
-                frame = tstate->current_frame = dying->previous;
+                frame = (_PyInterpreterFrame *)frame->previous;
+                tstate->current_frame = (_PyVMFrame *)frame;
                 _PyEval_FrameClearAndPop(tstate, dying);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
                 LOAD_IP(frame->return_offset);
@@ -7396,7 +7406,8 @@
                 gen->gi_exc_state.previous_item = NULL;
                 _Py_LeaveRecursiveCallPy(tstate);
                 _PyInterpreterFrame *gen_frame = frame;
-                frame = tstate->current_frame = frame->previous;
+                frame = (_PyInterpreterFrame *)frame->previous;
+                tstate->current_frame = (_PyVMFrame *)frame;
                 gen_frame->previous = NULL;
                 /* We don't know which of these is relevant here, so keep them equal */
                 assert(INLINE_CACHE_ENTRIES_SEND == INLINE_CACHE_ENTRIES_FOR_ITER);
@@ -8528,9 +8539,10 @@
                 stack_pointer += -1;
                 assert(WITHIN_STACK_BOUNDS());
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                assert(new_frame->previous == frame || new_frame->previous->previous == frame);
+                assert(new_frame->previous == (_PyVMFrame *)frame || new_frame->previous->core.previous == (_PyVMFrame *)frame);
                 CALL_STAT_INC(inlined_py_calls);
-                frame = tstate->current_frame = temp;
+                tstate->current_frame = (_PyVMFrame *)temp;
+                frame = temp;
                 tstate->py_recursion_remaining--;
                 LOAD_SP();
                 LOAD_IP(0);
@@ -10339,9 +10351,10 @@
             gen->gi_frame_state = FRAME_CREATED;
             gen_frame->owner = FRAME_OWNED_BY_GENERATOR;
             _Py_LeaveRecursiveCallPy(tstate);
-            _PyInterpreterFrame *prev = frame->previous;
+            _PyVMFrame *prev = frame->previous;
             _PyThreadState_PopFrame(tstate, frame);
-            frame = tstate->current_frame = prev;
+            frame = (_PyInterpreterFrame *)prev;
+            tstate->current_frame = prev;
             LOAD_IP(frame->return_offset);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             res = PyStackRef_FromPyObjectStealMortal((PyObject *)gen);
@@ -10373,7 +10386,8 @@
             _Py_LeaveRecursiveCallPy(tstate);
             // GH-99729: We need to unlink the frame *before* clearing it:
             _PyInterpreterFrame *dying = frame;
-            frame = tstate->current_frame = dying->previous;
+            frame = (_PyInterpreterFrame *)frame->previous;
+            tstate->current_frame = (_PyVMFrame *)frame;
             _PyEval_FrameClearAndPop(tstate, dying);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             LOAD_IP(frame->return_offset);
@@ -10436,7 +10450,7 @@
                     assert( 2 + oparg <= UINT16_MAX);
                     frame->return_offset = (uint16_t)( 2 + oparg);
                     assert(gen_frame->previous == NULL);
-                    gen_frame->previous = frame;
+                    gen_frame->previous = (_PyVMFrame *)frame;
                     DISPATCH_INLINED(gen_frame);
                 }
                 if (PyStackRef_IsNone(v) && PyIter_Check(receiver_o)) {
@@ -10536,7 +10550,7 @@
                 tstate->exc_info = &gen->gi_exc_state;
                 assert( 2 + oparg <= UINT16_MAX);
                 frame->return_offset = (uint16_t)( 2 + oparg);
-                gen_frame->previous = frame;
+                gen_frame->previous = (_PyVMFrame *)frame;
             }
             // _PUSH_FRAME
             {
@@ -10548,9 +10562,10 @@
                 stack_pointer += -1;
                 assert(WITHIN_STACK_BOUNDS());
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                assert(new_frame->previous == frame || new_frame->previous->previous == frame);
+                assert(new_frame->previous == (_PyVMFrame *)frame || new_frame->previous->core.previous == (_PyVMFrame *)frame);
                 CALL_STAT_INC(inlined_py_calls);
-                frame = tstate->current_frame = temp;
+                tstate->current_frame = (_PyVMFrame *)temp;
+                frame = temp;
                 tstate->py_recursion_remaining--;
                 LOAD_SP();
                 LOAD_IP(0);
@@ -12037,7 +12052,8 @@
             gen->gi_exc_state.previous_item = NULL;
             _Py_LeaveRecursiveCallPy(tstate);
             _PyInterpreterFrame *gen_frame = frame;
-            frame = tstate->current_frame = frame->previous;
+            frame = (_PyInterpreterFrame *)frame->previous;
+            tstate->current_frame = (_PyVMFrame *)frame;
             gen_frame->previous = NULL;
             /* We don't know which of these is relevant here, so keep them equal */
             assert(INLINE_CACHE_ENTRIES_SEND == INLINE_CACHE_ENTRIES_FOR_ITER);
@@ -12206,7 +12222,8 @@ JUMP_TO_LABEL(error);
             assert(frame->owner != FRAME_OWNED_BY_INTERPRETER);
             // GH-99729: We need to unlink the frame *before* clearing it:
             _PyInterpreterFrame *dying = frame;
-            frame = tstate->current_frame = dying->previous;
+            frame = (_PyInterpreterFrame *)frame->previous;
+            tstate->current_frame = (_PyVMFrame *)frame;
             _PyEval_FrameClearAndPop(tstate, dying);
             frame->return_offset = 0;
             if (frame->owner == FRAME_OWNED_BY_INTERPRETER) {

@@ -967,7 +967,8 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
 #if !Py_TAIL_CALL_INTERP
     uint8_t opcode;    /* Current opcode */
     int oparg;         /* Current opcode argument, if any */
-    assert(tstate->current_frame == NULL || tstate->current_frame->stackpointer != NULL);
+    assert(_PyFrame_GetFirstComplete(tstate->current_frame) == NULL ||
+           _PyFrame_GetFirstComplete(tstate->current_frame)->stackpointer != NULL);
 #endif
     _PyInterpreterFrame entry_frame;
 
@@ -1001,8 +1002,8 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
 #endif
     /* Push frame */
     entry_frame.previous = tstate->current_frame;
-    frame->previous = &entry_frame;
-    tstate->current_frame = frame;
+    frame->previous = (_PyVMFrame *)&entry_frame;
+    tstate->current_frame = (_PyVMFrame *)frame;
 
     /* support for generator.throw() */
     if (throwflag) {
@@ -1156,12 +1157,13 @@ early_exit:
     assert(frame->owner != FRAME_OWNED_BY_INTERPRETER);
     // GH-99729: We need to unlink the frame *before* clearing it:
     _PyInterpreterFrame *dying = frame;
-    frame = tstate->current_frame = dying->previous;
+    _PyVMFrame *prev = dying->previous;
+    tstate->current_frame = prev;
     _PyEval_FrameClearAndPop(tstate, dying);
-    frame->return_offset = 0;
-    assert(frame->owner == FRAME_OWNED_BY_INTERPRETER);
+    assert(prev->core.owner == FRAME_OWNED_BY_INTERPRETER);
+    prev->iframe.return_offset = 0;
     /* Restore previous frame and exit */
-    tstate->current_frame = frame->previous;
+    tstate->current_frame = prev->core.previous;
     return NULL;
 }
 
@@ -2711,11 +2713,11 @@ int
 PyEval_MergeCompilerFlags(PyCompilerFlags *cf)
 {
     PyThreadState *tstate = _PyThreadState_GET();
-    _PyInterpreterFrame *current_frame = tstate->current_frame;
+    _PyVMFrame *current_frame = tstate->current_frame;
     int result = cf->cf_flags != 0;
 
-    if (current_frame != NULL) {
-        const int codeflags = _PyFrame_GetCode(current_frame)->co_flags;
+    if (current_frame != NULL && !_PyVMFrame_IsIncomplete(current_frame)) {
+        const int codeflags = _PyFrame_GetCode((_PyInterpreterFrame *)current_frame)->co_flags;
         const int compilerflags = codeflags & PyCF_MASK;
         if (compilerflags) {
             result = 1;

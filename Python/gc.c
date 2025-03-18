@@ -1475,16 +1475,17 @@ mark_stacks(PyInterpreterState *interp, PyGC_Head *visited, int visited_space, b
     PyThreadState* ts = PyInterpreterState_ThreadHead(interp);
     HEAD_UNLOCK(runtime);
     while (ts) {
-        _PyInterpreterFrame *frame = ts->current_frame;
+        _PyVMFrame *frame = ts->current_frame;
         while (frame) {
-            if (frame->owner >= FRAME_OWNED_BY_INTERPRETER) {
-                frame = frame->previous;
+            if (frame->core.owner >= FRAME_OWNED_BY_INTERPRETER) {
+                frame = frame->core.previous;
                 continue;
             }
-            _PyStackRef *locals = frame->localsplus;
-            _PyStackRef *sp = frame->stackpointer;
-            objects_marked += move_to_reachable(frame->f_locals, &reachable, visited_space);
-            PyObject *func = PyStackRef_AsPyObjectBorrow(frame->f_funcobj);
+            _PyInterpreterFrame *iframe = (_PyInterpreterFrame *)frame;
+            _PyStackRef *locals = iframe->localsplus;
+            _PyStackRef *sp = iframe->stackpointer;
+            objects_marked += move_to_reachable(iframe->f_locals, &reachable, visited_space);
+            PyObject *func = PyStackRef_AsPyObjectBorrow(iframe->f_funcobj);
             objects_marked += move_to_reachable(func, &reachable, visited_space);
             while (sp > locals) {
                 sp--;
@@ -1502,13 +1503,13 @@ mark_stacks(PyInterpreterState *interp, PyGC_Head *visited, int visited_space, b
                     }
                 }
             }
-            if (!start && frame->visited) {
+            if (!start && iframe->visited) {
                 // If this frame has already been visited, then the lower frames
                 // will have already been visited and will not have changed
                 break;
             }
-            frame->visited = 1;
-            frame = frame->previous;
+            iframe->visited = 1;
+            frame = frame->core.previous;
         }
         HEAD_LOCK(runtime);
         ts = PyThreadState_Next(ts);
@@ -1996,7 +1997,8 @@ Py_ssize_t
 _PyGC_Collect(PyThreadState *tstate, int generation, _PyGC_Reason reason)
 {
     GCState *gcstate = &tstate->interp->gc;
-    assert(tstate->current_frame == NULL || tstate->current_frame->stackpointer != NULL);
+    assert(_PyFrame_GetFirstComplete(tstate->current_frame) == NULL ||
+           _PyFrame_GetFirstComplete(tstate->current_frame)->stackpointer != NULL);
 
     int expected = 0;
     if (!_Py_atomic_compare_exchange_int(&gcstate->collecting, &expected, 1)) {

@@ -2221,7 +2221,7 @@ _PyFrame_IsEntryFrame(PyFrameObject *frame)
     assert(frame != NULL);
     _PyInterpreterFrame *f = frame->f_frame;
     assert(!_PyFrame_IsIncomplete(f));
-    return f->previous && f->previous->owner == FRAME_OWNED_BY_INTERPRETER;
+    return f->previous && f->previous->core.owner == FRAME_OWNED_BY_INTERPRETER;
 }
 
 PyCodeObject *
@@ -2242,10 +2242,10 @@ PyFrame_GetBack(PyFrameObject *frame)
     assert(!_PyFrame_IsIncomplete(frame->f_frame));
     PyFrameObject *back = frame->f_back;
     if (back == NULL) {
-        _PyInterpreterFrame *prev = frame->f_frame->previous;
-        prev = _PyFrame_GetFirstComplete(prev);
-        if (prev) {
-            back = _PyFrame_GetFrameObject(prev);
+        _PyVMFrame *prev = frame->f_frame->previous;
+        _PyInterpreterFrame *iframe = _PyFrame_GetFirstComplete(prev);
+        if (iframe) {
+            back = _PyFrame_GetFrameObject(iframe);
         }
     }
     return (PyFrameObject*)Py_XNewRef(back);

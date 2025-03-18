@@ -1115,7 +1115,11 @@ class PyFramePtr:
         return self._f_special("owner", int) == FRAME_OWNED_BY_INTERPRETER
 
     def previous(self):
-        return self._f_special("previous", PyFramePtr)
+        prev = self._gdbval["previous"]
+        try:
+            return PyFramePtr(prev["iframe"])
+        except:
+            return None
 
     def iter_globals(self):
         '''
@@ -1802,12 +1806,6 @@ class Frame(object):
             frame = self._gdbframe.read_var('frame')
             frame = PyFramePtr(frame)
             if not frame.is_optimized_out():
-                return frame
-            cframe = self._gdbframe.read_var('cframe')
-            if cframe is None:
-                return None
-            frame = PyFramePtr(cframe["current_frame"])
-            if frame and not frame.is_optimized_out():
                 return frame
             return None
         except ValueError:

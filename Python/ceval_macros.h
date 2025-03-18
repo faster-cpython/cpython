@@ -157,10 +157,11 @@ do { \
     do {                                                \
         assert(tstate->interp->eval_frame == NULL);     \
         _PyFrame_SetStackPointer(frame, stack_pointer); \
-        assert((NEW_FRAME)->previous == frame);         \
-        frame = tstate->current_frame = (NEW_FRAME);     \
+        assert((NEW_FRAME)->previous == (_PyVMFrame *)frame);  \
+        frame = (NEW_FRAME);                            \
+        tstate->current_frame = (_PyVMFrame *)frame;    \
         CALL_STAT_INC(inlined_py_calls);                \
-        JUMP_TO_LABEL(start_frame);                      \
+        JUMP_TO_LABEL(start_frame);                     \
     } while (0)
 
 /* Tuple access macros */
