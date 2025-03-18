@@ -37,6 +37,8 @@ Traceback \(most recent call first\):
         'Verify that the "py-bt-full" command works'
         bt = self.get_stack_trace(script=SAMPLE_SCRIPT,
                                   cmds_after_breakpoint=['py-bt-full'])
+        print(bt)
+
         self.assertMultilineMatches(bt,
                                     r'''^.*
 #[0-9]+ Frame 0x-?[0-9a-f]+, for file .*gdb_sample.py, line 7, in bar \(a=1, b=2, c=3\)

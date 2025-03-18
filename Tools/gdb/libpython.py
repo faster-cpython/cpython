@@ -1115,9 +1115,9 @@ class PyFramePtr:
         return self._f_special("owner", int) == FRAME_OWNED_BY_INTERPRETER
 
     def previous(self):
-        prev = self._gdbval["previous"]
+        prev = self._gdbval["previous"].cast(gdb.lookup_type('_PyInterpreterFrame').pointer())
         try:
-            return PyFramePtr(prev["iframe"])
+            return PyFramePtr(prev)
         except:
             return None
 
@@ -1215,11 +1215,11 @@ class PyFramePtr:
             return
         lineno = self.current_line_num()
         lineno = str(lineno) if lineno is not None else "?"
+        addr = self.as_address()
+        file = self.co_filename.proxyval(visited)
+        name = self.co_name.proxyval(visited)
         out.write('Frame 0x%x, for file %s, line %s, in %s ('
-                  % (self.as_address(),
-                     self.co_filename.proxyval(visited),
-                     lineno,
-                     self.co_name.proxyval(visited)))
+                % (addr, file, lineno, name))
         first = True
         for pyop_name, pyop_value in self.iter_locals():
             if not first:
@@ -1258,7 +1258,6 @@ class PyFramePtr:
         except StringTruncated:
             # Truncation occurred:
             return out.getvalue() + '...(truncated)'
-
         # No truncation occurred:
         return out.getvalue()
 
@@ -1869,10 +1868,11 @@ class Frame(object):
                 interp_frame = interp_frame.previous()
         else:
             info = self.is_other_python_frame()
+            index = self.get_index()
             if info:
-                sys.stdout.write('#%i %s\n' % (self.get_index(), info))
+                sys.stdout.write('#%i %s\n' % (index, info))
             else:
-                sys.stdout.write('#%i\n' % self.get_index())
+                sys.stdout.write('#%i\n' % index)
 
     def print_traceback(self):
         if self.is_evalframe():
