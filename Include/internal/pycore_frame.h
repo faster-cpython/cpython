@@ -58,7 +58,8 @@ enum _frameowner {
     FRAME_OWNED_BY_GENERATOR = 1,
     FRAME_OWNED_BY_FRAME_OBJECT = 2,
     FRAME_OWNED_BY_INTERPRETER = 3,
-    FRAME_OWNED_BY_CSTACK = 4,
+    FRAME_OWNED_BY_EXTENSION = 4,
+    FRAME_OWNED_BY_CSTACK = 5,
 };
 
 struct _PyFrameCore {
@@ -93,10 +94,18 @@ typedef struct _PyInterpreterFrame {
     _PyStackRef localsplus[1];
 } _PyInterpreterFrame;
 
+typedef struct _PyExtensionFrame {
+    _PyStackRef f_executable; /* A "code like" object */
+    union _PyVMFrame *previous;
+    char owner;
+    void *extension_data;
+} _PyExtensionFrame;
+
 
 typedef union _PyVMFrame {
     struct _PyFrameCore core;
     _PyInterpreterFrame iframe;
+    _PyExtensionFrame eframe;
 } _PyVMFrame;
 
 #define _PyInterpreterFrame_LASTI(IF) \
@@ -364,6 +373,24 @@ _PyThreadState_HasStackSpace(PyThreadState *tstate, int size)
     );
     return tstate->datastack_top != NULL &&
         size < tstate->datastack_limit - tstate->datastack_top;
+}
+
+static inline void
+_Py_PushNonPythonFrame(PyThreadState *tstate, struct _PyFrameCore *frame, PyObject *callable, enum _frameowner owner)
+{
+    frame->owner = owner;
+    frame->f_executable = PyStackRef_FromPyObjectNew(callable);
+    frame->previous = tstate->current_frame;
+    tstate->current_frame = (_PyVMFrame *)frame;
+}
+
+static inline void
+_Py_PopNonPythonFrame(PyThreadState *tstate, struct _PyFrameCore *frame)
+{
+    assert(tstate->current_frame == (_PyVMFrame *)frame);
+    _PyStackRef codelike = frame->f_executable;
+    tstate->current_frame = frame->previous;
+    PyStackRef_CLOSE(codelike);
 }
 
 extern _PyInterpreterFrame *

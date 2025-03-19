@@ -110,7 +110,7 @@ _PyFrame_ClearExceptCode(_PyInterpreterFrame *frame)
         _PyGen_GetGeneratorFromFrame(frame)->gi_frame_state == FRAME_CLEARED);
     // GH-99729: Clearing this frame can expose the stack (via finalizers). It's
     // crucial that this frame has been unlinked, and is no longer visible:
-    assert(_PyThreadState_GET()->current_frame != frame);
+    assert(_PyThreadState_GET()->current_frame != (_PyVMFrame *)frame);
     if (frame->frame_obj) {
         PyFrameObject *f = frame->frame_obj;
         frame->frame_obj = NULL;
@@ -153,3 +153,18 @@ const PyTypeObject *const PyUnstable_ExecutableKinds[PyUnstable_EXECUTABLE_KINDS
     [PyUnstable_EXECUTABLE_KIND_METHOD_DESCRIPTOR] = &PyMethodDescr_Type,
     [PyUnstable_EXECUTABLE_KINDS] = NULL,
 };
+
+int
+Py_PushExtensionFrame(PyThreadState *tstate, PyExtensionFrame *frame, PyObject *codelike)
+{
+    assert(sizeof(PyExtensionFrame) >= sizeof(struct _PyFrameCore));
+    _Py_PushNonPythonFrame(tstate, (struct _PyFrameCore *)frame, codelike, FRAME_OWNED_BY_EXTENSION);
+    return 0;
+}
+
+void
+Py_PopExtensionFrame(PyThreadState *tstate, PyExtensionFrame *frame)
+{
+    assert(((struct _PyFrameCore *)frame)->owner == FRAME_OWNED_BY_EXTENSION);
+    _Py_PopNonPythonFrame(tstate, (struct _PyFrameCore *)frame);
+}

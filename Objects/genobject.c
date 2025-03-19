@@ -962,11 +962,11 @@ _Py_MakeCoro(PyFunctionObject *func)
     if (origin_depth == 0) {
         ((PyCoroObject *)coro)->cr_origin_or_finalizer = NULL;
     } else {
-        _PyInterpreterFrame *frame = tstate->current_frame;
+        _PyVMFrame *frame = tstate->current_frame;
         assert(frame);
-        assert(_PyFrame_IsIncomplete(frame));
-        frame = _PyFrame_GetFirstComplete(frame->previous);
-        PyObject *cr_origin = compute_cr_origin(origin_depth, frame);
+        assert(_PyVMFrame_IsIncomplete(frame));
+        _PyInterpreterFrame *iframe = _PyFrame_GetFirstComplete(frame->core.previous);
+        PyObject *cr_origin = compute_cr_origin(origin_depth, iframe);
         ((PyCoroObject *)coro)->cr_origin_or_finalizer = cr_origin;
         if (!cr_origin) {
             Py_DECREF(coro);

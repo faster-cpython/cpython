@@ -28,6 +28,15 @@ PyAPI_FUNC(int) _PyFrame_IsEntryFrame(PyFrameObject *frame);
 PyAPI_FUNC(int) PyFrame_FastToLocalsWithError(PyFrameObject *f);
 PyAPI_FUNC(void) PyFrame_FastToLocals(PyFrameObject *);
 
+typedef struct PyExtensionFrame {
+    void *opaque[4];
+} PyExtensionFrame;
+
+PyAPI_FUNC(int) Py_PushExtensionFrame(PyThreadState *tstate, PyExtensionFrame *frame, PyObject *codelike);
+
+/* Returns a new reference to the codelike object */
+PyAPI_FUNC(void) Py_PopExtensionFrame(PyThreadState *tstate, PyExtensionFrame *frame);
+
 
 typedef struct {
     PyObject_HEAD

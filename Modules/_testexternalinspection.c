@@ -1265,8 +1265,8 @@ parse_async_frame_object(
         return -1;
     }
 
-    if (owner == FRAME_OWNED_BY_CSTACK || owner == FRAME_OWNED_BY_INTERPRETER) {
-        return 0;  // C frame
+    if (owner >= FRAME_OWNED_BY_INTERPRETER) {
+        return 0;  // Non-Python frame
     }
 
     if (owner != FRAME_OWNED_BY_GENERATOR

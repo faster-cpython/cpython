@@ -384,14 +384,15 @@ make_union(PyObject *self, PyObject *other)
 static PyObject *
 caller(void)
 {
-    _PyInterpreterFrame *f = _PyThreadState_GET()->current_frame;
+    _PyVMFrame *f = _PyThreadState_GET()->current_frame;
     if (f == NULL) {
         Py_RETURN_NONE;
     }
-    if (f == NULL || PyStackRef_IsNull(f->f_funcobj)) {
+    _PyInterpreterFrame *frame = _PyFrame_GetFirstComplete(f);
+    if (frame == NULL || PyStackRef_IsNull(frame->f_funcobj)) {
         Py_RETURN_NONE;
     }
-    PyObject *r = PyFunction_GetModule(PyStackRef_AsPyObjectBorrow(f->f_funcobj));
+    PyObject *r = PyFunction_GetModule(PyStackRef_AsPyObjectBorrow(frame->f_funcobj));
     if (!r) {
         PyErr_Clear();
         Py_RETURN_NONE;
