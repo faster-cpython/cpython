@@ -190,6 +190,7 @@ dump_stack(_PyInterpreterFrame *frame, _PyStackRef *stack_pointer)
 
 static void
 lltrace_instruction(_PyInterpreterFrame *frame,
+                    _PyStackRef _tos,
                     _PyStackRef *stack_pointer,
                     _Py_CODEUNIT *next_instr,
                     int opcode,
@@ -197,6 +198,9 @@ lltrace_instruction(_PyInterpreterFrame *frame,
 {
     int offset = 0;
     if (frame->owner < FRAME_OWNED_BY_INTERPRETER) {
+        printf("_tos = ");
+        dump_item(_tos);
+        printf("; ");
         dump_stack(frame, stack_pointer);
         offset = (int)(next_instr - _PyFrame_GetBytecode(frame));
     }
@@ -943,6 +947,13 @@ _PyObjectArray_Free(PyObject **array, PyObject **scratch)
 /* This setting is reversed below following _PyEval_EvalFrameDefault */
 #endif
 
+#ifdef Py_GIL_DISABLED
+#define Py_FREE_THREADING 1
+#else
+#define Py_FREE_THREADING 0
+#endif
+
+
 #if Py_TAIL_CALL_INTERP
 #include "opcode_targets.h"
 #include "generated_cases.c.h"
@@ -992,7 +1003,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
 #endif
     entry_frame.f_executable = PyStackRef_None;
     entry_frame.instr_ptr = (_Py_CODEUNIT *)_Py_INTERPRETER_TRAMPOLINE_INSTRUCTIONS + 1;
-    entry_frame.stackpointer = entry_frame.localsplus;
+    entry_frame.stackpointer = entry_frame.localsplus + 1;
     entry_frame.owner = FRAME_OWNED_BY_INTERPRETER;
     entry_frame.visited = 0;
     entry_frame.return_offset = 0;
@@ -1039,6 +1050,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
     _PyExecutorObject *current_executor = NULL;
     const _PyUOpInstruction *next_uop = NULL;
 #endif
+    _PyStackRef _tos = PyStackRef_NULL;
 #if Py_TAIL_CALL_INTERP
     return _TAIL_CALL_start_frame(frame, NULL, tstate, NULL, 0);
 #else
