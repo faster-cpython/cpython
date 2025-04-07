@@ -65,9 +65,11 @@ def declare_parser(
             static struct {{
                 PyGC_Head _this_is_not_used;
                 PyObject_VAR_HEAD
+                Py_hash_t ob_hash;
                 PyObject *ob_item[NUM_KEYWORDS];
             }} _kwtuple = {{
                 .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
+                .ob_hash = -1,
                 .ob_item = {{ {keywords_py} }},
             }};
             #undef NUM_KEYWORDS
@@ -296,9 +298,7 @@ class ParseArgsCodeGen:
                 and not self.func.critical_section)
 
     def use_pyobject_self(self) -> bool:
-        pyobject_types = ('PyObject *', None)
-        return (self.self_parameter_converter.type in pyobject_types
-                and self.self_parameter_converter.specified_type in pyobject_types)
+        return self.self_parameter_converter.use_pyobject_self(self.func)
 
     def select_prototypes(self) -> None:
         self.docstring_prototype = ''

@@ -14,6 +14,7 @@
 #include "pycore_object.h"        // _PyObject_Init(), _PyDebugAllocatorStats()
 #include "pycore_pymath.h"        // _PY_SHORT_FLOAT_REPR
 #include "pycore_pystate.h"       // _PyInterpreterState_GET()
+#include "pycore_stackref.h"      // PyStackRef_AsPyObjectBorrow()
 #include "pycore_structseq.h"     // _PyStructSequence_FiniBuiltin()
 #include "pycore_object_alloc.h"  // _PyObject_NewTstate()
 
@@ -131,17 +132,8 @@ PyFloat_FromDoubleTstate(PyThreadState *ts, double fval)
     return op;
 }
 
-PyObject *
-PyFloat_FromDouble(double fval)
 {
     return PyFloat_FromDoubleTstate(PyThreadState_GET(), fval);
-}
-
-_PyStackRef _PyFloat_FromDouble_ConsumeInputs(PyThreadState *ts, _PyStackRef left, _PyStackRef right, double value)
-{
-    PyStackRef_CLOSE_SPECIALIZED_TSTATE(ts, left, _PyFloat_ExactDealloc);
-    PyStackRef_CLOSE_SPECIALIZED_TSTATE(ts, right, _PyFloat_ExactDealloc);
-    return PyStackRef_FromPyObjectSteal(PyFloat_FromDoubleTstate(ts, value));
 }
 
 static PyObject *
@@ -1245,8 +1237,8 @@ Create a floating-point number from a hexadecimal string.
 [clinic start generated code]*/
 
 static PyObject *
-float_fromhex(PyTypeObject *type, PyObject *string)
-/*[clinic end generated code: output=46c0274d22b78e82 input=0407bebd354bca89]*/
+float_fromhex_impl(PyTypeObject *type, PyObject *string)
+/*[clinic end generated code: output=c54b4923552e5af5 input=0407bebd354bca89]*/
 {
     PyObject *result;
     double x;
@@ -1659,8 +1651,8 @@ Convert real number to a floating-point number.
 [clinic start generated code]*/
 
 static PyObject *
-float_from_number(PyTypeObject *type, PyObject *number)
-/*[clinic end generated code: output=bbcf05529fe907a3 input=1f8424d9bc11866a]*/
+float_from_number_impl(PyTypeObject *type, PyObject *number)
+/*[clinic end generated code: output=dda7e4466ab7068d input=1f8424d9bc11866a]*/
 {
     if (PyFloat_CheckExact(number) && type == &PyFloat_Type) {
         Py_INCREF(number);

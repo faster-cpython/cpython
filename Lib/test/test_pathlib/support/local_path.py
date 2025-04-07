@@ -1,30 +1,42 @@
 """
-Implementation of ReadablePath for local paths, for use in pathlib tests.
+Implementations of ReadablePath and WritablePath for local paths, for use in
+pathlib tests.
 
 LocalPathGround is also defined here. It helps establish the "ground truth"
 about local paths in tests.
 """
 
 import os
-import pathlib.types
 
-from test.support import os_helper
-from test.test_pathlib.support.lexical_path import LexicalPath
+from . import is_pypi
+from .lexical_path import LexicalPath
+
+if is_pypi:
+    from shutil import rmtree
+    from pathlib_abc import PathInfo, _ReadablePath, _WritablePath
+    can_symlink = True
+    testfn = "TESTFN"
+else:
+    from pathlib.types import PathInfo, _ReadablePath, _WritablePath
+    from test.support import os_helper
+    can_symlink = os_helper.can_symlink()
+    testfn = os_helper.TESTFN
+    rmtree = os_helper.rmtree
 
 
 class LocalPathGround:
-    can_symlink = os_helper.can_symlink()
+    can_symlink = can_symlink
 
     def __init__(self, path_cls):
         self.path_cls = path_cls
 
     def setup(self, local_suffix=""):
-        root = self.path_cls(os_helper.TESTFN + local_suffix)
+        root = self.path_cls(testfn + local_suffix)
         os.mkdir(root)
         return root
 
     def teardown(self, root):
-        os_helper.rmtree(root)
+        rmtree(root)
 
     def create_file(self, p, data=b''):
         with open(p, 'wb') as f:
@@ -78,7 +90,7 @@ class LocalPathGround:
             return f.read()
 
 
-class LocalPathInfo(pathlib.types.PathInfo):
+class LocalPathInfo(PathInfo):
     """
     Simple implementation of PathInfo for a local path
     """
@@ -122,7 +134,7 @@ class LocalPathInfo(pathlib.types.PathInfo):
         return self._is_symlink
 
 
-class ReadableLocalPath(pathlib.types._ReadablePath, LexicalPath):
+class ReadableLocalPath(_ReadablePath, LexicalPath):
     """
     Simple implementation of a ReadablePath class for local filesystem paths.
     """
@@ -143,3 +155,23 @@ class ReadableLocalPath(pathlib.types._ReadablePath, LexicalPath):
 
     def readlink(self):
         return self.with_segments(os.readlink(self))
+
+
+class WritableLocalPath(_WritablePath, LexicalPath):
+    """
+    Simple implementation of a WritablePath class for local filesystem paths.
+    """
+
+    __slots__ = ()
+
+    def __fspath__(self):
+        return str(self)
+
+    def __open_wb__(self, buffering=-1):
+        return open(self, 'wb')
+
+    def mkdir(self, mode=0o777):
+        os.mkdir(self, mode)
+
+    def symlink_to(self, target, target_is_directory=False):
+        os.symlink(target, self, target_is_directory)
