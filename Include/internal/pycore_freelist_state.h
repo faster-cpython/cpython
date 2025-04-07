@@ -8,6 +8,43 @@ extern "C" {
 #  error "this header requires Py_BUILD_CORE define"
 #endif
 
+
+/*
+ * Alignment of addresses returned to the user. 2 word alignment works
+ * on most current architectures (with 32-bit or 64-bit address buses).
+ * The alignment value is also used for grouping small requests in size
+ * classes spaced ALIGNMENT bytes apart.
+ *
+ * Don't change this. Lots of code implicitly relies on it.
+ */
+
+#if SIZEOF_VOID_P > 4
+#define ALIGNMENT              16               /* must be 2^N */
+#define ALIGNMENT_SHIFT         4
+#else
+#define ALIGNMENT               8               /* must be 2^N */
+#define ALIGNMENT_SHIFT         3
+#endif
+
+
+/*
+ * Max size threshold below which malloc requests are considered to be
+ * small enough in order to use freelists. You can tune
+ * this value according to your application behaviour and memory needs.
+ *
+ * Note: a size threshold of 512 guarantees that newly created dictionaries
+ * will be allocated from freelists or preallocated memory pools on 64-bit.
+ *
+ * The following invariants must hold:
+ *      1) ALIGNMENT <= SMALL_REQUEST_THRESHOLD <= 512
+ *      2) SMALL_REQUEST_THRESHOLD is evenly divisible by ALIGNMENT
+ *
+ * Although not required, for better performance and space efficiency,
+ * it is recommended that SMALL_REQUEST_THRESHOLD is set to a power of 2.
+ */
+#define SMALL_REQUEST_THRESHOLD 512
+#define NB_SMALL_SIZE_CLASSES   (SMALL_REQUEST_THRESHOLD / ALIGNMENT)
+
 #  define PyTuple_MAXSAVESIZE 20     // Largest tuple to save on freelist
 #  define Py_tuple_MAXFREELIST 2000  // Maximum number of tuples of each size to save
 #  define Py_lists_MAXFREELIST 80
@@ -43,6 +80,7 @@ struct _Py_freelist {
 };
 
 struct _Py_freelists {
+    struct _Py_freelist by_size[NB_SMALL_SIZE_CLASSES];
     struct _Py_freelist floats;
     struct _Py_freelist ints;
     struct _Py_freelist tuples[PyTuple_MAXSAVESIZE];
