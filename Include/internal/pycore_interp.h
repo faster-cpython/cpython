@@ -13,11 +13,6 @@ extern "C" {
 
 /* interpreter state */
 
-typedef PyObject *(*alloc_func)(PyTypeObject *tp, size_t presize, size_t size);
-typedef PyObject *(*free_func)(PyObject *);
-
-    alloc_func alloc;
-    free_func free;
 #define _PyInterpreterState_WHENCE_NOTSET -1
 #define _PyInterpreterState_WHENCE_UNKNOWN 0
 #define _PyInterpreterState_WHENCE_RUNTIME 1

@@ -615,7 +615,8 @@ init_freelists(struct _Py_freelists *freelists)
     _PyFreeList_Init(&freelists->futureiters, Py_futureiters_MAXFREELIST);
 }
 
-PyObject *default_alloc(PyTypeObject *tp, size_t presize, size_t size)
+static PyObject *
+default_alloc(PyTypeObject *tp, size_t presize, size_t size)
 {
     char *mem = PyObject_Malloc(size);
     if (mem == NULL) {
@@ -627,7 +628,8 @@ PyObject *default_alloc(PyTypeObject *tp, size_t presize, size_t size)
 }
 
 
-PyObject *default_free(PyObject *obj, size_t presize)
+static void
+default_free(PyObject *obj, size_t presize)
 {
     char *mem = ((char *)obj) - presize;
     _PyRuntime.allocators.standard.obj.free(_PyRuntime.allocators.standard.obj.ctx, mem);

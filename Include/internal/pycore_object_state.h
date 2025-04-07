@@ -45,6 +45,10 @@ struct _Py_freelists {
     struct _Py_freelist object_stack_chunks;
     struct _Py_freelist unicode_writers;
     struct _Py_freelist pymethodobjects;
+    struct _Py_freelist pycfunctionobject;
+    struct _Py_freelist pycmethodobject;
+    struct _Py_freelist ranges;
+    struct _Py_freelist range_iters;
 };
 
 struct _py_object_state {

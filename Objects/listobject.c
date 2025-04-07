@@ -564,6 +564,8 @@ list_dealloc(PyObject *self)
         op->ob_item = NULL;
     }
     if (PyList_CheckExact(op)) {
+        size_t presize = sizeof(PyGC_Head);
+        assert(presize == _PyType_PreHeaderSize(Py_TYPE(op)));
         PyObject_GC_DelTstate(tstate, self, sizeof(PyGC_Head), sizeof(PyListObject));
     }
     else {

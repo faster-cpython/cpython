@@ -15,6 +15,9 @@ extern "C" {
 #include "pycore_tstate.h"        // _PyThreadStateImpl
 #include "pycore_typedefs.h"      // _PyRuntimeState
 
+typedef PyObject *(*py_alloc_func)(PyTypeObject *tp, size_t presize, size_t size);
+typedef void (*py_free_func)(PyObject *obj, size_t presize);
+
 
 #define CODE_MAX_WATCHERS 8
 #define CONTEXT_MAX_WATCHERS 8
@@ -890,6 +893,8 @@ struct _is {
     // that allocated memory is gone.  See free_obmalloc_arenas() for
     // more comments.
     struct _obmalloc_state *obmalloc;
+    py_alloc_func alloc;
+    py_free_func free;
 
     PyObject *audit_hooks;
     PyType_WatchCallback type_watchers[TYPE_MAX_WATCHERS];

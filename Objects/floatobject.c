@@ -132,8 +132,17 @@ PyFloat_FromDoubleTstate(PyThreadState *ts, double fval)
     return op;
 }
 
+PyObject *
+PyFloat_FromDouble(double fval)
 {
     return PyFloat_FromDoubleTstate(PyThreadState_GET(), fval);
+}
+
+_PyStackRef _PyFloat_FromDouble_ConsumeInputs(PyThreadState *ts, _PyStackRef left, _PyStackRef right, double value)
+{
+    PyStackRef_CLOSE_SPECIALIZED_TSTATE(ts, left, _PyFloat_ExactDealloc);
+    PyStackRef_CLOSE_SPECIALIZED_TSTATE(ts, right, _PyFloat_ExactDealloc);
+    return PyStackRef_FromPyObjectSteal(PyFloat_FromDoubleTstate(ts, value));
 }
 
 static PyObject *

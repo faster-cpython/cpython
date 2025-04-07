@@ -357,6 +357,8 @@ extern void _PyGC_VisitObjectsWorldStopped(PyInterpreterState *interp,
                                            gcvisitobjects_t callback, void *arg);
 #endif
 
+PyAPI_FUNC(void) PyObject_GC_DelTstate(PyThreadState *tstate, PyObject *op, size_t presize, size_t size);
+
 #ifdef __cplusplus
 }
 #endif

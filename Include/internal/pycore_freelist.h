@@ -106,9 +106,7 @@ static inline void *
 _PyFreeList_PopMem(struct _Py_freelist *fl)
 {
     void *op = _PyFreeList_PopNoStats(fl);
-    if (op != NULL) {
-        OBJECT_STAT_INC(from_freelist);
-    }
+    OBJECT_STAT_INC_COND(from_freelist, op != NULL);
     return op;
 }
 

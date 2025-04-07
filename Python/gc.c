@@ -2378,21 +2378,7 @@ void
 PyObject_GC_DelTstate(PyThreadState *tstate, PyObject *op, size_t presize, size_t size)
 {
     PyGC_Head *g = AS_GC(op);
-    if (_PyObject_GC_IS_TRACKED(op)) {
-        gc_list_remove(g);
-#ifdef Py_DEBUG
-        PyObject *exc = PyErr_GetRaisedException();
-        if (PyErr_WarnExplicitFormat(PyExc_ResourceWarning, "gc", 0,
-                                     "gc", NULL,
-                                     "Object of type %s is not untracked "
-                                     "before destruction",
-                                     Py_TYPE(op)->tp_name))
-        {
-            PyErr_FormatUnraisable("Exception ignored on object deallocation");
-        }
-        PyErr_SetRaisedException(exc);
-#endif
-    }
+    assert(!_PyObject_GC_IS_TRACKED(op));
     GCState *gcstate = &tstate->interp->gc;
     if (gcstate->young.count > 0) {
         gcstate->young.count--;

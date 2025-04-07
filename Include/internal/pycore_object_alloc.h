@@ -74,8 +74,7 @@ _PyObject_NewTstate(PyThreadState *ts, PyTypeObject *tp, size_t presize, size_t 
     if (size <= SMALL_REQUEST_THRESHOLD) {
         int size_cls = (size - 1) >> ALIGNMENT_SHIFT;
         struct _Py_freelist *fl = &ts->interp->object_state.freelists.by_size[size_cls];
-        char *mem = _PyFreeList_Pop(fl);
-        PyObject *op = (PyObject *)
+        char *mem = _PyFreeList_PopMem(fl);
         if (mem != NULL) {
             PyObject *op = (PyObject *)(mem + presize);
             Py_SET_TYPE(op, tp);
@@ -108,7 +107,6 @@ _PyMem_FreeTstate(PyThreadState *ts, PyObject *obj, size_t presize, size_t size)
     }
     OBJECT_STAT_INC(frees);
     ts->interp->free(obj, presize);
-    _PyRuntime.allocators.standard.obj.free(_PyRuntime.allocators.standard.obj.ctx, mem);
 }
 
 static inline void

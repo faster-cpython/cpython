@@ -40,10 +40,6 @@ struct _Py_freelist {
     uint32_t available;
     // The maximum number of items this freelist is allowed to hold
     uint32_t capacity;
-    struct _Py_freelist ranges;
-    struct _Py_freelist range_iters;
-    struct _Py_freelist pycfunctionobject;
-    struct _Py_freelist pycmethodobject;
 };
 
 #ifdef __cplusplus
