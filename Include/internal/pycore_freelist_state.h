@@ -36,9 +36,10 @@ struct _Py_freelist {
     // For PyObjects, this overlaps with the `ob_refcnt` field or the `ob_tid`
     // field.
     void *freelist;
-
-    // The number of items in the free list or -1 if the free list is disabled
-    Py_ssize_t size;
+    // The remaining space in this freelist;
+    uint32_t available;
+    // The maximum number of items this freelist is allowed to hold
+    uint32_t capacity;
 };
 
 struct _Py_freelists {

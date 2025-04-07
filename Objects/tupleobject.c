@@ -1166,7 +1166,7 @@ maybe_freelist_push(PyTupleObject *op)
     }
     Py_ssize_t index = Py_SIZE(op) - 1;
     if (index < PyTuple_MAXSAVESIZE) {
-        return _Py_FREELIST_PUSH(tuples[index], op, Py_tuple_MAXFREELIST);
+        return _Py_FREELIST_PUSH(tuples[index], op);
     }
     return 0;
 }

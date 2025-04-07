@@ -590,6 +590,26 @@ free_interpreter(PyInterpreterState *interp)
         PyMem_RawFree(interp);
     }
 }
+
+static void
+init_freelists(struct _Py_freelists *freelists)
+{
+    _PyFreeList_Init(&freelists->floats, Py_floats_MAXFREELIST);
+    for (Py_ssize_t i = 0; i < PyTuple_MAXSAVESIZE; i++) {
+        _PyFreeList_Init(&freelists->tuples[i], Py_tuple_MAXFREELIST);
+    }
+    _PyFreeList_Init(&freelists->lists, Py_lists_MAXFREELIST);
+    _PyFreeList_Init(&freelists->list_iters, Py_list_iters_MAXFREELIST);
+    _PyFreeList_Init(&freelists->tuple_iters, Py_tuple_iters_MAXFREELIST);
+    _PyFreeList_Init(&freelists->dicts, Py_dicts_MAXFREELIST);
+    _PyFreeList_Init(&freelists->dictkeys, Py_dictkeys_MAXFREELIST);
+    _PyFreeList_Init(&freelists->slices, Py_slices_MAXFREELIST);
+    _PyFreeList_Init(&freelists->contexts, Py_contexts_MAXFREELIST);
+    _PyFreeList_Init(&freelists->async_gens, Py_async_gens_MAXFREELIST);
+    _PyFreeList_Init(&freelists->async_gen_asends, Py_async_gen_asends_MAXFREELIST);
+    _PyFreeList_Init(&freelists->futureiters, Py_futureiters_MAXFREELIST);
+}
+
 #ifndef NDEBUG
 static inline int check_interpreter_whence(long);
 #endif
@@ -699,6 +719,7 @@ init_interpreter(PyInterpreterState *interp,
     _Py_stackref_associate(interp, Py_True, PyStackRef_True);
 #endif
 
+    init_freelists(&interp->object_state.freelists);
     interp->_initialized = 1;
     return _PyStatus_OK();
 }

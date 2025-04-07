@@ -31,11 +31,11 @@ _Py_freelists_GET(void)
 
 // Pushes `op` to the freelist, calls `freefunc` if the freelist is full
 #define _Py_FREELIST_FREE(NAME, op, freefunc) \
-    _PyFreeList_Free(&_Py_freelists_GET()->NAME, _PyObject_CAST(op), \
-                     Py_ ## NAME ## _MAXFREELIST, freefunc)
+    _PyFreeList_Free(&_Py_freelists_GET()->NAME, _PyObject_CAST(op), freefunc)
+
 // Pushes `op` to the freelist, returns 1 if successful, 0 if the freelist is full
-#define _Py_FREELIST_PUSH(NAME, op, limit) \
-    _PyFreeList_Push(&_Py_freelists_GET()->NAME, _PyObject_CAST(op), limit)
+#define _Py_FREELIST_PUSH(NAME, op) \
+   _PyFreeList_Push(&_Py_freelists_GET()->NAME, _PyObject_CAST(op))
 
 // Pops a PyObject from the freelist, returns NULL if the freelist is empty.
 #define _Py_FREELIST_POP(TYPE, NAME) \
@@ -46,15 +46,28 @@ _Py_freelists_GET(void)
 #define _Py_FREELIST_POP_MEM(NAME) \
     _PyFreeList_PopMem(&_Py_freelists_GET()->NAME)
 
-#define _Py_FREELIST_SIZE(NAME) (int)((_Py_freelists_GET()->NAME).size)
+static inline uint32_t
+_PyFreeList_Size(struct _Py_freelist *fl)
+{
+    return fl->capacity - fl->available;
+}
+
+#define _Py_FREELIST_SIZE(NAME) _PyFreeList_Size(&_Py_freelists_GET()->NAME)
+
+static inline void
+_PyFreeList_Init(struct _Py_freelist *fl, uint32_t capacity)
+{
+    fl->freelist = NULL;
+    fl->capacity = fl->available = capacity;
+}
 
 static inline int
-_PyFreeList_Push(struct _Py_freelist *fl, void *obj, Py_ssize_t maxsize)
+_PyFreeList_Push(struct _Py_freelist *fl, void *obj)
 {
-    if (fl->size < maxsize && fl->size >= 0) {
+    if (fl->available != 0) {
         FT_ATOMIC_STORE_PTR_RELAXED(*(void **)obj, fl->freelist);
         fl->freelist = obj;
-        fl->size++;
+        fl->available--;
         OBJECT_STAT_INC(to_freelist);
         return 1;
     }
@@ -62,10 +75,10 @@ _PyFreeList_Push(struct _Py_freelist *fl, void *obj, Py_ssize_t maxsize)
 }
 
 static inline void
-_PyFreeList_Free(struct _Py_freelist *fl, void *obj, Py_ssize_t maxsize,
+_PyFreeList_Free(struct _Py_freelist *fl, void *obj,
                  freefunc dofree)
 {
-    if (!_PyFreeList_Push(fl, obj, maxsize)) {
+    if (!_PyFreeList_Push(fl, obj)) {
         dofree(obj);
     }
 }
@@ -75,9 +88,10 @@ _PyFreeList_PopNoStats(struct _Py_freelist *fl)
 {
     void *obj = fl->freelist;
     if (obj != NULL) {
-        assert(fl->size > 0);
+        assert(fl->capacity > 0);
         fl->freelist = *(void **)obj;
-        fl->size--;
+        fl->available++;
+        assert(fl->available <= fl->capacity);
     }
     return obj;
 }
@@ -97,9 +111,7 @@ static inline void *
 _PyFreeList_PopMem(struct _Py_freelist *fl)
 {
     void *op = _PyFreeList_PopNoStats(fl);
-    if (op != NULL) {
-        OBJECT_STAT_INC(from_freelist);
-    }
+    OBJECT_STAT_INC_COND(from_freelist, op != NULL);
     return op;
 }
 
