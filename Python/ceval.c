@@ -1039,7 +1039,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
         monitor_throw(tstate, frame, next_instr);
         stack_pointer = _PyFrame_GetStackPointer(frame);
 #if Py_TAIL_CALL_INTERP
-        return _TAIL_CALL_error(frame, stack_pointer, tstate, next_instr, 0);
+        return _TAIL_CALL_error(frame, stack_pointer, tstate, next_instr, 0, PyStackRef_NULL);
 #else
         goto error;
 #endif
@@ -1052,7 +1052,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
 #endif
     _PyStackRef _tos = PyStackRef_NULL;
 #if Py_TAIL_CALL_INTERP
-    return _TAIL_CALL_start_frame(frame, NULL, tstate, NULL, 0);
+    return _TAIL_CALL_start_frame(frame, NULL, tstate, NULL, 0, _tos);
 #else
     goto start_frame;
 #   include "generated_cases.c.h"
