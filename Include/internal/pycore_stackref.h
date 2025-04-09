@@ -56,7 +56,7 @@ extern "C" {
 #define Py_TAG_BITS 0
 
 PyAPI_FUNC(PyObject *) _Py_stackref_get_object(_PyStackRef ref);
-PyAPI_FUNC(PyObject *) _Py_stackref_close(_PyStackRef ref, const char *filename, int linenumber);
+PyAPI_FUNC(PyObject *) _Py_stackref_close(yThreadState *tstate, _PyStackRef ref, const char *filename, int linenumber);
 PyAPI_FUNC(_PyStackRef) _Py_stackref_create(PyObject *obj, const char *filename, int linenumber);
 PyAPI_FUNC(void) _Py_stackref_record_borrow(_PyStackRef ref, const char *filename, int linenumber);
 extern void _Py_stackref_associate(PyInterpreterState *interp, PyObject *obj, _PyStackRef ref);
@@ -133,23 +133,23 @@ _PyStackRef_FromPyObjectImmortal(PyObject *obj, const char *filename, int linenu
 #define PyStackRef_FromPyObjectImmortal(obj) _PyStackRef_FromPyObjectImmortal(_PyObject_CAST(obj), __FILE__, __LINE__)
 
 static inline void
-_PyStackRef_CLOSE(_PyStackRef ref, const char *filename, int linenumber)
+_PyStackRef_CLOSE(PyThreadState *tstate, _PyStackRef ref, const char *filename, int linenumber)
 {
-    PyObject *obj = _Py_stackref_close(ref, filename, linenumber);
+    PyObject *obj = _Py_stackref_close(tstate, ref, filename, linenumber);
     Py_DECREF(obj);
 }
-#define PyStackRef_CLOSE(REF) _PyStackRef_CLOSE((REF), __FILE__, __LINE__)
+#define PyStackRef_CLOSE(TSTATE, REF) _PyStackRef_CLOSE((TSTATE), (REF), __FILE__, __LINE__)
 
 static inline void
-_PyStackRef_XCLOSE(_PyStackRef ref, const char *filename, int linenumber)
+_PyStackRef_XCLOSE(PyThreadState *tstate, _PyStackRef ref, const char *filename, int linenumber)
 {
     if (PyStackRef_IsNull(ref)) {
         return;
     }
-    PyObject *obj = _Py_stackref_close(ref, filename, linenumber);
+    PyObject *obj = _Py_stackref_close(tstate, ref, filename, linenumber);
     Py_DECREF(obj);
 }
-#define PyStackRef_XCLOSE(REF) _PyStackRef_XCLOSE((REF), __FILE__, __LINE__)
+#define PyStackRef_XCLOSE(TSTATE, REF) _PyStackRef_XCLOSE((TSTATE), (REF), __FILE__, __LINE__)
 
 static inline _PyStackRef
 _PyStackRef_DUP(_PyStackRef ref, const char *filename, int linenumber)
@@ -175,12 +175,12 @@ PyStackRef_Borrow(_PyStackRef ref)
     return PyStackRef_DUP(ref);
 }
 
-#define PyStackRef_CLEAR(REF) \
+#define PyStackRef_CLEAR(TSTATE, REF) \
     do { \
         _PyStackRef *_tmp_op_ptr = &(REF); \
         _PyStackRef _tmp_old_op = (*_tmp_op_ptr); \
         *_tmp_op_ptr = PyStackRef_NULL; \
-        PyStackRef_XCLOSE(_tmp_old_op); \
+        PyStackRef_XCLOSE(TSTATE, _tmp_old_op); \
     } while (0)
 
 static inline _PyStackRef
@@ -324,7 +324,7 @@ PyStackRef_FromPyObjectImmortal(PyObject *obj)
 }
 #define PyStackRef_FromPyObjectImmortal(obj) PyStackRef_FromPyObjectImmortal(_PyObject_CAST(obj))
 
-#define PyStackRef_CLOSE(REF)                                        \
+#define PyStackRef_CLOSE(TSTATE, REF)                                        \
         do {                                                            \
             _PyStackRef _close_tmp = (REF);                             \
             assert(!PyStackRef_IsNull(_close_tmp));                     \
@@ -337,7 +337,10 @@ static inline void
 PyStackRef_CLOSE_SPECIALIZED(_PyStackRef ref, destructor destruct)
 {
     (void)destruct;
-    PyStackRef_CLOSE(ref);
+    assert(!PyStackRef_IsNull(ref));
+    if (!PyStackRef_IsDeferred(ref)) {
+        Py_DECREF(PyStackRef_AsPyObjectBorrow(_close_tmp));
+    }
 }
 
 static inline _PyStackRef
@@ -364,21 +367,21 @@ PyStackRef_AsStrongReference(_PyStackRef stackref)
     return PyStackRef_FromPyObjectSteal(PyStackRef_AsPyObjectSteal(stackref));
 }
 
-#define PyStackRef_XCLOSE(stackref) \
+#define PyStackRef_XCLOSE(tstate, stackref) \
     do {                            \
         _PyStackRef _tmp = (stackref); \
         if (!PyStackRef_IsNull(_tmp)) { \
-            PyStackRef_CLOSE(_tmp); \
+            PyStackRef_CLOSE(tstate, _tmp); \
         } \
     } while (0);
 
-#define PyStackRef_CLEAR(op) \
+#define PyStackRef_CLEAR(tstate, op) \
     do { \
         _PyStackRef *_tmp_op_ptr = &(op); \
         _PyStackRef _tmp_old_op = (*_tmp_op_ptr); \
         if (!PyStackRef_IsNull(_tmp_old_op)) { \
             *_tmp_op_ptr = PyStackRef_NULL; \
-            PyStackRef_CLOSE(_tmp_old_op); \
+            PyStackRef_CLOSE(tstate, _tmp_old_op); \
         } \
     } while (0)
 
@@ -571,18 +574,18 @@ PyStackRef_MakeHeapSafe(_PyStackRef ref)
 }
 
 #ifdef _WIN32
-#define PyStackRef_CLOSE(REF) \
+#define PyStackRef_CLOSE(TSTATE, REF) \
 do { \
     _PyStackRef _temp = (REF); \
-    if (PyStackRef_RefcountOnObject(_temp)) Py_DECREF_MORTAL(BITS_TO_PTR(_temp)); \
+    if (PyStackRef_RefcountOnObject(_temp)) Py_DECREF_MORTAL(TSTATE, BITS_TO_PTR(_temp)); \
 } while (0)
 #else
 static inline void
-PyStackRef_CLOSE(_PyStackRef ref)
+PyStackRef_CLOSE(PyThreadState *tstate, _PyStackRef ref)
 {
     assert(!PyStackRef_IsNull(ref));
     if (PyStackRef_RefcountOnObject(ref)) {
-        Py_DECREF_MORTAL(BITS_TO_PTR(ref));
+        Py_DECREF_MORTAL(tstate, BITS_TO_PTR(ref));
     }
 }
 #endif
@@ -600,22 +603,22 @@ PyStackRef_CLOSE_SPECIALIZED(_PyStackRef ref, destructor destruct)
 #define PyStackRef_XCLOSE PyStackRef_CLOSE
 #else
 static inline void
-PyStackRef_XCLOSE(_PyStackRef ref)
+PyStackRef_XCLOSE(PyThreadState *tstate, _PyStackRef ref)
 {
     assert(ref.bits != 0);
     if (PyStackRef_RefcountOnObject(ref)) {
         assert(!PyStackRef_IsNull(ref));
-        Py_DECREF_MORTAL(BITS_TO_PTR(ref));
+        Py_DECREF_MORTAL(tstate, BITS_TO_PTR(ref));
     }
 }
 #endif
 
-#define PyStackRef_CLEAR(REF) \
+#define PyStackRef_CLEAR(TSTATE, REF) \
     do { \
         _PyStackRef *_tmp_op_ptr = &(REF); \
         _PyStackRef _tmp_old_op = (*_tmp_op_ptr); \
         *_tmp_op_ptr = PyStackRef_NULL; \
-        PyStackRef_XCLOSE(_tmp_old_op); \
+        PyStackRef_XCLOSE(TSTATE, _tmp_old_op); \
     } while (0)
 
 
@@ -691,7 +694,7 @@ _PyThreadState_PopCStackRef(PyThreadState *tstate, _PyCStackRef *ref)
     assert(tstate_impl->c_stack_refs == ref);
     tstate_impl->c_stack_refs = ref->next;
 #endif
-    PyStackRef_XCLOSE(ref->ref);
+    PyStackRef_XCLOSE(tstate, ref->ref);
 }
 
 #ifdef Py_GIL_DISABLED

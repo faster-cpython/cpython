@@ -1726,8 +1726,8 @@ class TestGeneratedCases(unittest.TestCase):
         input = """
         inst(OP, (a, b -- c)) {
             c = b;
-            PyStackRef_CLOSE(a);
-            PyStackRef_CLOSE(b);
+            PyStackRef_CLOSE(tstate, a);
+            PyStackRef_CLOSE(tstate, b);
         }
         """
         with self.assertRaises(SyntaxError):
@@ -1876,7 +1876,7 @@ class TestGeneratedCases(unittest.TestCase):
             temp = use(in);
             DEAD(in);
             in = temp;
-            PyStackRef_CLOSE(in);
+            PyStackRef_CLOSE(tstate, in);
         }
         """
         output = """
@@ -1897,7 +1897,7 @@ class TestGeneratedCases(unittest.TestCase):
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
             _PyFrame_SetStackPointer(frame, stack_pointer);
-            PyStackRef_CLOSE(in);
+            PyStackRef_CLOSE(tstate, in);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             DISPATCH();
         }

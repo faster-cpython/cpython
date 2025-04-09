@@ -260,7 +260,8 @@ framelocalsproxy_setitem(PyObject *self, PyObject *key, PyObject *value)
             return -1;
         }
 
-        _Py_Executors_InvalidateDependency(PyInterpreterState_Get(), co, 1);
+        PyThreadState *tstate = _PyThreadState_GET();
+        _Py_Executors_InvalidateDependency(tstate->interp, co, 1);
 
         _PyLocals_Kind kind = _PyLocals_GetKind(co->co_localspluskinds, i);
         _PyStackRef oldvalue = fast[i];
@@ -285,7 +286,7 @@ framelocalsproxy_setitem(PyObject *self, PyObject *key, PyObject *value)
                 if (add_overwritten_fast_local(frame, old_obj) < 0) {
                     return -1;
                 }
-                PyStackRef_CLOSE(fast[i]);
+                PyStackRef_CLOSE(tstate, fast[i]);
             }
             fast[i] = PyStackRef_FromPyObjectNew(value);
         }
@@ -1812,16 +1813,16 @@ frame_lineno_set_impl(PyFrameObject *self, PyObject *value)
         /* Account for value popped by yield */
         start_stack = pop_value(start_stack);
     }
+    PyThreadState *tstate = _PyThreadState_GET();
     while (start_stack > best_stack) {
         if (top_of_stack(start_stack) == Except) {
             /* Pop exception stack as well as the evaluation stack */
             PyObject *exc = PyStackRef_AsPyObjectBorrow(_PyFrame_StackPop(self->f_frame));
             assert(PyExceptionInstance_Check(exc) || exc == Py_None);
-            PyThreadState *tstate = _PyThreadState_GET();
             Py_XSETREF(tstate->exc_info->exc_value, exc == Py_None ? NULL : exc);
         }
         else {
-            PyStackRef_XCLOSE(_PyFrame_StackPop(self->f_frame));
+            PyStackRef_XCLOSE(tstate, _PyFrame_StackPop(self->f_frame));
         }
         start_stack = pop_value(start_stack);
     }
@@ -1921,17 +1922,18 @@ frame_dealloc(PyObject *op)
      * deallocation until after f->f_frame is freed. Avoid dereferencing
      * f->f_frame unless we know it still points to valid memory. */
     _PyInterpreterFrame *frame = (_PyInterpreterFrame *)f->_f_frame_data;
+    PyThreadState *tstate = _PyThreadState_GET();
 
     /* Kill all local variables including specials, if we own them */
     if (f->f_frame == frame && frame->owner == FRAME_OWNED_BY_FRAME_OBJECT) {
-        PyStackRef_CLEAR(frame->f_executable);
-        PyStackRef_CLEAR(frame->f_funcobj);
+        PyStackRef_CLEAR(tstate, frame->f_executable);
+        PyStackRef_CLEAR(tstate, frame->f_funcobj);
         Py_CLEAR(frame->f_locals);
         _PyStackRef *locals = _PyFrame_GetLocalsArray(frame);
         _PyStackRef *sp = frame->stackpointer;
         while (sp > locals) {
             sp--;
-            PyStackRef_CLEAR(*sp);
+            PyStackRef_CLEAR(tstate, *sp);
         }
     }
     Py_CLEAR(f->f_back);
@@ -1971,9 +1973,10 @@ frame_tp_clear(PyObject *op)
     _PyStackRef *locals = _PyFrame_GetLocalsArray(f->f_frame);
     _PyStackRef *sp = f->f_frame->stackpointer;
     assert(sp >= locals);
+    PyThreadState *tstate = _PyThreadState_GET();
     while (sp > locals) {
         sp--;
-        PyStackRef_CLEAR(*sp);
+        PyStackRef_CLEAR(tstate, *sp);
     }
     f->f_frame->stackpointer = locals;
     Py_CLEAR(f->f_frame->f_locals);
@@ -2124,7 +2127,7 @@ PyFrameObject*
 PyFrame_New(PyThreadState *tstate, PyCodeObject *code,
             PyObject *globals, PyObject *locals)
 {
-    PyObject *builtins = _PyDict_LoadBuiltinsFromGlobals(globals);
+    PyObject *builtins = _PyDict_LoadBuiltinsFromGlobals(tstate, globals);
     if (builtins == NULL) {
         return NULL;
     }

@@ -142,7 +142,7 @@ _PyGen_Finalize(PyObject *self)
 }
 
 static void
-gen_clear_frame(PyGenObject *gen)
+gen_clear_frame(PyThreadState *tstate, PyGenObject *gen)
 {
     if (gen->gi_frame_state == FRAME_CLEARED)
         return;
@@ -150,7 +150,7 @@ gen_clear_frame(PyGenObject *gen)
     gen->gi_frame_state = FRAME_CLEARED;
     _PyInterpreterFrame *frame = &gen->gi_iframe;
     frame->previous = NULL;
-    _PyFrame_ClearExceptCode(frame);
+    _PyFrame_ClearExceptCode(tstate, frame);
     _PyErr_ClearExcState(&gen->gi_exc_state);
 }
 
@@ -179,9 +179,10 @@ gen_dealloc(PyObject *self)
     if (PyCoro_CheckExact(gen)) {
         Py_CLEAR(((PyCoroObject *)gen)->cr_origin_or_finalizer);
     }
-    gen_clear_frame(gen);
+    PyThreadState *tstate = _PyThreadState_GET();
+    gen_clear_frame(tstate, gen);
     assert(gen->gi_exc_state.exc_value == NULL);
-    PyStackRef_CLEAR(gen->gi_iframe.f_executable);
+    PyStackRef_CLEAR(tstate, gen->gi_iframe.f_executable);
     Py_CLEAR(gen->gi_name);
     Py_CLEAR(gen->gi_qualname);
 
@@ -415,7 +416,8 @@ gen_close(PyObject *self, PyObject *args)
             // RESUME after YIELD_VALUE and exception depth is 1
             assert((oparg & RESUME_OPARG_LOCATION_MASK) != RESUME_AT_FUNC_START);
             gen->gi_frame_state = FRAME_COMPLETED;
-            gen_clear_frame(gen);
+            PyThreadState *tstate = _PyThreadState_GET();
+            gen_clear_frame(tstate, gen);
             Py_RETURN_NONE;
         }
     }

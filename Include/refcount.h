@@ -233,6 +233,7 @@ PyAPI_FUNC(void) _Py_DECREF_DecRefTotal(void);
 #endif  // Py_REF_DEBUG && !Py_LIMITED_API
 
 PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
+PyAPI_FUNC(void) _Py_DeallocTstate(PyThreadState *, PyObject *);
 
 
 /*

@@ -242,7 +242,7 @@ _PyFrame_GetFrameObject(_PyInterpreterFrame *frame)
 }
 
 void
-_PyFrame_ClearLocals(_PyInterpreterFrame *frame);
+_PyFrame_ClearLocals(PyThreadState *tstate, _PyInterpreterFrame *frame);
 
 /* Clears all references in the frame.
  * If take is non-zero, then the _PyInterpreterFrame frame
@@ -254,7 +254,7 @@ _PyFrame_ClearLocals(_PyInterpreterFrame *frame);
  * frames like the ones in generators and coroutines.
  */
 void
-_PyFrame_ClearExceptCode(_PyInterpreterFrame * frame);
+_PyFrame_ClearExceptCode(PyThreadState *tstate, _PyInterpreterFrame * frame);
 
 int
 _PyFrame_Traverse(_PyInterpreterFrame *frame, visitproc visit, void *arg);

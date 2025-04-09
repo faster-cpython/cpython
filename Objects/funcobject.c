@@ -181,8 +181,8 @@ PyFunction_NewWithQualName(PyObject *code, PyObject *globals, PyObject *qualname
     if (PyDict_GetItemRef(globals, &_Py_ID(__name__), &module) < 0) {
         goto error;
     }
-
-    builtins = _PyDict_LoadBuiltinsFromGlobals(globals);
+    PyThreadState *tstate = _PyThreadState_GET();
+    builtins = _PyDict_LoadBuiltinsFromGlobals(tstate, globals);
     if (builtins == NULL) {
         goto error;
     }

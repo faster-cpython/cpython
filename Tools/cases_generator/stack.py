@@ -653,9 +653,9 @@ class Storage:
                 out.emit(f"tmp = {name};\n")
                 out.emit(f"{name} = {overwrite};\n")
                 self.stack.save_variables(out)
-                out.emit(f"{close}(tmp);\n")
+                out.emit(f"{close}(tstate, tmp);\n")
             else:
-                out.emit(f"{close}({name});\n")
+                out.emit(f"{close}(tstate, {name});\n")
 
         def close_variable(var: Local, overwrite: str) -> None:
             nonlocal tmp_defined

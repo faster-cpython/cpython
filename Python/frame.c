@@ -88,7 +88,7 @@ take_ownership(PyFrameObject *f, _PyInterpreterFrame *frame)
 }
 
 void
-_PyFrame_ClearLocals(_PyInterpreterFrame *frame)
+_PyFrame_ClearLocals(PyThreadState *tstate, _PyInterpreterFrame *frame)
 {
     assert(frame->stackpointer != NULL);
     _PyStackRef *sp = frame->stackpointer;
@@ -96,13 +96,13 @@ _PyFrame_ClearLocals(_PyInterpreterFrame *frame)
     frame->stackpointer = locals;
     while (sp > locals) {
         sp--;
-        PyStackRef_XCLOSE(*sp);
+        PyStackRef_XCLOSE(tstate, *sp);
     }
     Py_CLEAR(frame->f_locals);
 }
 
 void
-_PyFrame_ClearExceptCode(_PyInterpreterFrame *frame)
+_PyFrame_ClearExceptCode(PyThreadState *tstate, _PyInterpreterFrame *frame)
 {
     /* It is the responsibility of the owning generator/coroutine
      * to have cleared the enclosing generator, if any. */
@@ -110,7 +110,7 @@ _PyFrame_ClearExceptCode(_PyInterpreterFrame *frame)
         _PyGen_GetGeneratorFromFrame(frame)->gi_frame_state == FRAME_CLEARED);
     // GH-99729: Clearing this frame can expose the stack (via finalizers). It's
     // crucial that this frame has been unlinked, and is no longer visible:
-    assert(_PyThreadState_GET()->current_frame != frame);
+    assert(tstate->current_frame != frame);
     if (frame->frame_obj) {
         PyFrameObject *f = frame->frame_obj;
         frame->frame_obj = NULL;
@@ -121,8 +121,8 @@ _PyFrame_ClearExceptCode(_PyInterpreterFrame *frame)
         }
         Py_DECREF(f);
     }
-    _PyFrame_ClearLocals(frame);
-    PyStackRef_CLEAR(frame->f_funcobj);
+    _PyFrame_ClearLocals(tstate, frame);
+    PyStackRef_CLEAR(tstate, frame->f_funcobj);
 }
 
 /* Unstable API functions */

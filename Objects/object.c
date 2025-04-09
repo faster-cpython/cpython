@@ -3010,11 +3010,10 @@ To avoid that, if the C stack is nearing its limit, instead of calling
 dealloc on the object, it is added to a queue to be freed later when the
 stack is shallower */
 void
-_Py_Dealloc(PyObject *op)
+_Py_DeallocTstate(PyThreadState *tstate, PyObject *op)
 {
     PyTypeObject *type = Py_TYPE(op);
     destructor dealloc = type->tp_dealloc;
-    PyThreadState *tstate = _PyThreadState_GET();
     if (_Py_ReachedRecursionLimitWithMargin(tstate, 2)) {
         _PyTrash_thread_deposit_object(tstate, (PyObject *)op);
         return;
@@ -3065,7 +3064,11 @@ _Py_Dealloc(PyObject *op)
         _PyTrash_thread_destroy_chain(tstate);
     }
 }
-
+void
+_Py_Dealloc(PyObject *op)
+{
+    _Py_DeallocTstate(_PyThreadState_GET(), op);
+}
 
 PyObject **
 PyObject_GET_WEAKREFS_LISTPTR(PyObject *op)

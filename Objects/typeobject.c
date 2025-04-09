@@ -2783,7 +2783,8 @@ lookup_method_ex(PyObject *self, PyObject *attr, _PyStackRef *out,
     descrgetfunc f = Py_TYPE(value)->tp_descr_get;
     if (f != NULL) {
         value = f(value, self, (PyObject *)(Py_TYPE(self)));
-        PyStackRef_CLEAR(*out);
+        PyThreadState *tstate = _PyThreadState_GET();
+        PyStackRef_CLEAR(tstate, *out);
         if (value == NULL) {
             if (!raise_attribute_error &&
                 PyErr_ExceptionMatches(PyExc_AttributeError))
@@ -5712,7 +5713,7 @@ _PyType_LookupStackRefAndVersion(PyTypeObject *type, PyObject *name, _PyStackRef
                 if (_PySeqLock_EndRead(&entry->sequence, sequence)) {
                     return entry_version;
                 }
-                PyStackRef_XCLOSE(*out);
+                PyStackRef_XCLOSE(_PyThreadState_GET(), *out);
             }
             else {
                 // If we can't incref the object we need to fallback to locking

@@ -2547,7 +2547,7 @@ _PyDict_LoadGlobalStackRef(PyDictObject *globals, PyDictObject *builtins, PyObje
 }
 
 PyObject *
-_PyDict_LoadBuiltinsFromGlobals(PyObject *globals)
+_PyDict_LoadBuiltinsFromGlobals(PyThreadState *tstate, PyObject *globals)
 {
     if (!PyDict_Check(globals)) {
         PyErr_BadInternalCall();
@@ -2576,7 +2576,7 @@ _PyDict_LoadBuiltinsFromGlobals(PyObject *globals)
         assert(builtins != NULL);
     }
     _Py_INCREF_BUILTINS(builtins);
-    PyStackRef_CLOSE(ref);
+    PyStackRef_CLOSE(tstate, ref);
     return builtins;
 }
 

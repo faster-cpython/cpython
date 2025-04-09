@@ -750,9 +750,9 @@ def find_escaping_api_calls(instr: parser.CodeDef) -> dict[SimpleStmt, EscapingC
             elif tkn.kind != "RBRACKET":
                 continue
             if tkn.text in ("PyStackRef_CLOSE", "PyStackRef_XCLOSE"):
-                if len(tokens) <= idx+2:
+                if len(tokens) <= idx+4:
                     raise analysis_error("Unexpected end of file", next_tkn)
-                kills = tokens[idx+2]
+                kills = tokens[idx+4]
                 if kills.kind != "IDENTIFIER":
                     raise analysis_error(f"Expected identifier, got '{kills.text}'", kills)
             else:
