@@ -276,9 +276,14 @@ Known values:
     Python 3.14a7 3621 (Optimize LOAD_FAST opcodes into LOAD_FAST_BORROW)
     Python 3.14a7 3622 (Store annotations in different class dict keys)
     Python 3.14a7 3623 (Add BUILD_INTERPOLATION & BUILD_TEMPLATE opcodes)
+<<<<<<< HEAD
     Python 3.14b1 3624 (Don't optimize LOAD_FAST when local is killed by DELETE_FAST)
     Python 3.15a0 3650 (Initial version)
     Python 3.15a1 3651 (Virtual iterators)
+=======
+    Python 3.14a7 3624 (Virtual iterators)
+    Python 3.14a7 3625 (Specialize GET_ITER)
+>>>>>>> d9d615666e9 (Specialize GET_ITER)
 
 
     Python 3.16 will start with 3700
@@ -292,7 +297,11 @@ PC/launcher.c must also be updated.
 
 */
 
+<<<<<<< HEAD
 #define PYC_MAGIC_NUMBER 3651
+=======
+#define PYC_MAGIC_NUMBER 3625
+>>>>>>> d9d615666e9 (Specialize GET_ITER)
 /* This is equivalent to converting PYC_MAGIC_NUMBER to 2 bytes
    (little-endian) and then appending b'\r\n'. */
 #define PYC_MAGIC_NUMBER_TOKEN \
