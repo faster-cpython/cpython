@@ -272,6 +272,7 @@ PyStackRef_IncrementTaggedIntNoOverflow(_PyStackRef ref)
     return (_PyStackRef){ .bits = ref.bits + 4 };
 }
 
+extern _PyStackRef PyStackRef_BoxInt(_PyStackRef i);
 
 #ifdef Py_GIL_DISABLED
 
