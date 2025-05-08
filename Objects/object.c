@@ -264,6 +264,31 @@ _Py_AddToAllObjects(PyObject *op)
 }
 #endif  /* Py_TRACE_REFS */
 
+#undef Py_DECREF_MORTAL
+Py_NO_INLINE void Py_DECREF_MORTAL(PyObject *op)
+{
+    assert(!_Py_IsStaticImmortal(op));
+    _Py_DECREF_STAT_INC();
+    if (--op->ob_refcnt == 0) {
+        _Py_Dealloc(op);
+    }
+}
+
+#undef Py_DECREF
+Py_NO_INLINE void Py_DECREF(PyObject *op)
+{
+    // Non-limited C API and limited C API for Python 3.9 and older access
+    // directly PyObject.ob_refcnt.
+    if (_Py_IsImmortal(op)) {
+        _Py_DECREF_IMMORTAL_STAT_INC();
+        return;
+    }
+    _Py_DECREF_STAT_INC();
+    if (--op->ob_refcnt == 0) {
+        _Py_Dealloc(op);
+    }
+}
+
 #ifdef Py_REF_DEBUG
 /* Log a fatal error; doesn't return. */
 void
@@ -916,7 +941,7 @@ free_object(void *obj)
     PyObject *op = (PyObject *)obj;
     PyTypeObject *tp = Py_TYPE(op);
     tp->tp_free(op);
-    Py_DECREF(tp);
+    Py_DECREF((PyObject *)tp);
 }
 
 void
@@ -1892,7 +1917,7 @@ _PyObject_GenericSetAttrWithDict(PyObject *obj, PyObject *name,
     }
   done:
     _PyThreadState_PopCStackRef(tstate, &cref);
-    Py_DECREF(tp);
+    Py_DECREF((PyObject *)tp);
     Py_DECREF(name);
     return res;
 }

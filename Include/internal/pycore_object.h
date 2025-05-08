@@ -474,14 +474,8 @@ static inline void _Py_DECREF_MORTAL_SPECIALIZED(const char *filename, int linen
 
 #else
 
-static inline void Py_DECREF_MORTAL(PyObject *op)
-{
-    assert(!_Py_IsStaticImmortal(op));
-    _Py_DECREF_STAT_INC();
-    if (--op->ob_refcnt == 0) {
-        _Py_Dealloc(op);
-    }
-}
+extern Py_NO_INLINE PyAPI_FUNC(void) Py_DECREF_MORTAL(PyObject *op);
+
 #define Py_DECREF_MORTAL(op) Py_DECREF_MORTAL(_PyObject_CAST(op))
 
 static inline void Py_DECREF_MORTAL_SPECIALIZED(PyObject *op, destructor destruct)
