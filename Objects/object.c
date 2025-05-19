@@ -3151,7 +3151,7 @@ _Py_Dealloc(PyObject *op)
         _Py_FatalErrorFormat(__func__, err, type->tp_name);
     }
     Py_XDECREF(old_exc);
-    Py_DECREF(type);
+    Py_DECREF((PyObject *)type);
 #endif
     if (tstate->delete_later && margin >= 4) {
         _PyTrash_thread_destroy_chain(tstate);
