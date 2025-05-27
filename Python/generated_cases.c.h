@@ -5755,10 +5755,8 @@
             {
                 if (PyStackRef_IsTaggedInt(null_or_index)) {
                     if (PyStackRef_IsTaggedInt(iter)) {
-                        if (PyStackRef_Is(iter, null_or_index)) {
-                            null_or_index = PyStackRef_TagInt(-1);
+                        if (!PyStackRef_TaggedIntLessThan(null_or_index, iter)) {
                             JUMPBY(oparg + 1);
-                            stack_pointer[-1] = null_or_index;
                             DISPATCH();
                         }
                         next = PyStackRef_BoxInt(null_or_index);
@@ -5995,7 +5993,7 @@
             // _ITER_JUMP_RANGE
             {
                 null_or_index = stack_pointer[-1];
-                if (PyStackRef_Is(iter, null_or_index)) {
+                if (!PyStackRef_TaggedIntLessThan(null_or_index, iter)) {
                     JUMPBY(oparg + 1);
                     DISPATCH();
                 }
@@ -6232,6 +6230,9 @@
                 else {
                     PyObject *iter_o = PyStackRef_AsPyObjectBorrow(iterable);
                     if (tp == &PyRange_Type && _PyRange_IsSimpleCompact(iter_o)) {
+                        _PyFrame_SetStackPointer(frame, stack_pointer);
+                        Py_ssize_t start = _PyRange_GetStartIfCompact(iter_o);
+                        stack_pointer = _PyFrame_GetStackPointer(frame);
                         Py_ssize_t stop = _PyRange_GetStopIfCompact(iter_o);
                         stack_pointer += -1;
                         assert(WITHIN_STACK_BOUNDS());
@@ -6239,7 +6240,7 @@
                         PyStackRef_CLOSE(iterable);
                         stack_pointer = _PyFrame_GetStackPointer(frame);
                         iter = PyStackRef_TagInt(stop);
-                        index_or_null = PyStackRef_TagInt(0);
+                        index_or_null = PyStackRef_TagInt(start);
                     }
                     else {
                         _PyFrame_SetStackPointer(frame, stack_pointer);
@@ -7150,13 +7151,10 @@
             /* Skip 1 cache entry */
             null_or_index = stack_pointer[-1];
             iter = stack_pointer[-2];
-            PyObject *iter_o = PyStackRef_AsPyObjectBorrow(iter);
             if (PyStackRef_IsTaggedInt(null_or_index)) {
                 if (PyStackRef_IsTaggedInt(iter)) {
-                    if (PyStackRef_Is(iter, null_or_index)) {
-                        null_or_index = PyStackRef_TagInt(-1);
+                    if (!PyStackRef_TaggedIntLessThan(null_or_index, iter)) {
                         JUMPBY(oparg + 1);
-                        stack_pointer[-1] = null_or_index;
                         DISPATCH();
                     }
                     next = PyStackRef_BoxInt(null_or_index);
@@ -7166,6 +7164,7 @@
                     null_or_index = PyStackRef_IncrementTaggedIntNoOverflow(null_or_index);
                 }
                 else {
+                    PyObject *iter_o = PyStackRef_AsPyObjectBorrow(iter);
                     _PyFrame_SetStackPointer(frame, stack_pointer);
                     next = _PyForIter_NextWithIndex(iter_o, null_or_index);
                     stack_pointer = _PyFrame_GetStackPointer(frame);
@@ -7177,6 +7176,7 @@
                 INSTRUMENTED_JUMP(this_instr, next_instr, PY_MONITORING_EVENT_BRANCH_LEFT);
             }
             else {
+                PyObject *iter_o = PyStackRef_AsPyObjectBorrow(iter);
                 _PyFrame_SetStackPointer(frame, stack_pointer);
                 PyObject *next_o = (*Py_TYPE(iter_o)->tp_iternext)(iter_o);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
