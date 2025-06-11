@@ -1152,14 +1152,21 @@ enter_tier_two:
     uint64_t trace_uop_execution_counter = 0;
 #endif
 
-    assert(next_uop->opcode == _START_EXECUTOR);
+#ifdef Py_DEBUG
+    int current_cached_values = 0;
+#endif
+    _PyStackRef _tos_cache0 = PyStackRef_NULL;
+    _PyStackRef _tos_cache1 = PyStackRef_NULL;
+    _PyStackRef _tos_cache2 = PyStackRef_NULL;
+
+    assert(next_uop->opcode == _START_EXECUTOR_r00);
 tier2_dispatch:
     for (;;) {
         uopcode = next_uop->opcode;
 #ifdef Py_DEBUG
         if (frame->lltrace >= 3) {
             dump_stack(frame, stack_pointer);
-            if (next_uop->opcode == _START_EXECUTOR) {
+            if (next_uop->opcode == _START_EXECUTOR_r00) {
                 printf("%4d uop: ", 0);
             }
             else {

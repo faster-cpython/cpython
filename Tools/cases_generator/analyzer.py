@@ -1183,6 +1183,59 @@ def analyze_forest(forest: list[parser.AstNode]) -> Analysis:
     )
 
 
+def get_uop_cache_depths(uop: Uop):
+    if uop.name == "_SPILL_OR_RELOAD":
+        for inputs in range(4):
+            for outputs in range(4):
+                if inputs != outputs:
+                    yield inputs, outputs
+        return
+    if uop.name in ("_EXIT_TRACE", "_DEOPT", "_ERROR_POP_N"):
+        for i in range(4):
+            yield i, i
+        return
+    if uop.name in ("_START_EXECUTOR", "_JUMP_TO_TOP"):
+        yield 0, 0
+        return
+    ideal_inputs = 0
+    has_array = False
+    for item in reversed(uop.stack.inputs):
+        if item.size:
+            has_array = True
+            break
+        if item.peek and uop.properties.escapes:
+            break
+        ideal_inputs += 1
+    ideal_outputs = 0
+    for item in reversed(uop.stack.outputs):
+        if item.size:
+            has_array = True
+            break
+        if item.peek and uop.properties.escapes:
+            break
+        ideal_outputs += 1
+
+    if ideal_inputs > 3:
+        ideal_inputs = 3
+    if ideal_outputs > 3:
+        ideal_outputs = 3
+    yield ideal_inputs, ideal_outputs
+    if uop.properties.escapes or uop.properties.stores_sp or has_array:
+        return
+    if ideal_inputs >= 3 or ideal_outputs >= 3:
+        return
+    inputs, outputs = ideal_inputs, ideal_outputs
+    if inputs < outputs:
+        inputs, outputs = 0, outputs-inputs
+    else:
+        inputs, outputs = inputs-outputs, 0
+    while inputs <= 3 and outputs <= 3:
+        if inputs != ideal_inputs:
+            yield inputs,  outputs
+        inputs += 1
+        outputs += 1
+
+
 def analyze_files(filenames: list[str]) -> Analysis:
     return analyze_forest(parser.parse_files(filenames))
 
@@ -1200,6 +1253,7 @@ def dump_analysis(analysis: Analysis) -> None:
     print("Pseudos:")
     for p in analysis.pseudos.values():
         p.dump("    ")
+
 
 
 if __name__ == "__main__":

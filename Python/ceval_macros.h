@@ -380,7 +380,7 @@ do { \
     _PyExecutorObject *_executor = (EXECUTOR); \
     tstate->current_executor = (PyObject *)_executor; \
     next_uop = _executor->trace; \
-    assert(next_uop->opcode == _START_EXECUTOR); \
+    assert(next_uop->opcode == _START_EXECUTOR_r00); \
     goto enter_tier_two; \
 } while (0)
 #endif
@@ -425,3 +425,9 @@ do { \
     _PyObjectArray_Free(NAME - 1, NAME##_temp);
 
 #define CONVERSION_FAILED(NAME) ((NAME) == NULL)
+
+#ifdef Py_DEBUG
+#define SET_CURRENT_CACHED_VALUES(N) current_cached_values = (N)
+#else
+#define SET_CURRENT_CACHED_VALUES(N) ((void)0)
+#endif

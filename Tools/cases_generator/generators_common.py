@@ -124,6 +124,7 @@ class Emitter:
             "DISPATCH": self.dispatch,
             "INSTRUCTION_SIZE": self.instruction_size,
             "stack_pointer": self.stack_pointer,
+            "Py_UNREACHABLE": self.unreachable,
         }
         self.out = out
         self.labels = labels
@@ -140,6 +141,19 @@ class Emitter:
             raise analysis_error("stack_pointer needs reloading before dispatch", tkn)
         storage.stack.flush(self.out)
         self.emit(tkn)
+        return False
+
+    def unreachable(
+        self,
+        tkn: Token,
+        tkn_iter: TokenIterator,
+        uop: CodeSection,
+        storage: Storage,
+        inst: Instruction | None,
+    ) -> bool:
+        self.emit(tkn)
+        emit_to(self.out, tkn_iter, "SEMI")
+        self.emit(";")
         return False
 
     def deopt_if(
