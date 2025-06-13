@@ -36,6 +36,7 @@ def uop_cache_info(uop: Uop) -> str | None:
             max_inputs = i
             if i < min_inputs:
                 min_inputs = i
+    max_inputs, delta  # type: ignore[possibly-undefined]
     return f"{{ {min_inputs}, {max_inputs}, {delta}, {{ {', '.join(uops)} }} }}"
 
 
