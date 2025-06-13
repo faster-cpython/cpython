@@ -36,7 +36,7 @@ def uop_cache_info(uop: Uop) -> str | None:
             max_inputs = i
             if i < min_inputs:
                 min_inputs = i
-    return f"{{ {min_inputs}, {max_inputs}, {delta}, {{ {", ".join(uops)} }} }}"
+    return f"{{ {min_inputs}, {max_inputs}, {delta}, {{ {', '.join(uops)} }} }}"
 
 
 def generate_names_and_flags(analysis: Analysis, out: CWriter) -> None:
