@@ -71,7 +71,6 @@ class Tier2Emitter(Emitter):
             storage.copy().flush(self.out)
         else:
             storage.stack.copy().flush(self.out)
-        self.emit("UOP_STAT_INC(uopcode, miss);\n")
         self.emit("SET_CURRENT_CACHED_VALUES(0);\n")
         return "JUMP_TO_ERROR();"
 
@@ -92,6 +91,7 @@ class Tier2Emitter(Emitter):
         next(tkn_iter)  # Semi colon
         self.emit(") {\n")
         storage.stack.copy().flush(self.out)
+        self.emit("UOP_STAT_INC(uopcode, miss);\n")
         self.emit("SET_CURRENT_CACHED_VALUES(0);\n")
         self.emit("JUMP_TO_JUMP_TARGET();\n")
         self.emit("}\n")
@@ -112,6 +112,7 @@ class Tier2Emitter(Emitter):
         emit_to(self.out, tkn_iter, "RPAREN")
         next(tkn_iter)  # Semi colon
         self.emit(") {\n")
+        self.emit("UOP_STAT_INC(uopcode, miss);\n")
         self.emit("JUMP_TO_JUMP_TARGET();\n")
         self.emit("}\n")
         return not always_true(first_tkn)
