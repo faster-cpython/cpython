@@ -3,7 +3,7 @@ import itertools
 import lexer
 import parser
 import re
-from typing import Optional, Callable
+from typing import Optional, Callable, Iterator
 
 from parser import Stmt, SimpleStmt, BlockStmt, IfStmt, WhileStmt
 
@@ -1186,7 +1186,7 @@ def analyze_forest(forest: list[parser.AstNode]) -> Analysis:
     )
 
 
-def get_uop_cache_depths(uop: Uop):
+def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int]]:
     if uop.name == "_SPILL_OR_RELOAD":
         for inputs in range(4):
             for outputs in range(4):
