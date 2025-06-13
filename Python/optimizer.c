@@ -336,7 +336,9 @@ uop_item(PyObject *op, Py_ssize_t index)
         PyErr_SetNone(PyExc_IndexError);
         return NULL;
     }
-    const char *name = _PyUOpName(self->trace[index].opcode);
+    int opcode = self->trace[index].opcode;
+    int base_opcode = _PyUop_Uncached[opcode];
+    const char *name = _PyUOpName(base_opcode);
     if (name == NULL) {
         name = "<nil>";
     }
@@ -1004,31 +1006,28 @@ count_exits(_PyUOpInstruction *buffer, int length)
 }
 
 static int
-get_exit_depth(_PyUOpInstruction *src)
+get_exit_depth(_PyUOpInstruction *inst)
 {
     // TO DO -- Add another generated table for this?
-    int base_opcode = _PyUop_Uncached[src->opcode];
+    int base_opcode = _PyUop_Uncached[inst->opcode];
     assert(base_opcode != 0);
+    if (_PyUop_Flags[base_opcode] & HAS_DEOPT_FLAG) {
+        return 0;
+    }
     int input = -1;
     for (int i = 0; i < 4; i++) {
-        if (_PyUop_Caching[base_opcode].opcodes[i] == src->opcode) {
+        if (_PyUop_Caching[base_opcode].opcodes[i] == inst->opcode) {
             input = i;
             break;
         }
     }
-    if (input == -1) {
-        return -1;
-    }
-    if (is_for_iter_test[base_opcode]) {
-        return input;
-    }
-    return input + _PyUop_Caching[base_opcode].delta;
+    return input;
 }
 
-static void make_exit(_PyUOpInstruction *inst, int opcode, int target, _PyUOpInstruction *src)
+static void make_exit(_PyUOpInstruction *inst, int opcode, int target)
 {
-    int depth = get_exit_depth(src);
-    inst->opcode = _PyUop_Caching[opcode].opcodes[depth];
+    assert(opcode > MAX_UOP_ID && opcode <= MAX_UOP_REGS_ID);
+    inst->opcode = opcode;
     inst->oparg = 0;
     inst->operand0 = 0;
     inst->format = UOP_FORMAT_TARGET;
@@ -1068,8 +1067,10 @@ prepare_for_execution(_PyUOpInstruction *buffer, int length)
         assert(inst->opcode != _NOP);
         int32_t target = (int32_t)uop_get_target(inst);
         if (_PyUop_Flags[base_opcode] & (HAS_EXIT_FLAG | HAS_DEOPT_FLAG)) {
-            uint16_t exit_op = (_PyUop_Flags[base_opcode] & HAS_EXIT_FLAG) ?
+            uint16_t base_exit_op = (_PyUop_Flags[base_opcode] & HAS_EXIT_FLAG) ?
                 _EXIT_TRACE : _DEOPT;
+            int exit_depth = get_exit_depth(inst);
+            uint16_t exit_op = _PyUop_Caching[base_exit_op].opcodes[exit_depth];
             int32_t jump_target = target;
             if (is_for_iter_test[base_opcode]) {
                 /* Target the POP_TOP immediately after the END_FOR,
@@ -1079,7 +1080,7 @@ prepare_for_execution(_PyUOpInstruction *buffer, int length)
                 jump_target = next_inst + inst->oparg + 1;
             }
             if (jump_target != current_jump_target || current_exit_op != exit_op) {
-                make_exit(&buffer[next_spare], exit_op, jump_target, inst);
+                make_exit(&buffer[next_spare], exit_op, jump_target);
                 current_exit_op = exit_op;
                 current_jump_target = jump_target;
                 current_jump = next_spare;
@@ -1095,7 +1096,7 @@ prepare_for_execution(_PyUOpInstruction *buffer, int length)
                 current_popped = popped;
                 current_error = next_spare;
                 current_error_target = target;
-                make_exit(&buffer[next_spare], _ERROR_POP_N, 0, inst);
+                make_exit(&buffer[next_spare], _ERROR_POP_N_r00, 0);
                 buffer[next_spare].operand0 = target;
                 next_spare++;
             }

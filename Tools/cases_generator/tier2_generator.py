@@ -69,7 +69,11 @@ class Tier2Emitter(Emitter):
         # To do: Add jump targets for popping values.
         if offset != 0:
             storage.copy().flush(self.out)
-        return f"JUMP_TO_ERROR();"
+        else:
+            storage.stack.copy().flush(self.out)
+        self.emit("UOP_STAT_INC(uopcode, miss);\n")
+        self.emit("SET_CURRENT_CACHED_VALUES(0);\n")
+        return "JUMP_TO_ERROR();"
 
     def deopt_if(
         self,
@@ -87,7 +91,8 @@ class Tier2Emitter(Emitter):
         emit_to(self.out, tkn_iter, "RPAREN")
         next(tkn_iter)  # Semi colon
         self.emit(") {\n")
-        self.emit("UOP_STAT_INC(uopcode, miss);\n")
+        storage.stack.copy().flush(self.out)
+        self.emit("SET_CURRENT_CACHED_VALUES(0);\n")
         self.emit("JUMP_TO_JUMP_TARGET();\n")
         self.emit("}\n")
         return not always_true(first_tkn)
@@ -107,7 +112,6 @@ class Tier2Emitter(Emitter):
         emit_to(self.out, tkn_iter, "RPAREN")
         next(tkn_iter)  # Semi colon
         self.emit(") {\n")
-        self.emit("UOP_STAT_INC(uopcode, miss);\n")
         self.emit("JUMP_TO_JUMP_TARGET();\n")
         self.emit("}\n")
         return not always_true(first_tkn)
@@ -202,6 +206,8 @@ def generate_tier2(
             )
             continue
         for inputs, outputs in get_uop_cache_depths(uop):
+            if inputs != outputs and (uop.properties.deopts or uop.properties.side_exit):
+                raise analysis_error(f"{uop.name} has side exit and differing cache depths", uop.body.open)
             out.emit(f"case {uop.name}_r{inputs}{outputs}: {{\n")
             out.emit(f"assert(current_cached_values == {inputs});\n")
             if not is_for_iter_test(uop):

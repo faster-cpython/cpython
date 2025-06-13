@@ -5328,6 +5328,7 @@ dummy_func(
         }
 
         tier2 op(_DEOPT, (--)) {
+            SYNC_SP();
             GOTO_TIER_ONE(_PyFrame_GetBytecode(frame) + CURRENT_TARGET());
         }
 

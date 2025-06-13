@@ -544,10 +544,10 @@ class Emitter:
         self.out.emit(stmt.condition)
         branch = stmt.else_ is not None
         reachable = True
-        if branch:
-            else_storage = storage.copy()
+        if_storage = storage
+        else_storage = storage.copy()
         for s in stmt.body:
-            r, tkn, storage = self._emit_stmt(s, uop, storage, inst)
+            r, tkn, if_storage = self._emit_stmt(s, uop, if_storage, inst)
             if tkn is not None:
                 self.out.emit(tkn)
             if not r:
@@ -562,7 +562,10 @@ class Emitter:
                     self.out.emit(tkn)
                 if not r:
                     reachable = False
-            else_storage.merge(storage, self.out)  # type: ignore[possibly-undefined]
+            else_storage.merge(if_storage, self.out)
+            storage = if_storage
+        else:
+            if_storage.merge(else_storage, self.out)
             storage = else_storage
         self.out.emit(stmt.endif)
         return reachable, None, storage

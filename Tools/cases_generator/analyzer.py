@@ -1190,13 +1190,14 @@ def get_uop_cache_depths(uop: Uop):
                 if inputs != outputs:
                     yield inputs, outputs
         return
-    if uop.name in ("_EXIT_TRACE", "_DEOPT", "_ERROR_POP_N"):
+    if uop.name == "_EXIT_TRACE":
         for i in range(4):
-            yield i, i
+            yield i, 0
         return
-    if uop.name in ("_START_EXECUTOR", "_JUMP_TO_TOP"):
+    if uop.name in ("_START_EXECUTOR", "_JUMP_TO_TOP", "_DEOPT", "_ERROR_POP_N"):
         yield 0, 0
         return
+    has_exit = uop.properties.deopts or uop.properties.side_exit
     ideal_inputs = 0
     has_array = False
     for item in reversed(uop.stack.inputs):
@@ -1219,6 +1220,12 @@ def get_uop_cache_depths(uop: Uop):
         ideal_inputs = 3
     if ideal_outputs > 3:
         ideal_outputs = 3
+    # If a uop has an exit, we can get in a mess if the stack caching
+    # changes during execution.
+    if has_exit and ideal_inputs != ideal_outputs:
+        n = min(ideal_inputs, ideal_outputs)
+        yield n, n
+        return
     yield ideal_inputs, ideal_outputs
     if uop.properties.escapes or uop.properties.stores_sp or has_array:
         return

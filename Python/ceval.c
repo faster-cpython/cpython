@@ -164,13 +164,26 @@ dump_item(_PyStackRef item)
         printf("%" PRId64, (int64_t)PyStackRef_UntagInt(item));
         return;
     }
-    PyObject *obj = PyStackRef_AsPyObjectBorrow(item);
-    if (obj == NULL) {
-        printf("<nil>");
-        return;
+    if (PyStackRef_IsValid(item)) {
+        PyObject *obj = PyStackRef_AsPyObjectBorrow(item);
+        if (obj == NULL) {
+            printf("<nil>");
+            return;
+        }
+        // Don't call __repr__(), it might recurse into the interpreter.
+        printf("<%s at %p>", Py_TYPE(obj)->tp_name, (void *)obj);
     }
-    // Don't call __repr__(), it might recurse into the interpreter.
-    printf("<%s at %p>", Py_TYPE(obj)->tp_name, (void *)obj);
+    else {
+        /* Already handled NULL */
+        if (PyStackRef_IsError(item)) {
+            printf("ERROR");
+        }
+        else {
+            // Wrapped item
+            void *ptr = PyStackRef_Unwrap(item);
+            printf("Wrapped(pointer %p)", ptr);
+        }
+    }
 }
 
 static void
