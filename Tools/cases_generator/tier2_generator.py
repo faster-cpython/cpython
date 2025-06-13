@@ -207,20 +207,15 @@ def generate_tier2(
             )
             continue
         for inputs, outputs in get_uop_cache_depths(uop):
-            if inputs != outputs and (uop.properties.deopts or uop.properties.side_exit):
-                raise analysis_error(f"{uop.name} has side exit and differing cache depths", uop.body.open)
             out.emit(f"case {uop.name}_r{inputs}{outputs}: {{\n")
             out.emit(f"CHECK_CURRENT_CACHED_VALUES({inputs});\n")
-            if not is_for_iter_test(uop):
-                out.emit(f"SET_CURRENT_CACHED_VALUES({outputs});\n")
             declare_variables(uop, out)
             stack = Stack()
             stack.push_cache([f"_tos_cache{i}" for i in range(inputs)], out)
             stack._print(out)
             stack = write_uop(uop, emitter, stack, outputs)
             out.start_line()
-            if is_for_iter_test(uop):
-                out.emit(f"SET_CURRENT_CACHED_VALUES({outputs});\n")
+            out.emit(f"SET_CURRENT_CACHED_VALUES({outputs});\n")
             if not uop.properties.always_exits:
                 out.emit("break;\n")
             out.start_line()

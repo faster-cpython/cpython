@@ -1200,6 +1200,11 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int]]:
     if uop.name in ("_START_EXECUTOR", "_JUMP_TO_TOP", "_DEOPT", "_ERROR_POP_N"):
         yield 0, 0
         return
+    non_decref_escape = False
+    for call in uop.properties.escaping_calls.values():
+        if "DECREF" in call.call.text or "CLOSE" in call.call.text:
+            continue
+        non_decref_escape = True
     has_exit = uop.properties.deopts or uop.properties.side_exit
     ideal_inputs = 0
     has_array = False
@@ -1218,11 +1223,13 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int]]:
         if item.peek and uop.properties.escapes:
             break
         ideal_outputs += 1
-
     if ideal_inputs > 3:
         ideal_inputs = 3
     if ideal_outputs > 3:
         ideal_outputs = 3
+    if non_decref_escape:
+        yield 0, ideal_outputs
+        return
     # If a uop has an exit, we can get in a mess if the stack caching
     # changes during execution.
     if has_exit and ideal_inputs != ideal_outputs:
