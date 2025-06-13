@@ -363,7 +363,7 @@ do {                                                   \
     jit_func jitted = _executor->jit_code;             \
     /* Keep the shim frame alive via the executor: */  \
     Py_INCREF(_executor);                              \
-    next_instr = jitted(frame, stack_pointer, tstate); \
+    next_instr = jitted(frame, stack_pointer, tstate, PyStackRef_NULL, PyStackRef_NULL, PyStackRef_NULL); \
     Py_DECREF(_executor);                              \
     frame = tstate->current_frame;                     \
     stack_pointer = _PyFrame_GetStackPointer(frame);   \
@@ -426,8 +426,10 @@ do { \
 
 #define CONVERSION_FAILED(NAME) ((NAME) == NULL)
 
-#ifdef Py_DEBUG
+#if defined(Py_DEBUG) && !defined(_Py_JIT)
 #define SET_CURRENT_CACHED_VALUES(N) current_cached_values = (N)
+#define CHECK_CURRENT_CACHED_VALUES(N) assert(current_cached_values == (N))
 #else
 #define SET_CURRENT_CACHED_VALUES(N) ((void)0)
+#define CHECK_CURRENT_CACHED_VALUES(N) ((void)0)
 #endif
