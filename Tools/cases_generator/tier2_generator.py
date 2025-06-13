@@ -174,7 +174,7 @@ def write_uop(uop: Uop, emitter: Emitter, stack: Stack, cached_items:int=0) -> S
 
 SKIPS = ("_EXTENDED_ARG",)
 
-def is_for_iter_test(uop: Uop):
+def is_for_iter_test(uop: Uop) -> bool:
     return uop.name in (
         "_GUARD_NOT_EXHAUSTED_RANGE", "_GUARD_NOT_EXHAUSTED_LIST",
         "_GUARD_NOT_EXHAUSTED_TUPLE", "_FOR_ITER_TIER_TWO"
