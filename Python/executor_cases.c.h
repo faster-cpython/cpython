@@ -677,11 +677,11 @@
             _PyStackRef value;
             _PyStackRef res;
             value = stack_pointer[-1];
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            if (!PyLong_CheckExact(value_o)) {
+            if (PyStackRef_LongCheck(value)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
+            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
             STAT_INC(TO_BOOL, hit);
             if (_PyLong_IsZero((PyLongObject *)value_o)) {
                 assert(_Py_IsImmortal(value_o));
@@ -703,8 +703,7 @@
         case _GUARD_NOS_LIST: {
             _PyStackRef nos;
             nos = stack_pointer[-2];
-            PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-            if (!PyList_CheckExact(o)) {
+            if (!PyStackRef_ListCheckExact(nos)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -714,8 +713,7 @@
         case _GUARD_TOS_LIST: {
             _PyStackRef tos;
             tos = stack_pointer[-1];
-            PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-            if (!PyList_CheckExact(o)) {
+            if (!PyStackRef_ListCheckExact(tos)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -725,8 +723,7 @@
         case _GUARD_TOS_SLICE: {
             _PyStackRef tos;
             tos = stack_pointer[-1];
-            PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-            if (!PySlice_Check(o)) {
+            if (!PyStackRef_SliceCheck(tos)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -737,8 +734,8 @@
             _PyStackRef value;
             _PyStackRef res;
             value = stack_pointer[-1];
+            assert(PyStackRef_ListCheckExact(value));
             PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            assert(PyList_CheckExact(value_o));
             STAT_INC(TO_BOOL, hit);
             res = PyList_GET_SIZE(value_o) ? PyStackRef_True : PyStackRef_False;
             _PyFrame_SetStackPointer(frame, stack_pointer);
@@ -767,8 +764,7 @@
         case _GUARD_NOS_UNICODE: {
             _PyStackRef nos;
             nos = stack_pointer[-2];
-            PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-            if (!PyUnicode_CheckExact(o)) {
+            if (!PyStackRef_UnicodeCheckExact(nos)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -778,8 +774,7 @@
         case _GUARD_TOS_UNICODE: {
             _PyStackRef value;
             value = stack_pointer[-1];
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            if (!PyUnicode_CheckExact(value_o)) {
+            if (!PyStackRef_UnicodeCheckExact(value)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -851,8 +846,7 @@
         case _GUARD_NOS_INT: {
             _PyStackRef left;
             left = stack_pointer[-2];
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            if (!PyLong_CheckExact(left_o)) {
+            if (!PyStackRef_LongCheckExact(left)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -862,8 +856,7 @@
         case _GUARD_TOS_INT: {
             _PyStackRef value;
             value = stack_pointer[-1];
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            if (!PyLong_CheckExact(value_o)) {
+            if (!PyStackRef_LongCheckExact(value)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -963,8 +956,7 @@
         case _GUARD_NOS_FLOAT: {
             _PyStackRef left;
             left = stack_pointer[-2];
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            if (!PyFloat_CheckExact(left_o)) {
+            if (!PyStackRef_FloatCheckExact(left)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -974,8 +966,7 @@
         case _GUARD_TOS_FLOAT: {
             _PyStackRef value;
             value = stack_pointer[-1];
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            if (!PyFloat_CheckExact(value_o)) {
+            if (!PyStackRef_FloatCheckExact(value)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -1401,8 +1392,7 @@
         case _GUARD_NOS_TUPLE: {
             _PyStackRef nos;
             nos = stack_pointer[-2];
-            PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-            if (!PyTuple_CheckExact(o)) {
+            if (!PyStackRef_TupleCheckExact(nos)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -1412,8 +1402,7 @@
         case _GUARD_TOS_TUPLE: {
             _PyStackRef tos;
             tos = stack_pointer[-1];
-            PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-            if (!PyTuple_CheckExact(o)) {
+            if (!PyStackRef_TupleCheckExact(tos)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -1522,7 +1511,7 @@
             _PyStackRef container;
             _PyStackRef getitem;
             container = stack_pointer[-2];
-            PyTypeObject *tp = Py_TYPE(PyStackRef_AsPyObjectBorrow(container));
+            PyTypeObject *tp = PyStackRef_TYPE(container);
             if (!PyType_HasFeature(tp, Py_TPFLAGS_HEAPTYPE)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();

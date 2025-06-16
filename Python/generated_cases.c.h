@@ -99,8 +99,7 @@
             // _GUARD_TOS_FLOAT
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyFloat_CheckExact(value_o)) {
+                if (!PyStackRef_FloatCheckExact(value)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -109,8 +108,7 @@
             // _GUARD_NOS_FLOAT
             {
                 left = stack_pointer[-2];
-                PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-                if (!PyFloat_CheckExact(left_o)) {
+                if (!PyStackRef_FloatCheckExact(left)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -157,8 +155,7 @@
             // _GUARD_TOS_INT
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyLong_CheckExact(value_o)) {
+                if (!PyStackRef_LongCheckExact(value)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -167,8 +164,7 @@
             // _GUARD_NOS_INT
             {
                 left = stack_pointer[-2];
-                PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-                if (!PyLong_CheckExact(left_o)) {
+                if (!PyStackRef_LongCheckExact(left)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -221,8 +217,7 @@
             // _GUARD_TOS_UNICODE
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyUnicode_CheckExact(value_o)) {
+                if (!PyStackRef_UnicodeCheckExact(value)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -231,8 +226,7 @@
             // _GUARD_NOS_UNICODE
             {
                 nos = stack_pointer[-2];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-                if (!PyUnicode_CheckExact(o)) {
+                if (!PyStackRef_UnicodeCheckExact(nos)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -344,8 +338,7 @@
             // _GUARD_TOS_UNICODE
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyUnicode_CheckExact(value_o)) {
+                if (!PyStackRef_UnicodeCheckExact(value)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -354,8 +347,7 @@
             // _GUARD_NOS_UNICODE
             {
                 nos = stack_pointer[-2];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-                if (!PyUnicode_CheckExact(o)) {
+                if (!PyStackRef_UnicodeCheckExact(nos)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -427,8 +419,7 @@
             // _GUARD_TOS_FLOAT
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyFloat_CheckExact(value_o)) {
+                if (!PyStackRef_FloatCheckExact(value)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -437,8 +428,7 @@
             // _GUARD_NOS_FLOAT
             {
                 left = stack_pointer[-2];
-                PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-                if (!PyFloat_CheckExact(left_o)) {
+                if (!PyStackRef_FloatCheckExact(left)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -485,8 +475,7 @@
             // _GUARD_TOS_INT
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyLong_CheckExact(value_o)) {
+                if (!PyStackRef_LongCheckExact(value)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -495,8 +484,7 @@
             // _GUARD_NOS_INT
             {
                 left = stack_pointer[-2];
-                PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-                if (!PyLong_CheckExact(left_o)) {
+                if (!PyStackRef_LongCheckExact(left)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -623,7 +611,7 @@
             // _BINARY_OP_SUBSCR_CHECK_FUNC
             {
                 container = stack_pointer[-2];
-                PyTypeObject *tp = Py_TYPE(PyStackRef_AsPyObjectBorrow(container));
+                PyTypeObject *tp = PyStackRef_TYPE(container);
                 if (!PyType_HasFeature(tp, Py_TPFLAGS_HEAPTYPE)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
@@ -699,8 +687,7 @@
             // _GUARD_TOS_INT
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyLong_CheckExact(value_o)) {
+                if (!PyStackRef_LongCheckExact(value)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -709,8 +696,7 @@
             // _GUARD_NOS_LIST
             {
                 nos = stack_pointer[-2];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-                if (!PyList_CheckExact(o)) {
+                if (!PyStackRef_ListCheckExact(nos)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -789,8 +775,7 @@
             // _GUARD_TOS_SLICE
             {
                 tos = stack_pointer[-1];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-                if (!PySlice_Check(o)) {
+                if (!PyStackRef_SliceCheck(tos)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -799,8 +784,7 @@
             // _GUARD_NOS_LIST
             {
                 nos = stack_pointer[-2];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-                if (!PyList_CheckExact(o)) {
+                if (!PyStackRef_ListCheckExact(nos)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -861,8 +845,7 @@
             // _GUARD_TOS_INT
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyLong_CheckExact(value_o)) {
+                if (!PyStackRef_LongCheckExact(value)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -871,8 +854,7 @@
             // _GUARD_NOS_UNICODE
             {
                 nos = stack_pointer[-2];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-                if (!PyUnicode_CheckExact(o)) {
+                if (!PyStackRef_UnicodeCheckExact(nos)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -939,8 +921,7 @@
             // _GUARD_TOS_INT
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyLong_CheckExact(value_o)) {
+                if (!PyStackRef_LongCheckExact(value)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -949,8 +930,7 @@
             // _GUARD_NOS_TUPLE
             {
                 nos = stack_pointer[-2];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-                if (!PyTuple_CheckExact(o)) {
+                if (!PyStackRef_TupleCheckExact(nos)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -1011,8 +991,7 @@
             // _GUARD_TOS_FLOAT
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyFloat_CheckExact(value_o)) {
+                if (!PyStackRef_FloatCheckExact(value)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -1021,8 +1000,7 @@
             // _GUARD_NOS_FLOAT
             {
                 left = stack_pointer[-2];
-                PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-                if (!PyFloat_CheckExact(left_o)) {
+                if (!PyStackRef_FloatCheckExact(left)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -1069,8 +1047,7 @@
             // _GUARD_TOS_INT
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyLong_CheckExact(value_o)) {
+                if (!PyStackRef_LongCheckExact(value)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -1079,8 +1056,7 @@
             // _GUARD_NOS_INT
             {
                 left = stack_pointer[-2];
-                PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-                if (!PyLong_CheckExact(left_o)) {
+                if (!PyStackRef_LongCheckExact(left)) {
                     UPDATE_MISS_STATS(BINARY_OP);
                     assert(_PyOpcode_Deopt[opcode] == (BINARY_OP));
                     JUMP_TO_PREDICTED(BINARY_OP);
@@ -3514,8 +3490,7 @@
             }
             // _GUARD_NOS_LIST
             {
-                PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-                if (!PyList_CheckExact(o)) {
+                if (!PyStackRef_ListCheckExact(nos)) {
                     UPDATE_MISS_STATS(CALL);
                     assert(_PyOpcode_Deopt[opcode] == (CALL));
                     JUMP_TO_PREDICTED(CALL);
@@ -4846,8 +4821,7 @@
             // _GUARD_TOS_FLOAT
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyFloat_CheckExact(value_o)) {
+                if (!PyStackRef_FloatCheckExact(value)) {
                     UPDATE_MISS_STATS(COMPARE_OP);
                     assert(_PyOpcode_Deopt[opcode] == (COMPARE_OP));
                     JUMP_TO_PREDICTED(COMPARE_OP);
@@ -4856,8 +4830,7 @@
             // _GUARD_NOS_FLOAT
             {
                 left = stack_pointer[-2];
-                PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-                if (!PyFloat_CheckExact(left_o)) {
+                if (!PyStackRef_FloatCheckExact(left)) {
                     UPDATE_MISS_STATS(COMPARE_OP);
                     assert(_PyOpcode_Deopt[opcode] == (COMPARE_OP));
                     JUMP_TO_PREDICTED(COMPARE_OP);
@@ -4901,8 +4874,7 @@
             // _GUARD_TOS_INT
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyLong_CheckExact(value_o)) {
+                if (!PyStackRef_LongCheckExact(value)) {
                     UPDATE_MISS_STATS(COMPARE_OP);
                     assert(_PyOpcode_Deopt[opcode] == (COMPARE_OP));
                     JUMP_TO_PREDICTED(COMPARE_OP);
@@ -4911,8 +4883,7 @@
             // _GUARD_NOS_INT
             {
                 left = stack_pointer[-2];
-                PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-                if (!PyLong_CheckExact(left_o)) {
+                if (!PyStackRef_LongCheckExact(left)) {
                     UPDATE_MISS_STATS(COMPARE_OP);
                     assert(_PyOpcode_Deopt[opcode] == (COMPARE_OP));
                     JUMP_TO_PREDICTED(COMPARE_OP);
@@ -4969,8 +4940,7 @@
             // _GUARD_TOS_UNICODE
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyUnicode_CheckExact(value_o)) {
+                if (!PyStackRef_UnicodeCheckExact(value)) {
                     UPDATE_MISS_STATS(COMPARE_OP);
                     assert(_PyOpcode_Deopt[opcode] == (COMPARE_OP));
                     JUMP_TO_PREDICTED(COMPARE_OP);
@@ -4979,8 +4949,7 @@
             // _GUARD_NOS_UNICODE
             {
                 nos = stack_pointer[-2];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-                if (!PyUnicode_CheckExact(o)) {
+                if (!PyStackRef_UnicodeCheckExact(nos)) {
                     UPDATE_MISS_STATS(COMPARE_OP);
                     assert(_PyOpcode_Deopt[opcode] == (COMPARE_OP));
                     JUMP_TO_PREDICTED(COMPARE_OP);
@@ -11490,8 +11459,7 @@
             // _GUARD_TOS_INT
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyLong_CheckExact(value_o)) {
+                if (!PyStackRef_LongCheckExact(value)) {
                     UPDATE_MISS_STATS(STORE_SUBSCR);
                     assert(_PyOpcode_Deopt[opcode] == (STORE_SUBSCR));
                     JUMP_TO_PREDICTED(STORE_SUBSCR);
@@ -11500,8 +11468,7 @@
             // _GUARD_NOS_LIST
             {
                 nos = stack_pointer[-2];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-                if (!PyList_CheckExact(o)) {
+                if (!PyStackRef_ListCheckExact(nos)) {
                     UPDATE_MISS_STATS(STORE_SUBSCR);
                     assert(_PyOpcode_Deopt[opcode] == (STORE_SUBSCR));
                     JUMP_TO_PREDICTED(STORE_SUBSCR);
@@ -11709,12 +11676,12 @@
             /* Skip 1 cache entry */
             /* Skip 2 cache entries */
             value = stack_pointer[-1];
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            if (!PyLong_CheckExact(value_o)) {
+            if (PyStackRef_LongCheck(value)) {
                 UPDATE_MISS_STATS(TO_BOOL);
                 assert(_PyOpcode_Deopt[opcode] == (TO_BOOL));
                 JUMP_TO_PREDICTED(TO_BOOL);
             }
+            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
             STAT_INC(TO_BOOL, hit);
             if (_PyLong_IsZero((PyLongObject *)value_o)) {
                 assert(_Py_IsImmortal(value_o));
@@ -11750,8 +11717,7 @@
             // _GUARD_TOS_LIST
             {
                 tos = stack_pointer[-1];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-                if (!PyList_CheckExact(o)) {
+                if (!PyStackRef_ListCheckExact(tos)) {
                     UPDATE_MISS_STATS(TO_BOOL);
                     assert(_PyOpcode_Deopt[opcode] == (TO_BOOL));
                     JUMP_TO_PREDICTED(TO_BOOL);
@@ -11762,8 +11728,8 @@
             // _TO_BOOL_LIST
             {
                 value = tos;
+                assert(PyStackRef_ListCheckExact(value));
                 PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                assert(PyList_CheckExact(value_o));
                 STAT_INC(TO_BOOL, hit);
                 res = PyList_GET_SIZE(value_o) ? PyStackRef_True : PyStackRef_False;
                 _PyFrame_SetStackPointer(frame, stack_pointer);
@@ -11819,8 +11785,7 @@
             // _GUARD_TOS_UNICODE
             {
                 value = stack_pointer[-1];
-                PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-                if (!PyUnicode_CheckExact(value_o)) {
+                if (!PyStackRef_UnicodeCheckExact(value)) {
                     UPDATE_MISS_STATS(TO_BOOL);
                     assert(_PyOpcode_Deopt[opcode] == (TO_BOOL));
                     JUMP_TO_PREDICTED(TO_BOOL);
@@ -12022,8 +11987,7 @@
             // _GUARD_TOS_LIST
             {
                 tos = stack_pointer[-1];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-                if (!PyList_CheckExact(o)) {
+                if (!PyStackRef_ListCheckExact(tos)) {
                     UPDATE_MISS_STATS(UNPACK_SEQUENCE);
                     assert(_PyOpcode_Deopt[opcode] == (UNPACK_SEQUENCE));
                     JUMP_TO_PREDICTED(UNPACK_SEQUENCE);
@@ -12081,8 +12045,7 @@
             // _GUARD_TOS_TUPLE
             {
                 tos = stack_pointer[-1];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-                if (!PyTuple_CheckExact(o)) {
+                if (!PyStackRef_TupleCheckExact(tos)) {
                     UPDATE_MISS_STATS(UNPACK_SEQUENCE);
                     assert(_PyOpcode_Deopt[opcode] == (UNPACK_SEQUENCE));
                     JUMP_TO_PREDICTED(UNPACK_SEQUENCE);
@@ -12132,8 +12095,7 @@
             // _GUARD_TOS_TUPLE
             {
                 tos = stack_pointer[-1];
-                PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-                if (!PyTuple_CheckExact(o)) {
+                if (!PyStackRef_TupleCheckExact(tos)) {
                     UPDATE_MISS_STATS(UNPACK_SEQUENCE);
                     assert(_PyOpcode_Deopt[opcode] == (UNPACK_SEQUENCE));
                     JUMP_TO_PREDICTED(UNPACK_SEQUENCE);

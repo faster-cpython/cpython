@@ -457,8 +457,8 @@ dummy_func(
         }
 
         inst(TO_BOOL_INT, (unused/1, unused/2, value -- res)) {
+            EXIT_IF(PyStackRef_LongCheck(value));
             PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            EXIT_IF(!PyLong_CheckExact(value_o));
             STAT_INC(TO_BOOL, hit);
             if (_PyLong_IsZero((PyLongObject *)value_o)) {
                 assert(_Py_IsImmortal(value_o));
@@ -472,25 +472,22 @@ dummy_func(
         }
 
         op(_GUARD_NOS_LIST, (nos, unused -- nos, unused)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-            EXIT_IF(!PyList_CheckExact(o));
+            EXIT_IF(!PyStackRef_ListCheckExact(nos));
         }
 
         op(_GUARD_TOS_LIST, (tos -- tos)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-            EXIT_IF(!PyList_CheckExact(o));
+            EXIT_IF(!PyStackRef_ListCheckExact(tos));
         }
 
         op(_GUARD_TOS_SLICE, (tos -- tos)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-            EXIT_IF(!PySlice_Check(o));
+            EXIT_IF(!PyStackRef_SliceCheck(tos));
         }
 
         macro(TO_BOOL_LIST) = _GUARD_TOS_LIST + unused/1 + unused/2 + _TO_BOOL_LIST;
 
         op(_TO_BOOL_LIST, (value -- res)) {
+            assert(PyStackRef_ListCheckExact(value));
             PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            assert(PyList_CheckExact(value_o));
             STAT_INC(TO_BOOL, hit);
             res = PyList_GET_SIZE(value_o) ? PyStackRef_True : PyStackRef_False;
             DECREF_INPUTS();
@@ -505,13 +502,11 @@ dummy_func(
         }
 
         op(_GUARD_NOS_UNICODE, (nos, unused -- nos, unused)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-            EXIT_IF(!PyUnicode_CheckExact(o));
+            EXIT_IF(!PyStackRef_UnicodeCheckExact(nos));
         }
 
         op(_GUARD_TOS_UNICODE, (value -- value)) {
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            EXIT_IF(!PyUnicode_CheckExact(value_o));
+            EXIT_IF(!PyStackRef_UnicodeCheckExact(value));
         }
 
         op(_TO_BOOL_STR, (value -- res)) {
@@ -568,13 +563,11 @@ dummy_func(
         };
 
         op(_GUARD_NOS_INT, (left, unused -- left, unused)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            EXIT_IF(!PyLong_CheckExact(left_o));
+            EXIT_IF(!PyStackRef_LongCheckExact(left));
         }
 
         op(_GUARD_TOS_INT, (value -- value)) {
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            EXIT_IF(!PyLong_CheckExact(value_o));
+            EXIT_IF(!PyStackRef_LongCheckExact(value));
         }
 
         pure op(_BINARY_OP_MULTIPLY_INT, (left, right -- res)) {
@@ -633,13 +626,11 @@ dummy_func(
             _GUARD_TOS_INT + _GUARD_NOS_INT + unused/5 + _BINARY_OP_SUBTRACT_INT;
 
         op(_GUARD_NOS_FLOAT, (left, unused -- left, unused)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            EXIT_IF(!PyFloat_CheckExact(left_o));
+            EXIT_IF(!PyStackRef_FloatCheckExact(left));
         }
 
         op(_GUARD_TOS_FLOAT, (value -- value)) {
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            EXIT_IF(!PyFloat_CheckExact(value_o));
+            EXIT_IF(!PyStackRef_FloatCheckExact(value));
         }
 
         pure op(_BINARY_OP_MULTIPLY_FLOAT, (left, right -- res)) {
@@ -912,13 +903,11 @@ dummy_func(
         }
 
         op(_GUARD_NOS_TUPLE, (nos, unused -- nos, unused)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-            EXIT_IF(!PyTuple_CheckExact(o));
+            EXIT_IF(!PyStackRef_TupleCheckExact(nos));
         }
 
         op(_GUARD_TOS_TUPLE, (tos -- tos)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-            EXIT_IF(!PyTuple_CheckExact(o));
+            EXIT_IF(!PyStackRef_TupleCheckExact(tos));
         }
 
         macro(BINARY_OP_SUBSCR_TUPLE_INT) =
@@ -973,7 +962,7 @@ dummy_func(
         }
 
         op(_BINARY_OP_SUBSCR_CHECK_FUNC, (container, unused -- container, unused, getitem)) {
-            PyTypeObject *tp = Py_TYPE(PyStackRef_AsPyObjectBorrow(container));
+            PyTypeObject *tp = PyStackRef_TYPE(container);
             DEOPT_IF(!PyType_HasFeature(tp, Py_TPFLAGS_HEAPTYPE));
             PyHeapTypeObject *ht = (PyHeapTypeObject *)tp;
             PyObject *getitem_o = FT_ATOMIC_LOAD_PTR_ACQUIRE(ht->_spec_cache.getitem);
@@ -2441,7 +2430,6 @@ dummy_func(
 
         op(_CHECK_ATTR_CLASS, (type_version/2, owner -- owner)) {
             PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
-
             EXIT_IF(!PyType_Check(owner_o));
             assert(type_version != 0);
             EXIT_IF(FT_ATOMIC_LOAD_UINT_RELAXED(((PyTypeObject *)owner_o)->tp_version_tag) != type_version);

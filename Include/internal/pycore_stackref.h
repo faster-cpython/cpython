@@ -773,11 +773,26 @@ PyStackRef_TYPE(_PyStackRef stackref) {
         return Py ## T ## _Check(PyStackRef_AsPyObjectBorrow(stackref)); \
     }
 
+#define STACKREF_CHECKEXACT_FUNC(T) \
+    static inline bool \
+    PyStackRef_ ## T ## CheckExact(_PyStackRef stackref) { \
+        if (PyStackRef_IsTaggedInt(stackref)) { \
+            return false; \
+        } \
+        return Py ## T ## _CheckExact(PyStackRef_AsPyObjectBorrow(stackref)); \
+    }
+
 STACKREF_CHECK_FUNC(Gen)
 STACKREF_CHECK_FUNC(Bool)
 STACKREF_CHECK_FUNC(ExceptionInstance)
 STACKREF_CHECK_FUNC(Code)
 STACKREF_CHECK_FUNC(Function)
+STACKREF_CHECK_FUNC(Slice)
+
+STACKREF_CHECKEXACT_FUNC(List)
+STACKREF_CHECKEXACT_FUNC(Tuple)
+STACKREF_CHECKEXACT_FUNC(Unicode)
+STACKREF_CHECKEXACT_FUNC(Float)
 
 static inline bool
 PyStackRef_LongCheck(_PyStackRef stackref)
@@ -786,6 +801,15 @@ PyStackRef_LongCheck(_PyStackRef stackref)
         return true;
     }
     return PyLong_Check(PyStackRef_AsPyObjectBorrow(stackref));
+}
+
+static inline bool
+PyStackRef_LongCheckExact(_PyStackRef stackref)
+{
+    if (PyStackRef_IsTaggedInt(stackref)) {
+        return true;
+    }
+    return PyLong_CheckExact(PyStackRef_AsPyObjectBorrow(stackref));
 }
 
 static inline void
