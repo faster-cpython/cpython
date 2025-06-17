@@ -11907,13 +11907,85 @@
             break;
         }
 
+        case _COPY_1_r12: {
+            CHECK_CURRENT_CACHED_VALUES(1);
+            _PyStackRef bottom;
+            _PyStackRef top;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            bottom = _stack_item_0;
+            top = PyStackRef_DUP(bottom);
+            _tos_cache1 = top;
+            _tos_cache0 = bottom;
+            SET_CURRENT_CACHED_VALUES(2);
+            break;
+        }
+
+        case _COPY_1_r01: {
+            CHECK_CURRENT_CACHED_VALUES(0);
+            _PyStackRef bottom;
+            _PyStackRef top;
+            bottom = stack_pointer[-1];
+            top = PyStackRef_DUP(bottom);
+            _tos_cache0 = top;
+            SET_CURRENT_CACHED_VALUES(1);
+            break;
+        }
+
+        case _COPY_1_r23: {
+            CHECK_CURRENT_CACHED_VALUES(2);
+            _PyStackRef bottom;
+            _PyStackRef top;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            bottom = _stack_item_1;
+            top = PyStackRef_DUP(bottom);
+            _tos_cache2 = top;
+            _tos_cache1 = bottom;
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(3);
+            break;
+        }
+
+        case _COPY_2_r23: {
+            CHECK_CURRENT_CACHED_VALUES(2);
+            _PyStackRef bottom;
+            _PyStackRef top;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            bottom = _stack_item_0;
+            top = PyStackRef_DUP(bottom);
+            _tos_cache2 = top;
+            _tos_cache1 = _stack_item_1;
+            _tos_cache0 = bottom;
+            SET_CURRENT_CACHED_VALUES(3);
+            break;
+        }
+
+        case _COPY_3_r33: {
+            CHECK_CURRENT_CACHED_VALUES(3);
+            _PyStackRef bottom;
+            _PyStackRef top;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            _PyStackRef _stack_item_2 = _tos_cache2;
+            bottom = _stack_item_0;
+            top = PyStackRef_DUP(bottom);
+            _tos_cache2 = top;
+            _tos_cache1 = _stack_item_2;
+            _tos_cache0 = _stack_item_1;
+            stack_pointer[0] = bottom;
+            stack_pointer += 1;
+            assert(WITHIN_STACK_BOUNDS());
+            SET_CURRENT_CACHED_VALUES(3);
+            break;
+        }
+
         case _COPY_r01: {
             CHECK_CURRENT_CACHED_VALUES(0);
             _PyStackRef bottom;
             _PyStackRef top;
             oparg = CURRENT_OPARG();
             bottom = stack_pointer[-1 - (oparg-1)];
-            assert(oparg > 0);
             top = PyStackRef_DUP(bottom);
             _tos_cache0 = top;
             SET_CURRENT_CACHED_VALUES(1);
@@ -11958,6 +12030,92 @@
             break;
         }
 
+        case _SWAP_2_r22: {
+            CHECK_CURRENT_CACHED_VALUES(2);
+            _PyStackRef top;
+            _PyStackRef bottom;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            top = _stack_item_1;
+            bottom = _stack_item_0;
+            _PyStackRef temp = bottom;
+            bottom = top;
+            top = temp;
+            _tos_cache1 = top;
+            _tos_cache0 = bottom;
+            SET_CURRENT_CACHED_VALUES(2);
+            break;
+        }
+
+        case _SWAP_2_r00: {
+            CHECK_CURRENT_CACHED_VALUES(0);
+            _PyStackRef top;
+            _PyStackRef bottom;
+            top = stack_pointer[-1];
+            bottom = stack_pointer[-2];
+            _PyStackRef temp = bottom;
+            bottom = top;
+            top = temp;
+            stack_pointer[-2] = bottom;
+            stack_pointer[-1] = top;
+            SET_CURRENT_CACHED_VALUES(0);
+            break;
+        }
+
+        case _SWAP_2_r11: {
+            CHECK_CURRENT_CACHED_VALUES(1);
+            _PyStackRef top;
+            _PyStackRef bottom;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            top = _stack_item_0;
+            bottom = stack_pointer[-1];
+            _PyStackRef temp = bottom;
+            bottom = top;
+            top = temp;
+            _tos_cache0 = top;
+            stack_pointer[-1] = bottom;
+            SET_CURRENT_CACHED_VALUES(1);
+            break;
+        }
+
+        case _SWAP_2_r33: {
+            CHECK_CURRENT_CACHED_VALUES(3);
+            _PyStackRef top;
+            _PyStackRef bottom;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            _PyStackRef _stack_item_2 = _tos_cache2;
+            top = _stack_item_2;
+            bottom = _stack_item_1;
+            _PyStackRef temp = bottom;
+            bottom = top;
+            top = temp;
+            _tos_cache2 = top;
+            _tos_cache1 = bottom;
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(3);
+            break;
+        }
+
+        case _SWAP_3_r33: {
+            CHECK_CURRENT_CACHED_VALUES(3);
+            _PyStackRef top;
+            _PyStackRef bottom;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            _PyStackRef _stack_item_2 = _tos_cache2;
+            top = _stack_item_2;
+            bottom = _stack_item_0;
+            _PyStackRef temp = bottom;
+            bottom = top;
+            top = temp;
+            _tos_cache2 = top;
+            _tos_cache1 = _stack_item_1;
+            _tos_cache0 = bottom;
+            SET_CURRENT_CACHED_VALUES(3);
+            break;
+        }
+
         case _SWAP_r11: {
             CHECK_CURRENT_CACHED_VALUES(1);
             _PyStackRef top;
@@ -11969,7 +12127,6 @@
             _PyStackRef temp = bottom;
             bottom = top;
             top = temp;
-            assert(oparg >= 2);
             _tos_cache0 = top;
             stack_pointer[-1 - (oparg-2)] = bottom;
             SET_CURRENT_CACHED_VALUES(1);

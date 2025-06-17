@@ -12,7 +12,8 @@ extern "C" {
 #include <stdint.h>
 #include "pycore_uop_ids.h"
 extern const uint16_t _PyUop_Flags[MAX_UOP_ID+1];
-extern const uint8_t _PyUop_Replication[MAX_UOP_ID+1];
+typedef struct _rep_range { uint8_t start; uint8_t stop; } ReplicationRange;
+extern const ReplicationRange _PyUop_Replication[MAX_UOP_ID+1];
 extern const char * const _PyOpcode_uop_name[MAX_UOP_REGS_ID+1];
 
 extern int _PyUop_num_popped(int opcode, int oparg);
@@ -293,8 +294,13 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_CONVERT_VALUE] = HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_FORMAT_SIMPLE] = HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_FORMAT_WITH_SPEC] = HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
+    [_COPY_1] = HAS_PURE_FLAG,
+    [_COPY_2] = HAS_PURE_FLAG,
+    [_COPY_3] = HAS_PURE_FLAG,
     [_COPY] = HAS_ARG_FLAG | HAS_PURE_FLAG,
     [_BINARY_OP] = HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG | HAS_ESCAPES_FLAG,
+    [_SWAP_2] = HAS_PURE_FLAG,
+    [_SWAP_3] = HAS_PURE_FLAG,
     [_SWAP] = HAS_ARG_FLAG | HAS_PURE_FLAG,
     [_GUARD_IS_TRUE_POP] = HAS_EXIT_FLAG,
     [_GUARD_IS_FALSE_POP] = HAS_EXIT_FLAG,
@@ -329,12 +335,14 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_SPILL_OR_RELOAD] = 0,
 };
 
-const uint8_t _PyUop_Replication[MAX_UOP_ID+1] = {
-    [_LOAD_FAST] = 8,
-    [_LOAD_FAST_BORROW] = 8,
-    [_LOAD_SMALL_INT] = 4,
-    [_STORE_FAST] = 8,
-    [_INIT_CALL_PY_EXACT_ARGS] = 5,
+const ReplicationRange _PyUop_Replication[MAX_UOP_ID+1] = {
+    [_LOAD_FAST] = { 0, 8 },
+    [_LOAD_FAST_BORROW] = { 0, 8 },
+    [_LOAD_SMALL_INT] = { 0, 4 },
+    [_STORE_FAST] = { 0, 8 },
+    [_INIT_CALL_PY_EXACT_ARGS] = { 0, 5 },
+    [_COPY] = { 1, 4 },
+    [_SWAP] = { 2, 4 },
 };
 
 const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1] = {
@@ -603,8 +611,13 @@ const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1] = {
     [_CONVERT_VALUE] = { 0, 0, 1, { _CONVERT_VALUE_r01, 0, 0, 0 } },
     [_FORMAT_SIMPLE] = { 0, 0, 1, { _FORMAT_SIMPLE_r01, 0, 0, 0 } },
     [_FORMAT_WITH_SPEC] = { 0, 0, 1, { _FORMAT_WITH_SPEC_r01, 0, 0, 0 } },
+    [_COPY_1] = { 0, 2, 1, { _COPY_1_r01, _COPY_1_r12, _COPY_1_r23, 0 } },
+    [_COPY_2] = { 2, 2, 1, { 0, 0, _COPY_2_r23, 0 } },
+    [_COPY_3] = { 3, 3, 0, { 0, 0, 0, _COPY_3_r33 } },
     [_COPY] = { 0, 0, 1, { _COPY_r01, 0, 0, 0 } },
     [_BINARY_OP] = { 0, 0, 1, { _BINARY_OP_r01, 0, 0, 0 } },
+    [_SWAP_2] = { 0, 3, 0, { _SWAP_2_r00, _SWAP_2_r11, _SWAP_2_r22, _SWAP_2_r33 } },
+    [_SWAP_3] = { 3, 3, 0, { 0, 0, 0, _SWAP_3_r33 } },
     [_SWAP] = { 1, 1, 0, { 0, _SWAP_r11, 0, 0 } },
     [_GUARD_IS_TRUE_POP] = { 0, 0, 0, { _GUARD_IS_TRUE_POP_r00, 0, 0, 0 } },
     [_GUARD_IS_FALSE_POP] = { 0, 0, 0, { _GUARD_IS_FALSE_POP_r00, 0, 0, 0 } },
@@ -1113,8 +1126,18 @@ const uint16_t _PyUop_Uncached[MAX_UOP_REGS_ID+1] = {
     [_CONVERT_VALUE_r01] = _CONVERT_VALUE,
     [_FORMAT_SIMPLE_r01] = _FORMAT_SIMPLE,
     [_FORMAT_WITH_SPEC_r01] = _FORMAT_WITH_SPEC,
+    [_COPY_1_r12] = _COPY_1,
+    [_COPY_1_r01] = _COPY_1,
+    [_COPY_1_r23] = _COPY_1,
+    [_COPY_2_r23] = _COPY_2,
+    [_COPY_3_r33] = _COPY_3,
     [_COPY_r01] = _COPY,
     [_BINARY_OP_r01] = _BINARY_OP,
+    [_SWAP_2_r22] = _SWAP_2,
+    [_SWAP_2_r00] = _SWAP_2,
+    [_SWAP_2_r11] = _SWAP_2,
+    [_SWAP_2_r33] = _SWAP_2,
+    [_SWAP_3_r33] = _SWAP_3,
     [_SWAP_r11] = _SWAP,
     [_GUARD_IS_TRUE_POP_r00] = _GUARD_IS_TRUE_POP,
     [_GUARD_IS_FALSE_POP_r00] = _GUARD_IS_FALSE_POP,
@@ -1402,6 +1425,14 @@ const char *const _PyOpcode_uop_name[MAX_UOP_REGS_ID+1] = {
     [_CONVERT_VALUE_r01] = "_CONVERT_VALUE_r01",
     [_COPY] = "_COPY",
     [_COPY_r01] = "_COPY_r01",
+    [_COPY_1] = "_COPY_1",
+    [_COPY_1_r12] = "_COPY_1_r12",
+    [_COPY_1_r01] = "_COPY_1_r01",
+    [_COPY_1_r23] = "_COPY_1_r23",
+    [_COPY_2] = "_COPY_2",
+    [_COPY_2_r23] = "_COPY_2_r23",
+    [_COPY_3] = "_COPY_3",
+    [_COPY_3_r33] = "_COPY_3_r33",
     [_COPY_FREE_VARS] = "_COPY_FREE_VARS",
     [_COPY_FREE_VARS_r00] = "_COPY_FREE_VARS_r00",
     [_COPY_FREE_VARS_r11] = "_COPY_FREE_VARS_r11",
@@ -2015,6 +2046,13 @@ const char *const _PyOpcode_uop_name[MAX_UOP_REGS_ID+1] = {
     [_STORE_SUBSCR_LIST_INT_r00] = "_STORE_SUBSCR_LIST_INT_r00",
     [_SWAP] = "_SWAP",
     [_SWAP_r11] = "_SWAP_r11",
+    [_SWAP_2] = "_SWAP_2",
+    [_SWAP_2_r22] = "_SWAP_2_r22",
+    [_SWAP_2_r00] = "_SWAP_2_r00",
+    [_SWAP_2_r11] = "_SWAP_2_r11",
+    [_SWAP_2_r33] = "_SWAP_2_r33",
+    [_SWAP_3] = "_SWAP_3",
+    [_SWAP_3_r33] = "_SWAP_3_r33",
     [_TIER2_RESUME_CHECK] = "_TIER2_RESUME_CHECK",
     [_TIER2_RESUME_CHECK_r00] = "_TIER2_RESUME_CHECK_r00",
     [_TIER2_RESUME_CHECK_r11] = "_TIER2_RESUME_CHECK_r11",
@@ -2598,10 +2636,20 @@ int _PyUop_num_popped(int opcode, int oparg)
             return 1;
         case _FORMAT_WITH_SPEC:
             return 2;
+        case _COPY_1:
+            return 0;
+        case _COPY_2:
+            return 0;
+        case _COPY_3:
+            return 0;
         case _COPY:
             return 0;
         case _BINARY_OP:
             return 2;
+        case _SWAP_2:
+            return 0;
+        case _SWAP_3:
+            return 0;
         case _SWAP:
             return 0;
         case _GUARD_IS_TRUE_POP:
