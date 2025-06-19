@@ -50,7 +50,7 @@ def generate_uop_ids(
         for name, uop in sorted(uops):
             if uop.properties.tier == 1:
                 continue
-            for inputs, outputs in sorted(get_uop_cache_depths(uop)):
+            for inputs, outputs, _ in sorted(get_uop_cache_depths(uop)):
                 out.emit(f"#define {name}_r{inputs}{outputs} {next_id}\n")
                 next_id += 1
         out.emit(f"#define MAX_UOP_REGS_ID {next_id-1}\n")

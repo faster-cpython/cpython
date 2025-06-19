@@ -28,7 +28,7 @@ def uop_cache_info(uop: Uop) -> str | None:
         return None
     min_inputs = 4
     uops = [ "0" ] * 4
-    for inputs, outputs in get_uop_cache_depths(uop):
+    for inputs, outputs, exit_depth in get_uop_cache_depths(uop):
         delta = outputs - inputs
         uops[inputs] = f"{uop.name}_r{inputs}{outputs}"
     for i in range(4):
@@ -37,7 +37,7 @@ def uop_cache_info(uop: Uop) -> str | None:
             if i < min_inputs:
                 min_inputs = i
     max_inputs, delta  # type: ignore[possibly-undefined]
-    return f"{{ {min_inputs}, {max_inputs}, {delta}, {{ {', '.join(uops)} }} }}"
+    return f"{{ {min_inputs}, {max_inputs}, {delta}, {int(exit_depth == outputs)}, {{ {', '.join(uops)} }} }}"
 
 
 def generate_names_and_flags(analysis: Analysis, out: CWriter) -> None:
@@ -47,8 +47,8 @@ def generate_names_and_flags(analysis: Analysis, out: CWriter) -> None:
     out.emit("extern const char * const _PyOpcode_uop_name[MAX_UOP_REGS_ID+1];\n\n")
     out.emit("extern int _PyUop_num_popped(int opcode, int oparg);\n\n")
     out.emit("typedef struct _pyuop_info {\n")
-    out.emit("int8_t min_input; int8_t max_input;\n")
-    out.emit("int8_t delta; uint16_t opcodes[4];\n")
+    out.emit("int8_t min_input; int8_t max_input; int8_t delta;\n")
+    out.emit("int8_t exit_depth_is_output; uint16_t opcodes[4];\n")
     out.emit("} _PyUopCachingInfo;\n")
     out.emit("extern const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1];\n\n")
     out.emit("extern const uint16_t _PyUop_SpillsAndReloads[4][4];\n")
@@ -77,7 +77,7 @@ def generate_names_and_flags(analysis: Analysis, out: CWriter) -> None:
     out.emit("const uint16_t _PyUop_Uncached[MAX_UOP_REGS_ID+1] = {\n");
     for uop in analysis.uops.values():
         if uop.is_viable() and uop.properties.tier != 1 and not uop.is_super():
-            for inputs, outputs in get_uop_cache_depths(uop):
+            for inputs, outputs, _ in get_uop_cache_depths(uop):
                 out.emit(f"[{uop.name}_r{inputs}{outputs}] = {uop.name},\n")
     out.emit("};\n\n")
     out.emit("const uint16_t _PyUop_SpillsAndReloads[4][4] = {\n")
@@ -90,7 +90,7 @@ def generate_names_and_flags(analysis: Analysis, out: CWriter) -> None:
     for uop in sorted(analysis.uops.values(), key=lambda t: t.name):
         if uop.is_viable() and uop.properties.tier != 1 and not uop.is_super():
             out.emit(f'[{uop.name}] = "{uop.name}",\n')
-            for inputs, outputs in get_uop_cache_depths(uop):
+            for inputs, outputs, _ in get_uop_cache_depths(uop):
                 out.emit(f'[{uop.name}_r{inputs}{outputs}] = "{uop.name}_r{inputs}{outputs}",\n')
     out.emit("};\n")
     out.emit("int _PyUop_num_popped(int opcode, int oparg)\n{\n")

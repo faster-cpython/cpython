@@ -718,6 +718,8 @@ def cflags(p: Properties) -> str:
         flags.append("HAS_PURE_FLAG")
     if p.no_save_ip:
         flags.append("HAS_NO_SAVE_IP_FLAG")
+    if p.sync_sp:
+        flags.append("HAS_SYNC_SP_FLAG")
     if flags:
         return " | ".join(flags)
     else:

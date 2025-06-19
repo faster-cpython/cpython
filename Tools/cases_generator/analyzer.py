@@ -25,7 +25,7 @@ class Properties:
     eval_breaker: bool
     needs_this: bool
     always_exits: bool
-    stores_sp: bool
+    sync_sp: bool
     uses_co_consts: bool
     uses_co_names: bool
     uses_locals: bool
@@ -63,7 +63,7 @@ class Properties:
             eval_breaker=any(p.eval_breaker for p in properties),
             needs_this=any(p.needs_this for p in properties),
             always_exits=any(p.always_exits for p in properties),
-            stores_sp=any(p.stores_sp for p in properties),
+            sync_sp=any(p.sync_sp for p in properties),
             uses_co_consts=any(p.uses_co_consts for p in properties),
             uses_co_names=any(p.uses_co_names for p in properties),
             uses_locals=any(p.uses_locals for p in properties),
@@ -90,7 +90,7 @@ SKIP_PROPERTIES = Properties(
     eval_breaker=False,
     needs_this=False,
     always_exits=False,
-    stores_sp=False,
+    sync_sp=False,
     uses_co_consts=False,
     uses_co_names=False,
     uses_locals=False,
@@ -857,7 +857,7 @@ def compute_properties(op: parser.CodeDef) -> Properties:
         eval_breaker="CHECK_PERIODIC" in op.name,
         needs_this=variable_used(op, "this_instr"),
         always_exits=always_exits(op),
-        stores_sp=variable_used(op, "SYNC_SP"),
+        sync_sp=variable_used(op, "SYNC_SP"),
         uses_co_consts=variable_used(op, "FRAME_CO_CONSTS"),
         uses_co_names=variable_used(op, "FRAME_CO_NAMES"),
         uses_locals=variable_used(op, "GETLOCAL") and not has_free,
@@ -1215,20 +1215,23 @@ def analyze_forest(forest: list[parser.AstNode]) -> Analysis:
         instructions, uops, families, pseudos, labels, opmap, first_arg, min_instrumented
     )
 
+#Simple heuristic for size to avoid too much stencil duplication
+def is_large(uop: Uop) -> bool:
+    return len(list(uop.body.tokens())) > 80
 
-def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int]]:
+def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int, int]]:
     if uop.name == "_SPILL_OR_RELOAD":
         for inputs in range(4):
             for outputs in range(4):
                 if inputs != outputs:
-                    yield inputs, outputs
+                    yield inputs, outputs, inputs
         return
     if uop.name == "_EXIT_TRACE":
         for i in range(4):
-            yield i, 0
+            yield i, 0, i
         return
     if uop.name in ("_START_EXECUTOR", "_JUMP_TO_TOP", "_DEOPT", "_ERROR_POP_N"):
-        yield 0, 0
+        yield 0, 0, 0
         return
     non_decref_escape = False
     for call in uop.properties.escaping_calls.values():
@@ -1258,16 +1261,17 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int]]:
     if ideal_outputs > 3:
         ideal_outputs = 3
     if non_decref_escape:
-        yield 0, ideal_outputs
+        yield 0, ideal_outputs, 0
         return
     # If a uop has an exit, we can get in a mess if the stack caching
     # changes during execution.
-    if has_exit and ideal_inputs != ideal_outputs:
-        n = min(ideal_inputs, ideal_outputs)
-        yield n, n
-        return
-    yield ideal_inputs, ideal_outputs
-    if uop.properties.escapes or uop.properties.stores_sp or has_array:
+    #if has_exit and ideal_inputs != ideal_outputs:
+    #    n = min(ideal_inputs, ideal_outputs)
+    #    yield n, n
+    #    return
+    exit_depth = ideal_outputs if uop.properties.sync_sp else ideal_inputs
+    yield ideal_inputs, ideal_outputs, exit_depth
+    if uop.properties.escapes or uop.properties.sync_sp or has_array or is_large(uop):
         return
     if ideal_inputs >= 3 or ideal_outputs >= 3:
         return
@@ -1278,7 +1282,7 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int]]:
         inputs, outputs = inputs-outputs, 0
     while inputs <= 3 and outputs <= 3:
         if inputs != ideal_inputs:
-            yield inputs,  outputs
+            yield inputs,  outputs, inputs
         inputs += 1
         outputs += 1
 

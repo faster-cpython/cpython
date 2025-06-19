@@ -1008,6 +1008,7 @@ count_exits(_PyUOpInstruction *buffer, int length)
 static int
 get_exit_depth(_PyUOpInstruction *inst)
 {
+
     // TO DO -- Add another generated table for this?
     int base_opcode = _PyUop_Uncached[inst->opcode];
     assert(base_opcode != 0);
@@ -1020,6 +1021,12 @@ get_exit_depth(_PyUOpInstruction *inst)
             input = i;
             break;
         }
+    }
+    if (input == -1) {
+        return -1;
+    }
+    if (_PyUop_Caching[base_opcode].exit_depth_is_output) {
+        return input + _PyUop_Caching[base_opcode].delta;
     }
     return input;
 }

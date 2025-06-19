@@ -61,9 +61,10 @@ def declare_variables(uop: Uop, out: CWriter) -> None:
 
 class Tier2Emitter(Emitter):
 
-    def __init__(self, out: CWriter, labels: dict[str, Label]):
+    def __init__(self, out: CWriter, labels: dict[str, Label], exit_cache_depth:int):
         super().__init__(out, labels)
         self._replacers["oparg"] = self.oparg
+        self.exit_cache_depth = exit_cache_depth
 
     def goto_error(self, offset: int, storage: Storage) -> str:
         # To do: Add jump targets for popping values.
@@ -113,6 +114,7 @@ class Tier2Emitter(Emitter):
         next(tkn_iter)  # Semi colon
         self.emit(") {\n")
         self.emit("UOP_STAT_INC(uopcode, miss);\n")
+        self.emit(f"SET_CURRENT_CACHED_VALUES({self.exit_cache_depth});\n")
         self.emit("JUMP_TO_JUMP_TARGET();\n")
         self.emit("}\n")
         return not always_true(first_tkn)
@@ -193,7 +195,7 @@ def generate_tier2(
 """
     )
     out = CWriter(outfile, 2, lines)
-    emitter = Tier2Emitter(out, analysis.labels)
+
     out.emit("\n")
     for name, uop in analysis.uops.items():
         if uop.properties.tier == 1:
@@ -206,7 +208,8 @@ def generate_tier2(
                 f"/* {uop.name} is not a viable micro-op for tier 2 because it {why_not_viable} */\n\n"
             )
             continue
-        for inputs, outputs in get_uop_cache_depths(uop):
+        for inputs, outputs, exit_depth in get_uop_cache_depths(uop):
+            emitter = Tier2Emitter(out, analysis.labels, exit_depth)
             out.emit(f"case {uop.name}_r{inputs}{outputs}: {{\n")
             out.emit(f"CHECK_CURRENT_CACHED_VALUES({inputs});\n")
             declare_variables(uop, out)
