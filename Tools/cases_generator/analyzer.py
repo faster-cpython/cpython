@@ -7,6 +7,8 @@ from typing import Optional, Callable, Iterator
 
 from parser import Stmt, SimpleStmt, BlockStmt, IfStmt, WhileStmt
 
+MAX_CACHED_REGISTER = 3
+
 @dataclass
 class EscapingCall:
     stmt: SimpleStmt
@@ -1221,13 +1223,13 @@ def is_large(uop: Uop) -> bool:
 
 def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int, int]]:
     if uop.name == "_SPILL_OR_RELOAD":
-        for inputs in range(4):
-            for outputs in range(4):
+        for inputs in range(MAX_CACHED_REGISTER+1):
+            for outputs in range(MAX_CACHED_REGISTER+1):
                 if inputs != outputs:
                     yield inputs, outputs, inputs
         return
     if uop.name == "_EXIT_TRACE":
-        for i in range(4):
+        for i in range(MAX_CACHED_REGISTER+1):
             yield i, 0, i
         return
     if uop.name in ("_START_EXECUTOR", "_JUMP_TO_TOP", "_DEOPT", "_ERROR_POP_N"):
@@ -1256,24 +1258,18 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int, int]]:
         if item.peek and uop.properties.escapes:
             break
         ideal_outputs += 1
-    if ideal_inputs > 3:
-        ideal_inputs = 3
-    if ideal_outputs > 3:
-        ideal_outputs = 3
+    if ideal_inputs > MAX_CACHED_REGISTER:
+        ideal_inputs = MAX_CACHED_REGISTER
+    if ideal_outputs > MAX_CACHED_REGISTER:
+        ideal_outputs = MAX_CACHED_REGISTER
     if non_decref_escape:
         yield 0, ideal_outputs, 0
         return
-    # If a uop has an exit, we can get in a mess if the stack caching
-    # changes during execution.
-    #if has_exit and ideal_inputs != ideal_outputs:
-    #    n = min(ideal_inputs, ideal_outputs)
-    #    yield n, n
-    #    return
     exit_depth = ideal_outputs if uop.properties.sync_sp else ideal_inputs
     yield ideal_inputs, ideal_outputs, exit_depth
     if uop.properties.escapes or uop.properties.sync_sp or has_array or is_large(uop):
         return
-    if ideal_inputs >= 3 or ideal_outputs >= 3:
+    if ideal_inputs == MAX_CACHED_REGISTER or ideal_outputs == MAX_CACHED_REGISTER:
         return
     inputs, outputs = ideal_inputs, ideal_outputs
     if inputs < outputs:

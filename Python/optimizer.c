@@ -1005,10 +1005,15 @@ count_exits(_PyUOpInstruction *buffer, int length)
     return exit_count;
 }
 
-static int
-get_exit_depth(_PyUOpInstruction *inst)
-{
+#define MAX_CACHED_REGISTER 3
 
+/* The number of cached registers at any exit (`EXIT_IF` or `DEOPT_IF`)
+ * This is the number of cached at entries at start, unless the uop is
+ * marked as `exit_depth_is_output` in which case it is the number of
+ * cached entries at the end */
+static int
+get_cached_entries_for_side_exit(_PyUOpInstruction *inst)
+{
     // TO DO -- Add another generated table for this?
     int base_opcode = _PyUop_Uncached[inst->opcode];
     assert(base_opcode != 0);
@@ -1016,7 +1021,8 @@ get_exit_depth(_PyUOpInstruction *inst)
         return 0;
     }
     int input = -1;
-    for (int i = 0; i < 4; i++) {
+    /* Find number of cached entries at input. */
+    for (int i = 0; i <= MAX_CACHED_REGISTER; i++) {
         if (_PyUop_Caching[base_opcode].opcodes[i] == inst->opcode) {
             input = i;
             break;
@@ -1076,7 +1082,7 @@ prepare_for_execution(_PyUOpInstruction *buffer, int length)
         if (_PyUop_Flags[base_opcode] & (HAS_EXIT_FLAG | HAS_DEOPT_FLAG)) {
             uint16_t base_exit_op = (_PyUop_Flags[base_opcode] & HAS_EXIT_FLAG) ?
                 _EXIT_TRACE : _DEOPT;
-            int exit_depth = get_exit_depth(inst);
+            int exit_depth = get_cached_entries_for_side_exit(inst);
             uint16_t exit_op = _PyUop_Caching[base_exit_op].opcodes[exit_depth];
             int32_t jump_target = target;
             if (is_for_iter_test[base_opcode]) {

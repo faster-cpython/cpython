@@ -10,6 +10,7 @@ from analyzer import (
     analyze_files,
     get_uop_cache_depths,
     Uop,
+    MAX_CACHED_REGISTER,
 )
 from generators_common import (
     DEFAULT_INPUT,
@@ -24,14 +25,15 @@ from typing import TextIO
 DEFAULT_OUTPUT = ROOT / "Include/internal/pycore_uop_metadata.h"
 
 def uop_cache_info(uop: Uop) -> str | None:
+    table_size = MAX_CACHED_REGISTER + 1
     if uop.name == "_SPILL_OR_RELOAD":
         return None
     min_inputs = 4
-    uops = [ "0" ] * 4
+    uops = [ "0" ] * table_size
     for inputs, outputs, exit_depth in get_uop_cache_depths(uop):
         delta = outputs - inputs
         uops[inputs] = f"{uop.name}_r{inputs}{outputs}"
-    for i in range(4):
+    for i in range(table_size):
         if uops[i] != "0":
             max_inputs = i
             if i < min_inputs:
@@ -48,10 +50,10 @@ def generate_names_and_flags(analysis: Analysis, out: CWriter) -> None:
     out.emit("extern int _PyUop_num_popped(int opcode, int oparg);\n\n")
     out.emit("typedef struct _pyuop_info {\n")
     out.emit("int8_t min_input; int8_t max_input; int8_t delta;\n")
-    out.emit("int8_t exit_depth_is_output; uint16_t opcodes[4];\n")
+    out.emit(f"int8_t exit_depth_is_output; uint16_t opcodes[{MAX_CACHED_REGISTER+1}];\n")
     out.emit("} _PyUopCachingInfo;\n")
     out.emit("extern const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1];\n\n")
-    out.emit("extern const uint16_t _PyUop_SpillsAndReloads[4][4];\n")
+    out.emit(f"extern const uint16_t _PyUop_SpillsAndReloads[{MAX_CACHED_REGISTER+1}][{MAX_CACHED_REGISTER+1}];\n")
     out.emit("extern const uint16_t _PyUop_Uncached[MAX_UOP_REGS_ID+1];\n\n")
     out.emit("#ifdef NEED_OPCODE_METADATA\n")
     out.emit("const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {\n")
@@ -80,9 +82,9 @@ def generate_names_and_flags(analysis: Analysis, out: CWriter) -> None:
             for inputs, outputs, _ in get_uop_cache_depths(uop):
                 out.emit(f"[{uop.name}_r{inputs}{outputs}] = {uop.name},\n")
     out.emit("};\n\n")
-    out.emit("const uint16_t _PyUop_SpillsAndReloads[4][4] = {\n")
-    for i in range(4):
-        for j in range(4):
+    out.emit(f"const uint16_t _PyUop_SpillsAndReloads[{MAX_CACHED_REGISTER+1}][{MAX_CACHED_REGISTER+1}] = {{\n")
+    for i in range(MAX_CACHED_REGISTER+1):
+        for j in range(MAX_CACHED_REGISTER+1):
             if i != j:
                 out.emit(f"[{i}][{j}] = _SPILL_OR_RELOAD_r{i}{j},\n")
     out.emit("};\n\n")
