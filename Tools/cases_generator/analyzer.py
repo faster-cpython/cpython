@@ -440,7 +440,7 @@ def find_variable_stores(node: parser.InstDef) -> list[lexer.Token]:
         for idx, tkn in enumerate(tokens):
             if tkn.kind == "AND":
                 name_tkn = tokens[idx+1]
-                if name_tkn.text in outnames:
+                if name_tkn.text in outnames or name_tkn.text in innames:
                     callback(name_tkn)
 
     def visit(stmt: Stmt) -> None:

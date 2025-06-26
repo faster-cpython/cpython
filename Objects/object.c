@@ -1935,7 +1935,7 @@ _PyObject_GenericSetAttrWithDict(PyObject *obj, PyObject *name,
     _PyThreadState_PushCStackRef(tstate, &cref);
 
     _PyType_LookupStackRefAndVersion(tp, name, &cref.ref);
-    descr = PyStackRef_AsPyObjectBorrowNonInt(cref.ref);
+    descr = PyStackRef_AsPyObjectBorrowed(&cref.ref);
 
     if (descr != NULL) {
         f = Py_TYPE(descr)->tp_descr_set;

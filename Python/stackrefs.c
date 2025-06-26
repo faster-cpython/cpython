@@ -230,7 +230,7 @@ PyStackRef_IncrementTaggedIntNoOverflow(_PyStackRef ref)
 #else
 
 extern PyObject *
-_Py_StackRef_BoxAndReturnObject(_PyStackRef ref)
+_Py_StackRef_BoxInt(_PyStackRef ref)
 {
     assert(PyStackRef_IsTaggedInt(ref));
     intptr_t val = PyStackRef_UntagInt(ref);

@@ -51,6 +51,7 @@ _Py_freelists_GET(void)
 static inline int
 _PyFreeList_Push(struct _Py_freelist *fl, void *obj, Py_ssize_t maxsize)
 {
+    assert((((uintptr_t)obj) & 3) == 0);
     if (fl->size < maxsize && fl->size >= 0) {
         FT_ATOMIC_STORE_PTR_RELAXED(*(void **)obj, fl->freelist);
         fl->freelist = obj;
@@ -74,6 +75,7 @@ static inline void *
 _PyFreeList_PopNoStats(struct _Py_freelist *fl)
 {
     void *obj = fl->freelist;
+    assert((((uintptr_t)obj) & 3) == 0);
     if (obj != NULL) {
         assert(fl->size > 0);
         fl->freelist = *(void **)obj;

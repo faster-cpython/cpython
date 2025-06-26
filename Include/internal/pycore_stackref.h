@@ -598,7 +598,7 @@ PyStackRef_Borrow(_PyStackRef ref)
 #endif
 
 extern PyObject *
-_Py_StackRef_BoxAndReturnObject(_PyStackRef ref);
+_Py_StackRef_BoxInt(_PyStackRef ref);
 
 static inline PyObject *
 PyStackRef_AsPyObjectSteal(_PyStackRef ref)
@@ -607,7 +607,7 @@ PyStackRef_AsPyObjectSteal(_PyStackRef ref)
         return BITS_TO_PTR(ref);
     }
     else if (PyStackRef_IsTaggedInt(ref)) {
-        return _Py_StackRef_BoxAndReturnObject(ref);
+        return _Py_StackRef_BoxInt(ref);
     }
     else {
         return Py_NewRef(BITS_TO_PTR_MASKED(ref));
@@ -818,8 +818,9 @@ static inline PyObject *
 PyStackRef_AsPyObjectBorrowed(_PyStackRef *ptr)
 {
     if (PyStackRef_IsTaggedInt(*ptr)) {
-        PyObject *res = _Py_StackRef_BoxAndReturnObject(*ptr);
+        PyObject *res = _Py_StackRef_BoxInt(*ptr);
         *ptr = _PyStackRef_FromPyObjectStealUnchecked(res);
+        assert(Py_REFCNT(res) > 0);
         return res;
     }
     PyObject *cleared = ((PyObject *)(ptr->bits & (~Py_TAG_BITS)));
@@ -840,7 +841,7 @@ static inline PyObject *
 PyStackRef_AsPyObjectNew(_PyStackRef ref)
 {
     if (PyStackRef_IsTaggedInt(ref)) {
-        return _Py_StackRef_BoxAndReturnObject(ref);
+        return _Py_StackRef_BoxInt(ref);
     }
     return Py_NewRef(PyStackRef_AsPyObjectBorrowNonInt(ref));
 
