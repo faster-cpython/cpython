@@ -227,5 +227,20 @@ PyStackRef_IncrementTaggedIntNoOverflow(_PyStackRef ref)
     return (_PyStackRef){ .index = ref.index + 2 };
 }
 
+#else
+
+extern PyObject *
+_Py_StackRef_BoxAndReturnObject(_PyStackRef ref)
+{
+    assert(PyStackRef_IsTaggedInt(ref));
+    intptr_t val = PyStackRef_UntagInt(ref);
+    PyObject *boxed = PyLong_FromSsize_t(val);
+    if (boxed == NULL) {
+        /* To do keep an array for emergency boxing, much
+         * like we do for MemoryError */
+        Py_FatalError("Out of memory for integer boxing");
+    }
+    return boxed;
+}
 
 #endif

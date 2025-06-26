@@ -445,7 +445,7 @@ static inline void
 gc_visit_stackref(_PyStackRef stackref)
 {
     if (PyStackRef_IsDeferred(stackref) && !PyStackRef_IsNullOrInt(stackref)) {
-        PyObject *obj = PyStackRef_AsPyObjectBorrow(stackref);
+        PyObject *obj = PyStackRef_AsPyObjectBorrowNonInt(stackref);
         if (_PyObject_GC_IS_TRACKED(obj) && !gc_is_frozen(obj)) {
             gc_add_refs(obj, 1);
         }
@@ -842,7 +842,7 @@ static int
 gc_visit_stackref_mark_alive(gc_mark_args_t *args, _PyStackRef stackref)
 {
     if (!PyStackRef_IsNullOrInt(stackref)) {
-        PyObject *op = PyStackRef_AsPyObjectBorrow(stackref);
+        PyObject *op = PyStackRef_AsPyObjectBorrowNonInt(stackref);
         if (gc_mark_enqueue(op, args) < 0) {
             return -1;
         }
@@ -1734,7 +1734,7 @@ _PyGC_VisitStackRef(_PyStackRef *ref, visitproc visit, void *arg)
     if (!PyStackRef_IsDeferred(*ref) ||
         (visit != visit_decref && visit != visit_decref_unreachable))
     {
-        Py_VISIT(PyStackRef_AsPyObjectBorrow(*ref));
+        Py_VISIT(PyStackRef_AsPyObjectBorrowNonInt(*ref));
     }
     return 0;
 }

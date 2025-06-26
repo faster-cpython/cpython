@@ -18,6 +18,7 @@ extern "C" {
 static inline PyObject *
 PyCell_SwapTakeRef(PyCellObject *cell, PyObject *value)
 {
+    assert(((uintptr_t)value) > 1000000 || ((uintptr_t)value) < -10000000);
     PyObject *old_value;
     Py_BEGIN_CRITICAL_SECTION(cell);
     old_value = cell->ob_ref;

@@ -294,7 +294,7 @@ PyAPI_FUNC(void) _PyEval_LoadGlobalStackRef(PyObject *globals, PyObject *builtin
 PyAPI_FUNC(PyObject *) _PyEval_GetAwaitable(PyObject *iterable, int oparg);
 PyAPI_FUNC(PyObject *) _PyEval_LoadName(PyThreadState *tstate, _PyInterpreterFrame *frame, PyObject *name);
 PyAPI_FUNC(int)
-_Py_Check_ArgsIterable(PyThreadState *tstate, PyObject *func, PyObject *args);
+_Py_Check_ArgsIterable(PyThreadState *tstate, _PyStackRef func, _PyStackRef args);
 
 /*
  * Indicate whether a special method of given 'oparg' can use the (improved)

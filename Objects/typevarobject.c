@@ -391,7 +391,7 @@ caller(void)
     if (f == NULL || PyStackRef_IsNull(f->f_funcobj)) {
         Py_RETURN_NONE;
     }
-    PyObject *r = PyFunction_GetModule(PyStackRef_AsPyObjectBorrow(f->f_funcobj));
+    PyObject *r = PyFunction_GetModule(PyStackRef_AsPyObjectBorrowNonInt(f->f_funcobj));
     if (!r) {
         PyErr_Clear();
         Py_RETURN_NONE;

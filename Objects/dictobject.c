@@ -2590,7 +2590,7 @@ _PyDict_LoadBuiltinsFromGlobals(PyObject *globals)
     if (PyStackRef_IsNull(ref)) {
         return Py_NewRef(PyEval_GetBuiltins());
     }
-    PyObject *builtins = PyStackRef_AsPyObjectBorrow(ref);
+    PyObject *builtins = PyStackRef_AsPyObjectBorrowNonInt(ref);
     if (PyModule_Check(builtins)) {
         builtins = _PyModule_GetDict(builtins);
         assert(builtins != NULL);

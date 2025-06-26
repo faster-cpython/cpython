@@ -1689,7 +1689,7 @@ _PyObject_GetMethodStackRef(PyThreadState *ts, PyObject *obj,
     }
 
     _PyType_LookupStackRefAndVersion(tp, name, method);
-    PyObject *descr = PyStackRef_AsPyObjectBorrow(*method);
+    PyObject *descr = PyStackRef_AsPyObjectBorrowNonInt(*method);
     descrgetfunc f = NULL;
     if (descr != NULL) {
         if (_PyType_HasFeature(Py_TYPE(descr), Py_TPFLAGS_METHOD_DESCRIPTOR)) {
@@ -1811,7 +1811,7 @@ _PyObject_GenericGetAttrWithDict(PyObject *obj, PyObject *name,
     _PyThreadState_PushCStackRef(tstate, &cref);
 
     _PyType_LookupStackRefAndVersion(tp, name, &cref.ref);
-    descr = PyStackRef_AsPyObjectBorrow(cref.ref);
+    descr = PyStackRef_AsPyObjectBorrowed(&cref.ref);
 
     f = NULL;
     if (descr != NULL) {
@@ -1935,7 +1935,7 @@ _PyObject_GenericSetAttrWithDict(PyObject *obj, PyObject *name,
     _PyThreadState_PushCStackRef(tstate, &cref);
 
     _PyType_LookupStackRefAndVersion(tp, name, &cref.ref);
-    descr = PyStackRef_AsPyObjectBorrow(cref.ref);
+    descr = PyStackRef_AsPyObjectBorrowNonInt(cref.ref);
 
     if (descr != NULL) {
         f = Py_TYPE(descr)->tp_descr_set;
@@ -2742,7 +2742,7 @@ PyUnstable_Object_IsUniqueReferencedTemporary(PyObject *op)
     _PyStackRef *stackpointer = frame->stackpointer;
     while (stackpointer > base) {
         stackpointer--;
-        if (op == PyStackRef_AsPyObjectBorrow(*stackpointer)) {
+        if (op == PyStackRef_AsPyObjectBorrowNonInt(*stackpointer)) {
             return PyStackRef_IsHeapSafe(*stackpointer);
         }
     }

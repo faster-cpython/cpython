@@ -630,7 +630,7 @@ class Storage:
         if self.outputs:
             for out in self.outputs[self.peeks:]:
                 if self.needs_defining(out):
-                    raise StackError(f"Output variable '{self.outputs[0].name}' is not defined")
+                    raise StackError(f"Output variable '{out.name}' is not defined")
                 self.stack.push(out)
             self.outputs = []
 

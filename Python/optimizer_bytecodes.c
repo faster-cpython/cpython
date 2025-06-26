@@ -111,23 +111,11 @@ dummy_func(void) {
         if (sym_is_compact_int(value)) {
             REPLACE_OP(this_instr, _NOP, 0, 0);
         }
-        else {
-            if (sym_get_type(value) == &PyLong_Type) {
-                REPLACE_OP(this_instr, _GUARD_TOS_OVERFLOWED, 0, 0);
-            }
-            sym_set_compact_int(value);
-        }
     }
 
     op(_GUARD_NOS_INT, (left, unused -- left, unused)) {
         if (sym_is_compact_int(left)) {
             REPLACE_OP(this_instr, _NOP, 0, 0);
-        }
-        else {
-            if (sym_get_type(left) == &PyLong_Type) {
-                REPLACE_OP(this_instr, _GUARD_NOS_OVERFLOWED, 0, 0);
-            }
-            sym_set_compact_int(left);
         }
     }
 
@@ -448,8 +436,8 @@ dummy_func(void) {
     }
 
     op(_UNARY_NEGATIVE, (value -- res)) {
-        if (sym_is_compact_int(value)) {
-            res = sym_new_compact_int(ctx);
+        if (sym_matches_type(value, &PyLong_Type)) {
+            res = sym_new_type(ctx, &PyLong_Type);
         }
         else {
             res = sym_new_not_null(ctx);
@@ -457,8 +445,8 @@ dummy_func(void) {
     }
 
     op(_UNARY_INVERT, (value -- res)) {
-        if (sym_matches_type(value, &PyLong_Type)) {
-            res = sym_new_type(ctx, &PyLong_Type);
+        if (sym_is_compact_int(value)) {
+            res = sym_new_compact_int(ctx);
         }
         else {
             res = sym_new_not_null(ctx);
@@ -529,7 +517,6 @@ dummy_func(void) {
         PyObject *val = PyLong_FromLong(oparg);
         assert(val);
         assert(_Py_IsImmortal(val));
-        REPLACE_OP(this_instr, _LOAD_CONST_INLINE_BORROW, 0, (uintptr_t)val);
         value = PyJitRef_Borrow(sym_new_const(ctx, val));
     }
 

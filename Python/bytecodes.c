@@ -300,10 +300,8 @@ dummy_func(
             value = PyStackRef_FromPyObjectBorrow(obj);
         }
 
-        replicate(4) inst(LOAD_SMALL_INT, (-- value)) {
-            assert(oparg < _PY_NSMALLPOSINTS);
-            PyObject *obj = (PyObject *)&_PyLong_SMALL_INTS[_PY_NSMALLNEGINTS + oparg];
-            value = PyStackRef_FromPyObjectBorrow(obj);
+        inst(LOAD_SMALL_INT, (-- value)) {
+            value = PyStackRef_TagInt(oparg);
         }
 
         replicate(8) inst(STORE_FAST, (value --)) {
@@ -373,7 +371,7 @@ dummy_func(
             /* Need to create a fake StopIteration error here,
              * to conform to PEP 380 */
             if (PyStackRef_GenCheck(receiver)) {
-                int err = monitor_stop_iteration(tstate, frame, this_instr, PyStackRef_AsPyObjectBorrow(value));
+                int err = monitor_stop_iteration(tstate, frame, this_instr, PyStackRef_AsPyObjectBorrowed(&value));
                 if (err) {
                     ERROR_NO_POP();
                 }
@@ -395,9 +393,9 @@ dummy_func(
         }
 
         tier1 inst(INSTRUMENTED_END_SEND, (receiver, value -- val)) {
-            PyObject *receiver_o = PyStackRef_AsPyObjectBorrow(receiver);
+            PyObject *receiver_o = PyStackRef_AsPyObjectBorrowed(&receiver);
             if (PyGen_Check(receiver_o) || PyCoro_CheckExact(receiver_o)) {
-                int err = monitor_stop_iteration(tstate, frame, this_instr, PyStackRef_AsPyObjectBorrow(value));
+                int err = monitor_stop_iteration(tstate, frame, this_instr, PyStackRef_AsPyObjectBorrowed(&value));
                 if (err) {
                     ERROR_NO_POP();
                 }
@@ -408,10 +406,22 @@ dummy_func(
         }
 
         inst(UNARY_NEGATIVE, (value -- res)) {
-            PyObject *res_o = PyNumber_Negative(PyStackRef_AsPyObjectBorrow(value));
-            PyStackRef_CLOSE(value);
-            ERROR_IF(res_o == NULL);
-            res = PyStackRef_FromPyObjectSteal(res_o);
+            if (PyStackRef_IsTaggedInt(value)) {
+                DEAD(value);
+                intptr_t i = PyStackRef_UntagInt(value);
+                if (i == PYSTACKREF_INT_MIN) {
+                    PyObject *res_o = PyLong_FromSsize_t(-i);
+                    ERROR_IF(res_o == NULL);
+                    res = PyStackRef_FromPyObjectSteal(res_o);
+                }
+                res = PyStackRef_TagInt(-i);
+            }
+            else {
+                PyObject *res_o = PyNumber_Negative(PyStackRef_AsPyObjectBorrowNonInt(value));
+                PyStackRef_CLOSE(value);
+                ERROR_IF(res_o == NULL);
+                res = PyStackRef_FromPyObjectSteal(res_o);
+            }
         }
 
         pure inst(UNARY_NOT, (value -- res)) {
@@ -443,10 +453,16 @@ dummy_func(
         }
 
         op(_TO_BOOL, (value -- res)) {
-            int err = PyObject_IsTrue(PyStackRef_AsPyObjectBorrow(value));
-            PyStackRef_CLOSE(value);
-            ERROR_IF(err < 0);
-            res = err ? PyStackRef_True : PyStackRef_False;
+            if (PyStackRef_IsTaggedInt(value)) {
+                DEAD(value);
+                res = PyStackRef_UntagInt(value) ? PyStackRef_True : PyStackRef_False;
+            }
+            else {
+                int err = PyObject_IsTrue(PyStackRef_AsPyObjectBorrowNonInt(value));
+                PyStackRef_CLOSE(value);
+                ERROR_IF(err < 0);
+                res = err ? PyStackRef_True : PyStackRef_False;
+            }
         }
 
         macro(TO_BOOL) = _SPECIALIZE_TO_BOOL + unused/2 + _TO_BOOL;
@@ -457,40 +473,28 @@ dummy_func(
         }
 
         inst(TO_BOOL_INT, (unused/1, unused/2, value -- res)) {
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            EXIT_IF(!PyLong_CheckExact(value_o));
-            STAT_INC(TO_BOOL, hit);
-            if (_PyLong_IsZero((PyLongObject *)value_o)) {
-                assert(_Py_IsImmortal(value_o));
-                DEAD(value);
-                res = PyStackRef_False;
-            }
-            else {
-                PyStackRef_CLOSE(value);
-                res = PyStackRef_True;
-            }
+            EXIT_IF(!PyStackRef_IsTaggedInt(value));
+            DEAD(value);
+            res = PyStackRef_UntagInt(value) ? PyStackRef_True : PyStackRef_False;
         }
 
         op(_GUARD_NOS_LIST, (nos, unused -- nos, unused)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-            EXIT_IF(!PyList_CheckExact(o));
+            EXIT_IF(!PyStackRef_ListCheckExact(nos));
         }
 
         op(_GUARD_TOS_LIST, (tos -- tos)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-            EXIT_IF(!PyList_CheckExact(o));
+            EXIT_IF(!PyStackRef_ListCheckExact(tos));
         }
 
         op(_GUARD_TOS_SLICE, (tos -- tos)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-            EXIT_IF(!PySlice_Check(o));
+            EXIT_IF(!PyStackRef_SliceCheck(tos));
         }
 
         macro(TO_BOOL_LIST) = _GUARD_TOS_LIST + unused/1 + unused/2 + _TO_BOOL_LIST;
 
         op(_TO_BOOL_LIST, (value -- res)) {
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            assert(PyList_CheckExact(value_o));
+            assert(PyStackRef_ListCheckExact(value));
+            PyObject *value_o = PyStackRef_AsPyObjectBorrowNonInt(value);
             STAT_INC(TO_BOOL, hit);
             res = PyList_GET_SIZE(value_o) ? PyStackRef_True : PyStackRef_False;
             DECREF_INPUTS();
@@ -505,18 +509,16 @@ dummy_func(
         }
 
         op(_GUARD_NOS_UNICODE, (nos, unused -- nos, unused)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-            EXIT_IF(!PyUnicode_CheckExact(o));
+            EXIT_IF(!PyStackRef_UnicodeCheckExact(nos));
         }
 
         op(_GUARD_TOS_UNICODE, (value -- value)) {
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            EXIT_IF(!PyUnicode_CheckExact(value_o));
+            EXIT_IF(!PyStackRef_UnicodeCheckExact(value));
         }
 
         op(_TO_BOOL_STR, (value -- res)) {
             STAT_INC(TO_BOOL, hit);
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
+            PyObject *value_o = PyStackRef_AsPyObjectBorrowNonInt(value);
             if (value_o == &_Py_STR(empty)) {
                 assert(_Py_IsImmortal(value_o));
                 DEAD(value);
@@ -543,10 +545,17 @@ dummy_func(
             _REPLACE_WITH_TRUE;
 
         inst(UNARY_INVERT, (value -- res)) {
-            PyObject *res_o = PyNumber_Invert(PyStackRef_AsPyObjectBorrow(value));
-            PyStackRef_CLOSE(value);
-            ERROR_IF(res_o == NULL);
-            res = PyStackRef_FromPyObjectSteal(res_o);
+            if (PyStackRef_IsTaggedInt(value)) {
+                DEAD(value);
+                intptr_t i = PyStackRef_UntagInt(value);
+                res = PyStackRef_TagInt(~i);
+            }
+            else {
+                PyObject *res_o = PyNumber_Invert(PyStackRef_AsPyObjectBorrowNonInt(value));
+                PyStackRef_CLOSE(value);
+                ERROR_IF(res_o == NULL);
+                res = PyStackRef_FromPyObjectSteal(res_o);
+            }
         }
 
         family(BINARY_OP, INLINE_CACHE_ENTRIES_BINARY_OP) = {
@@ -568,70 +577,32 @@ dummy_func(
         };
 
         op(_GUARD_NOS_INT, (left, unused -- left, unused)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            EXIT_IF(!_PyLong_CheckExactAndCompact(left_o));
+            EXIT_IF(!PyStackRef_IsTaggedInt(left));
         }
 
         op(_GUARD_TOS_INT, (value -- value)) {
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            EXIT_IF(!_PyLong_CheckExactAndCompact(value_o));
-        }
-
-        op(_GUARD_NOS_OVERFLOWED, (left, unused -- left, unused)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            assert(Py_TYPE(left_o) == &PyLong_Type);
-            EXIT_IF(!_PyLong_IsCompact((PyLongObject *)left_o));
-        }
-
-        op(_GUARD_TOS_OVERFLOWED, (value -- value)) {
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            assert(Py_TYPE(value_o) == &PyLong_Type);
-            EXIT_IF(!_PyLong_IsCompact((PyLongObject *)value_o));
+            EXIT_IF(!PyStackRef_IsTaggedInt(value));
         }
 
         pure op(_BINARY_OP_MULTIPLY_INT, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
-            assert(PyLong_CheckExact(left_o));
-            assert(PyLong_CheckExact(right_o));
-            assert(_PyLong_BothAreCompact((PyLongObject *)left_o, (PyLongObject *)right_o));
-
-            STAT_INC(BINARY_OP, hit);
-            res = _PyCompactLong_Multiply((PyLongObject *)left_o, (PyLongObject *)right_o);
-            EXIT_IF(PyStackRef_IsNull(res));
-            PyStackRef_CLOSE_SPECIALIZED(right, _PyLong_ExactDealloc);
-            PyStackRef_CLOSE_SPECIALIZED(left, _PyLong_ExactDealloc);
-            INPUTS_DEAD();
+            int overflow = _Py_TaggedIntMultiplyOverflow(left, right, &res);
+            EXIT_IF(overflow);
+            DEAD(left);
+            DEAD(right);
         }
 
         pure op(_BINARY_OP_ADD_INT, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
-            assert(PyLong_CheckExact(left_o));
-            assert(PyLong_CheckExact(right_o));
-            assert(_PyLong_BothAreCompact((PyLongObject *)left_o, (PyLongObject *)right_o));
-
-            STAT_INC(BINARY_OP, hit);
-            res = _PyCompactLong_Add((PyLongObject *)left_o, (PyLongObject *)right_o);
-            EXIT_IF(PyStackRef_IsNull(res));
-            PyStackRef_CLOSE_SPECIALIZED(right, _PyLong_ExactDealloc);
-            PyStackRef_CLOSE_SPECIALIZED(left, _PyLong_ExactDealloc);
-            INPUTS_DEAD();
+            int overflow = _Py_TaggedIntAddOverflow(left, right, &res);
+            EXIT_IF(overflow);
+            DEAD(left);
+            DEAD(right);
         }
 
         pure op(_BINARY_OP_SUBTRACT_INT, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
-            assert(PyLong_CheckExact(left_o));
-            assert(PyLong_CheckExact(right_o));
-            assert(_PyLong_BothAreCompact((PyLongObject *)left_o, (PyLongObject *)right_o));
-
-            STAT_INC(BINARY_OP, hit);
-            res = _PyCompactLong_Subtract((PyLongObject *)left_o, (PyLongObject *)right_o);
-            EXIT_IF(PyStackRef_IsNull(res));
-            PyStackRef_CLOSE_SPECIALIZED(right, _PyLong_ExactDealloc);
-            PyStackRef_CLOSE_SPECIALIZED(left, _PyLong_ExactDealloc);
-            INPUTS_DEAD();
+            int overflow = _Py_TaggedIntSubtractOverflow(left, right, &res);
+            EXIT_IF(overflow);
+            DEAD(left);
+            DEAD(right);
         }
 
         macro(BINARY_OP_MULTIPLY_INT) =
@@ -644,18 +615,16 @@ dummy_func(
             _GUARD_TOS_INT + _GUARD_NOS_INT + unused/5 + _BINARY_OP_SUBTRACT_INT;
 
         op(_GUARD_NOS_FLOAT, (left, unused -- left, unused)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            EXIT_IF(!PyFloat_CheckExact(left_o));
+            EXIT_IF(!PyStackRef_FloatCheckExact(left));
         }
 
         op(_GUARD_TOS_FLOAT, (value -- value)) {
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            EXIT_IF(!PyFloat_CheckExact(value_o));
+            EXIT_IF(!PyStackRef_FloatCheckExact(value));
         }
 
         pure op(_BINARY_OP_MULTIPLY_FLOAT, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
             assert(PyFloat_CheckExact(left_o));
             assert(PyFloat_CheckExact(right_o));
 
@@ -669,8 +638,8 @@ dummy_func(
         }
 
         pure op(_BINARY_OP_ADD_FLOAT, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
             assert(PyFloat_CheckExact(left_o));
             assert(PyFloat_CheckExact(right_o));
 
@@ -684,8 +653,8 @@ dummy_func(
         }
 
         pure op(_BINARY_OP_SUBTRACT_FLOAT, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
             assert(PyFloat_CheckExact(left_o));
             assert(PyFloat_CheckExact(right_o));
 
@@ -700,8 +669,8 @@ dummy_func(
 
 
         pure op(_BINARY_OP_MULTIPLY_FLOAT__NO_DECREF_INPUTS, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
             assert(PyFloat_CheckExact(left_o));
             assert(PyFloat_CheckExact(right_o));
 
@@ -709,14 +678,14 @@ dummy_func(
             double dres =
                 ((PyFloatObject *)left_o)->ob_fval *
                 ((PyFloatObject *)right_o)->ob_fval;
-            res = PyStackRef_FromPyObjectSteal(PyFloat_FromDouble(dres));
+            res = PyStackRef_FromPyObjectStealNonInt(PyFloat_FromDouble(dres));
             INPUTS_DEAD();
             ERROR_IF(PyStackRef_IsNull(res));
         }
 
         pure op(_BINARY_OP_ADD_FLOAT__NO_DECREF_INPUTS, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
             assert(PyFloat_CheckExact(left_o));
             assert(PyFloat_CheckExact(right_o));
 
@@ -724,14 +693,14 @@ dummy_func(
             double dres =
                 ((PyFloatObject *)left_o)->ob_fval +
                 ((PyFloatObject *)right_o)->ob_fval;
-            res = PyStackRef_FromPyObjectSteal(PyFloat_FromDouble(dres));
+            res = PyStackRef_FromPyObjectStealNonInt(PyFloat_FromDouble(dres));
             INPUTS_DEAD();
             ERROR_IF(PyStackRef_IsNull(res));
         }
 
         pure op(_BINARY_OP_SUBTRACT_FLOAT__NO_DECREF_INPUTS, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
             assert(PyFloat_CheckExact(left_o));
             assert(PyFloat_CheckExact(right_o));
 
@@ -739,7 +708,7 @@ dummy_func(
             double dres =
                 ((PyFloatObject *)left_o)->ob_fval -
                 ((PyFloatObject *)right_o)->ob_fval;
-            res = PyStackRef_FromPyObjectSteal(PyFloat_FromDouble(dres));
+            res = PyStackRef_FromPyObjectStealNonInt(PyFloat_FromDouble(dres));
             INPUTS_DEAD();
             ERROR_IF(PyStackRef_IsNull(res));
         }
@@ -752,8 +721,8 @@ dummy_func(
             _GUARD_TOS_FLOAT + _GUARD_NOS_FLOAT + unused/5 + _BINARY_OP_SUBTRACT_FLOAT;
 
         pure op(_BINARY_OP_ADD_UNICODE, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
             assert(PyUnicode_CheckExact(left_o));
             assert(PyUnicode_CheckExact(right_o));
 
@@ -776,9 +745,9 @@ dummy_func(
         // specializations, but there is no output.
         // At the end we just skip over the STORE_FAST.
         op(_BINARY_OP_INPLACE_ADD_UNICODE, (left, right --)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
             assert(PyUnicode_CheckExact(left_o));
-            assert(PyUnicode_CheckExact(PyStackRef_AsPyObjectBorrow(right)));
+            assert(PyUnicode_CheckExact(PyStackRef_AsPyObjectBorrowNonInt(right)));
 
             int next_oparg;
         #if TIER_ONE
@@ -789,7 +758,7 @@ dummy_func(
         #endif
             _PyStackRef *target_local = &GETLOCAL(next_oparg);
             assert(PyUnicode_CheckExact(left_o));
-            DEOPT_IF(PyStackRef_AsPyObjectBorrow(*target_local) != left_o);
+            DEOPT_IF(PyStackRef_AsPyObjectBorrowNonInt(*target_local) != left_o);
             STAT_INC(BINARY_OP, hit);
             /* Handle `left = left + right` or `left += right` for str.
              *
@@ -820,18 +789,21 @@ dummy_func(
         }
 
        op(_GUARD_BINARY_OP_EXTEND, (descr/4, left, right -- left, right)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            // TO DO -- Support tagged ints. Make the guard and action methods take PyRefs.
+            EXIT_IF(PyStackRef_IsTaggedInt(left));
+            EXIT_IF(PyStackRef_IsTaggedInt(right));
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
             _PyBinaryOpSpecializationDescr *d = (_PyBinaryOpSpecializationDescr*)descr;
             assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5);
             assert(d && d->guard);
             int res = d->guard(left_o, right_o);
-            DEOPT_IF(!res);
+            EXIT_IF(!res);
         }
 
         pure op(_BINARY_OP_EXTEND, (descr/4, left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
             assert(INLINE_CACHE_ENTRIES_BINARY_OP == 5);
             _PyBinaryOpSpecializationDescr *d = (_PyBinaryOpSpecializationDescr*)descr;
 
@@ -856,6 +828,7 @@ dummy_func(
         }
 
         op(_BINARY_SLICE, (container, start, stop -- res)) {
+            // TO DO; Slices are very often ints, so we need to support tagged ints here.
             PyObject *slice = _PyBuildSlice_ConsumeRefs(PyStackRef_AsPyObjectSteal(start),
                                                         PyStackRef_AsPyObjectSteal(stop));
             PyObject *res_o;
@@ -865,7 +838,13 @@ dummy_func(
                 res_o = NULL;
             }
             else {
-                res_o = PyObject_GetItem(PyStackRef_AsPyObjectBorrow(container), slice);
+                if (PyStackRef_IsTaggedInt(container)) {
+                    _PyErr_SetString(tstate, PyExc_TypeError, "'int' object is not subscriptable");
+                    res_o = NULL;
+                }
+                else {
+                    res_o = PyObject_GetItem(PyStackRef_AsPyObjectBorrowNonInt(container), slice);
+                }
                 Py_DECREF(slice);
             }
             PyStackRef_CLOSE(container);
@@ -883,6 +862,7 @@ dummy_func(
         }
 
         op(_STORE_SLICE, (v, container, start, stop -- )) {
+            // TO DO; Slices are very often ints, so we need to support tagged ints here.
             PyObject *slice = _PyBuildSlice_ConsumeRefs(PyStackRef_AsPyObjectSteal(start),
                                                         PyStackRef_AsPyObjectSteal(stop));
             int err;
@@ -890,7 +870,13 @@ dummy_func(
                 err = 1;
             }
             else {
-                err = PyObject_SetItem(PyStackRef_AsPyObjectBorrow(container), slice, PyStackRef_AsPyObjectBorrow(v));
+                if (PyStackRef_IsTaggedInt(container)) {
+                    _PyErr_SetString(tstate, PyExc_TypeError, "'int' object is not subscriptable");
+                    err = 1;
+                }
+                else {
+                    err = PyObject_SetItem(PyStackRef_AsPyObjectBorrowNonInt(container), slice, PyStackRef_AsPyObjectBorrowed(&v));
+                }
                 Py_DECREF(slice);
             }
             DECREF_INPUTS();
@@ -903,15 +889,13 @@ dummy_func(
             _GUARD_TOS_INT + _GUARD_NOS_LIST + unused/5 + _BINARY_OP_SUBSCR_LIST_INT;
 
         op(_BINARY_OP_SUBSCR_LIST_INT, (list_st, sub_st -- res)) {
-            PyObject *sub = PyStackRef_AsPyObjectBorrow(sub_st);
-            PyObject *list = PyStackRef_AsPyObjectBorrow(list_st);
+            intptr_t index = PyStackRef_UntagInt(sub_st);
+            PyObject *list = PyStackRef_AsPyObjectBorrowNonInt(list_st);
 
-            assert(PyLong_CheckExact(sub));
             assert(PyList_CheckExact(list));
 
             // Deopt unless 0 <= sub < PyList_Size(list)
-            DEOPT_IF(!_PyLong_IsNonNegativeCompact((PyLongObject *)sub));
-            Py_ssize_t index = ((PyLongObject*)sub)->long_value.ob_digit[0];
+            DEOPT_IF(index < 0);
 #ifdef Py_GIL_DISABLED
             PyObject *res_o = _PyList_GetItemRef((PyListObject*)list, index);
             DEOPT_IF(res_o == NULL);
@@ -925,15 +909,16 @@ dummy_func(
             res = PyStackRef_FromPyObjectNew(res_o);
 #endif
             STAT_INC(BINARY_OP, hit);
-            DECREF_INPUTS();
+            DEAD(sub_st);
+            PyStackRef_CLOSE(list_st);
         }
 
         macro(BINARY_OP_SUBSCR_LIST_SLICE) =
             _GUARD_TOS_SLICE + _GUARD_NOS_LIST + unused/5 + _BINARY_OP_SUBSCR_LIST_SLICE;
 
         op(_BINARY_OP_SUBSCR_LIST_SLICE, (list_st, sub_st -- res)) {
-            PyObject *sub = PyStackRef_AsPyObjectBorrow(sub_st);
-            PyObject *list = PyStackRef_AsPyObjectBorrow(list_st);
+            PyObject *sub = PyStackRef_AsPyObjectBorrowNonInt(sub_st);
+            PyObject *list = PyStackRef_AsPyObjectBorrowNonInt(list_st);
 
             assert(PySlice_Check(sub));
             assert(PyList_CheckExact(list));
@@ -949,17 +934,15 @@ dummy_func(
             _GUARD_TOS_INT + _GUARD_NOS_UNICODE + unused/5 + _BINARY_OP_SUBSCR_STR_INT;
 
         op(_BINARY_OP_SUBSCR_STR_INT, (str_st, sub_st -- res)) {
-            PyObject *sub = PyStackRef_AsPyObjectBorrow(sub_st);
-            PyObject *str = PyStackRef_AsPyObjectBorrow(str_st);
+            intptr_t index = PyStackRef_UntagInt(sub_st);
+            PyObject *str = PyStackRef_AsPyObjectBorrowNonInt(str_st);
 
-            assert(PyLong_CheckExact(sub));
             assert(PyUnicode_CheckExact(str));
-            DEOPT_IF(!_PyLong_IsNonNegativeCompact((PyLongObject *)sub));
-            Py_ssize_t index = ((PyLongObject*)sub)->long_value.ob_digit[0];
-            DEOPT_IF(PyUnicode_GET_LENGTH(str) <= index);
+            EXIT_IF(index < 0);
+            EXIT_IF(PyUnicode_GET_LENGTH(str) <= index);
             // Specialize for reading an ASCII character from any string:
             Py_UCS4 c = PyUnicode_READ_CHAR(str, index);
-            DEOPT_IF(Py_ARRAY_LENGTH(_Py_SINGLETON(strings).ascii) <= c);
+            EXIT_IF(Py_ARRAY_LENGTH(_Py_SINGLETON(strings).ascii) <= c);
             STAT_INC(BINARY_OP, hit);
             PyObject *res_o = (PyObject*)&_Py_SINGLETON(strings).ascii[c];
             PyStackRef_CLOSE_SPECIALIZED(sub_st, _PyLong_ExactDealloc);
@@ -969,53 +952,49 @@ dummy_func(
         }
 
         op(_GUARD_NOS_TUPLE, (nos, unused -- nos, unused)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-            EXIT_IF(!PyTuple_CheckExact(o));
+            EXIT_IF(!PyStackRef_TupleCheckExact(nos));
         }
 
         op(_GUARD_TOS_TUPLE, (tos -- tos)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-            EXIT_IF(!PyTuple_CheckExact(o));
+            EXIT_IF(!PyStackRef_TupleCheckExact(tos));
         }
 
         macro(BINARY_OP_SUBSCR_TUPLE_INT) =
             _GUARD_TOS_INT + _GUARD_NOS_TUPLE + unused/5 + _BINARY_OP_SUBSCR_TUPLE_INT;
 
         op(_BINARY_OP_SUBSCR_TUPLE_INT, (tuple_st, sub_st -- res)) {
-            PyObject *sub = PyStackRef_AsPyObjectBorrow(sub_st);
-            PyObject *tuple = PyStackRef_AsPyObjectBorrow(tuple_st);
+            intptr_t index = PyStackRef_UntagInt(sub_st);
+            PyObject *tuple = PyStackRef_AsPyObjectBorrowNonInt(tuple_st);
 
-            assert(PyLong_CheckExact(sub));
+            assert(PyStackRef_IsTaggedInt(sub_st));
             assert(PyTuple_CheckExact(tuple));
 
             // Deopt unless 0 <= sub < PyTuple_Size(list)
-            DEOPT_IF(!_PyLong_IsNonNegativeCompact((PyLongObject *)sub));
-            Py_ssize_t index = ((PyLongObject*)sub)->long_value.ob_digit[0];
-            DEOPT_IF(index >= PyTuple_GET_SIZE(tuple));
+            EXIT_IF(index < 0);
+            EXIT_IF(index >= PyTuple_GET_SIZE(tuple));
             STAT_INC(BINARY_OP, hit);
             PyObject *res_o = PyTuple_GET_ITEM(tuple, index);
             assert(res_o != NULL);
             PyStackRef_CLOSE_SPECIALIZED(sub_st, _PyLong_ExactDealloc);
             res = PyStackRef_FromPyObjectNew(res_o);
-            DECREF_INPUTS();
+            DEAD(sub_st);
+            PyStackRef_CLOSE(tuple_st);
         }
 
         op(_GUARD_NOS_DICT, (nos, unused -- nos, unused)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-            EXIT_IF(!PyDict_CheckExact(o));
+            EXIT_IF(!PyStackRef_DictCheckExact(nos));
         }
 
         op(_GUARD_TOS_DICT, (tos -- tos)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-            EXIT_IF(!PyDict_CheckExact(o));
+            EXIT_IF(!PyStackRef_DictCheckExact(tos));
         }
 
         macro(BINARY_OP_SUBSCR_DICT) =
             _GUARD_NOS_DICT + unused/5 + _BINARY_OP_SUBSCR_DICT;
 
         op(_BINARY_OP_SUBSCR_DICT, (dict_st, sub_st -- res)) {
-            PyObject *sub = PyStackRef_AsPyObjectBorrow(sub_st);
-            PyObject *dict = PyStackRef_AsPyObjectBorrow(dict_st);
+            PyObject *sub = PyStackRef_AsPyObjectBorrowed(&sub_st);
+            PyObject *dict = PyStackRef_AsPyObjectBorrowNonInt(dict_st);
 
             assert(PyDict_CheckExact(dict));
             STAT_INC(BINARY_OP, hit);
@@ -1030,7 +1009,7 @@ dummy_func(
         }
 
         op(_BINARY_OP_SUBSCR_CHECK_FUNC, (container, unused -- container, unused, getitem)) {
-            PyTypeObject *tp = Py_TYPE(PyStackRef_AsPyObjectBorrow(container));
+            PyTypeObject *tp = PyStackRef_TYPE(container);
             DEOPT_IF(!PyType_HasFeature(tp, Py_TPFLAGS_HEAPTYPE));
             PyHeapTypeObject *ht = (PyHeapTypeObject *)tp;
             PyObject *getitem_o = FT_ATOMIC_LOAD_PTR_ACQUIRE(ht->_spec_cache.getitem);
@@ -1062,13 +1041,13 @@ dummy_func(
             _PUSH_FRAME;
 
         inst(LIST_APPEND, (list, unused[oparg-1], v -- list, unused[oparg-1])) {
-            int err = _PyList_AppendTakeRef((PyListObject *)PyStackRef_AsPyObjectBorrow(list),
+            int err = _PyList_AppendTakeRef((PyListObject *)PyStackRef_AsPyObjectBorrowNonInt(list),
                                            PyStackRef_AsPyObjectSteal(v));
             ERROR_IF(err < 0);
         }
 
         inst(SET_ADD, (set, unused[oparg-1], v -- set, unused[oparg-1])) {
-            int err = _PySet_AddTakeRef((PySetObject *)PyStackRef_AsPyObjectBorrow(set),
+            int err = _PySet_AddTakeRef((PySetObject *)PyStackRef_AsPyObjectBorrowNonInt(set),
                                         PyStackRef_AsPyObjectSteal(v));
             ERROR_IF(err);
         }
@@ -1092,7 +1071,7 @@ dummy_func(
 
         op(_STORE_SUBSCR, (v, container, sub -- )) {
             /* container[sub] = v */
-            int err = PyObject_SetItem(PyStackRef_AsPyObjectBorrow(container), PyStackRef_AsPyObjectBorrow(sub), PyStackRef_AsPyObjectBorrow(v));
+            int err = PyObject_SetItem(PyStackRef_AsPyObjectBorrowed(&container), PyStackRef_AsPyObjectBorrowed(&sub), PyStackRef_AsPyObjectBorrowed(&v));
             DECREF_INPUTS();
             ERROR_IF(err);
         }
@@ -1103,15 +1082,14 @@ dummy_func(
             _GUARD_TOS_INT + _GUARD_NOS_LIST + unused/1 + _STORE_SUBSCR_LIST_INT;
 
         op(_STORE_SUBSCR_LIST_INT, (value, list_st, sub_st -- )) {
-            PyObject *sub = PyStackRef_AsPyObjectBorrow(sub_st);
-            PyObject *list = PyStackRef_AsPyObjectBorrow(list_st);
+            intptr_t index = PyStackRef_UntagInt(sub_st);
+            PyObject *list = PyStackRef_AsPyObjectBorrowNonInt(list_st);
 
-            assert(PyLong_CheckExact(sub));
+            assert(PyStackRef_IsTaggedInt(sub_st));
             assert(PyList_CheckExact(list));
 
             // Ensure nonnegative, zero-or-one-digit ints.
-            DEOPT_IF(!_PyLong_IsNonNegativeCompact((PyLongObject *)sub));
-            Py_ssize_t index = ((PyLongObject*)sub)->long_value.ob_digit[0];
+            DEOPT_IF(index < 0);
             DEOPT_IF(!LOCK_OBJECT(list));
             // Ensure index < len(list)
             if (index >= PyList_GET_SIZE(list)) {
@@ -1125,7 +1103,6 @@ dummy_func(
                                         PyStackRef_AsPyObjectSteal(value));
             assert(old_value != NULL);
             UNLOCK_OBJECT(list);  // unlock before decrefs!
-            PyStackRef_CLOSE_SPECIALIZED(sub_st, _PyLong_ExactDealloc);
             DEAD(sub_st);
             PyStackRef_CLOSE(list_st);
             Py_DECREF(old_value);
@@ -1135,7 +1112,7 @@ dummy_func(
             _GUARD_NOS_DICT + unused/1 + _STORE_SUBSCR_DICT;
 
         op(_STORE_SUBSCR_DICT, (value, dict_st, sub -- )) {
-            PyObject *dict = PyStackRef_AsPyObjectBorrow(dict_st);
+            PyObject *dict = PyStackRef_AsPyObjectBorrowNonInt(dict_st);
 
             assert(PyDict_CheckExact(dict));
             STAT_INC(STORE_SUBSCR, hit);
@@ -1148,15 +1125,15 @@ dummy_func(
 
         inst(DELETE_SUBSCR, (container, sub --)) {
             /* del container[sub] */
-            int err = PyObject_DelItem(PyStackRef_AsPyObjectBorrow(container),
-                                       PyStackRef_AsPyObjectBorrow(sub));
+            int err = PyObject_DelItem(PyStackRef_AsPyObjectBorrowed(&container),
+                                       PyStackRef_AsPyObjectBorrowed(&sub));
             DECREF_INPUTS();
             ERROR_IF(err);
         }
 
         inst(CALL_INTRINSIC_1, (value -- res)) {
             assert(oparg <= MAX_INTRINSIC_1);
-            PyObject *res_o = _PyIntrinsics_UnaryFunctions[oparg].func(tstate, PyStackRef_AsPyObjectBorrow(value));
+            PyObject *res_o = _PyIntrinsics_UnaryFunctions[oparg].func(tstate, PyStackRef_AsPyObjectBorrowed(&value));
             PyStackRef_CLOSE(value);
             ERROR_IF(res_o == NULL);
             res = PyStackRef_FromPyObjectSteal(res_o);
@@ -1164,8 +1141,8 @@ dummy_func(
 
         inst(CALL_INTRINSIC_2, (value2_st, value1_st -- res)) {
             assert(oparg <= MAX_INTRINSIC_2);
-            PyObject *value1 = PyStackRef_AsPyObjectBorrow(value1_st);
-            PyObject *value2 = PyStackRef_AsPyObjectBorrow(value2_st);
+            PyObject *value1 = PyStackRef_AsPyObjectBorrowed(&value1_st);
+            PyObject *value2 = PyStackRef_AsPyObjectBorrowed(&value2_st);
 
             PyObject *res_o = _PyIntrinsics_BinaryFunctions[oparg].func(tstate, value2, value1);
             DECREF_INPUTS();
@@ -1200,7 +1177,7 @@ dummy_func(
             _PyStackRef executor = frame->localsplus[0];
             assert(tstate->current_executor == NULL);
             if (!PyStackRef_IsNull(executor)) {
-                tstate->current_executor = PyStackRef_AsPyObjectBorrow(executor);
+                tstate->current_executor = PyStackRef_AsPyObjectBorrowNonInt(executor);
                 PyStackRef_CLOSE(executor);
             }
 #endif
@@ -1231,7 +1208,7 @@ dummy_func(
         tier1 op(_RETURN_VALUE_EVENT, (val -- val)) {
             int err = _Py_call_instrumentation_arg(
                     tstate, PY_MONITORING_EVENT_PY_RETURN,
-                    frame, this_instr, PyStackRef_AsPyObjectBorrow(val));
+                    frame, this_instr, PyStackRef_AsPyObjectBorrowed(&val));
             ERROR_IF(err);
         }
 
@@ -1241,9 +1218,7 @@ dummy_func(
 
         inst(GET_AITER, (obj -- iter)) {
             unaryfunc getter = NULL;
-            PyObject *obj_o = PyStackRef_AsPyObjectBorrow(obj);
-            PyObject *iter_o;
-            PyTypeObject *type = Py_TYPE(obj_o);
+            PyTypeObject *type = PyStackRef_TYPE(obj);
 
             if (type->tp_as_async != NULL) {
                 getter = type->tp_as_async->am_aiter;
@@ -1258,7 +1233,8 @@ dummy_func(
                 ERROR_IF(true);
             }
 
-            iter_o = (*getter)(obj_o);
+            PyObject *obj_o = PyStackRef_AsPyObjectBorrowNonInt(obj);
+            PyObject *iter_o = (*getter)(obj_o);
             PyStackRef_CLOSE(obj);
             ERROR_IF(iter_o == NULL);
 
@@ -1272,11 +1248,11 @@ dummy_func(
                 Py_DECREF(iter_o);
                 ERROR_IF(true);
             }
-            iter = PyStackRef_FromPyObjectSteal(iter_o);
+            iter = PyStackRef_FromPyObjectStealNonInt(iter_o);
         }
 
         inst(GET_ANEXT, (aiter -- aiter, awaitable)) {
-            PyObject *awaitable_o = _PyEval_GetANext(PyStackRef_AsPyObjectBorrow(aiter));
+            PyObject *awaitable_o = _PyEval_GetANext(PyStackRef_AsPyObjectBorrowed(&aiter));
             if (awaitable_o == NULL) {
                 ERROR_NO_POP();
             }
@@ -1284,10 +1260,10 @@ dummy_func(
         }
 
         inst(GET_AWAITABLE, (iterable -- iter)) {
-            PyObject *iter_o = _PyEval_GetAwaitable(PyStackRef_AsPyObjectBorrow(iterable), oparg);
+            PyObject *iter_o = _PyEval_GetAwaitable(PyStackRef_AsPyObjectBorrowed(&iterable), oparg);
             PyStackRef_CLOSE(iterable);
             ERROR_IF(iter_o == NULL);
-            iter = PyStackRef_FromPyObjectSteal(iter_o);
+            iter = PyStackRef_FromPyObjectStealNonInt(iter_o);
         }
 
         family(SEND, INLINE_CACHE_ENTRIES_SEND) = {
@@ -1307,7 +1283,7 @@ dummy_func(
         }
 
         op(_SEND, (receiver, v -- receiver, retval)) {
-            PyObject *receiver_o = PyStackRef_AsPyObjectBorrow(receiver);
+            PyObject *receiver_o = PyStackRef_AsPyObjectBorrowNonInt(receiver);
             PyObject *retval_o;
             assert(frame->owner != FRAME_OWNED_BY_INTERPRETER);
             if ((tstate->interp->eval_frame == NULL) &&
@@ -1334,7 +1310,7 @@ dummy_func(
             else {
                 retval_o = PyObject_CallMethodOneArg(receiver_o,
                                                      &_Py_ID(send),
-                                                     PyStackRef_AsPyObjectBorrow(v));
+                                                     PyStackRef_AsPyObjectBorrowed(&v));
             }
             if (retval_o == NULL) {
                 int matches = _PyErr_ExceptionMatches(tstate, PyExc_StopIteration);
@@ -1358,7 +1334,7 @@ dummy_func(
         macro(SEND) = _SPECIALIZE_SEND + _SEND;
 
         op(_SEND_GEN_FRAME, (receiver, v -- receiver, gen_frame)) {
-            PyGenObject *gen = (PyGenObject *)PyStackRef_AsPyObjectBorrow(receiver);
+            PyGenObject *gen = (PyGenObject *)PyStackRef_AsPyObjectBorrowNonInt(receiver);
             DEOPT_IF(Py_TYPE(gen) != &PyGen_Type && Py_TYPE(gen) != &PyCoro_Type);
             DEOPT_IF(gen->gi_frame_state >= FRAME_EXECUTING);
             STAT_INC(SEND, hit);
@@ -1418,7 +1394,7 @@ dummy_func(
         tier1 op(_YIELD_VALUE_EVENT, (val -- val)) {
             int err = _Py_call_instrumentation_arg(
                     tstate, PY_MONITORING_EVENT_PY_YIELD,
-                    frame, this_instr, PyStackRef_AsPyObjectBorrow(val));
+                    frame, this_instr, PyStackRef_AsPyObjectBorrowed(&val));
             if (err) {
                 ERROR_NO_POP();
             }
@@ -1455,7 +1431,7 @@ dummy_func(
         tier1 op(_END_ASYNC_FOR, (awaitable_st, exc_st -- )) {
             JUMPBY(0); // Pretend jump as we need source offset for monitoring
             (void)oparg;
-            PyObject *exc = PyStackRef_AsPyObjectBorrow(exc_st);
+            PyObject *exc = PyStackRef_AsPyObjectBorrowNonInt(exc_st);
 
             assert(exc && PyExceptionInstance_Check(exc));
             int matches = PyErr_GivenExceptionMatches(exc, PyExc_StopAsyncIteration);
@@ -1482,7 +1458,7 @@ dummy_func(
         macro(END_ASYNC_FOR) = _END_ASYNC_FOR;
 
         tier1 inst(CLEANUP_THROW, (sub_iter, last_sent_val, exc_value_st -- none, value)) {
-            PyObject *exc_value = PyStackRef_AsPyObjectBorrow(exc_value_st);
+            PyObject *exc_value = PyStackRef_AsPyObjectBorrowNonInt(exc_value_st);
             #if !Py_TAIL_CALL_INTERP
             assert(throwflag);
             #endif
@@ -1530,10 +1506,10 @@ dummy_func(
                 ERROR_IF(true);
             }
             if (PyDict_CheckExact(ns)) {
-                err = PyDict_SetItem(ns, name, PyStackRef_AsPyObjectBorrow(v));
+                err = PyDict_SetItem(ns, name, PyStackRef_AsPyObjectBorrowed(&v));
             }
             else {
-                err = PyObject_SetItem(ns, name, PyStackRef_AsPyObjectBorrow(v));
+                err = PyObject_SetItem(ns, name, PyStackRef_AsPyObjectBorrowed(&v));
             }
             PyStackRef_CLOSE(v);
             ERROR_IF(err);
@@ -1592,7 +1568,7 @@ dummy_func(
 
         op(_UNPACK_SEQUENCE_TWO_TUPLE, (seq -- val1, val0)) {
             assert(oparg == 2);
-            PyObject *seq_o = PyStackRef_AsPyObjectBorrow(seq);
+            PyObject *seq_o = PyStackRef_AsPyObjectBorrowNonInt(seq);
             assert(PyTuple_CheckExact(seq_o));
             DEOPT_IF(PyTuple_GET_SIZE(seq_o) != 2);
             STAT_INC(UNPACK_SEQUENCE, hit);
@@ -1605,7 +1581,7 @@ dummy_func(
             _GUARD_TOS_TUPLE + unused/1 + _UNPACK_SEQUENCE_TUPLE;
 
         op(_UNPACK_SEQUENCE_TUPLE, (seq -- values[oparg])) {
-            PyObject *seq_o = PyStackRef_AsPyObjectBorrow(seq);
+            PyObject *seq_o = PyStackRef_AsPyObjectBorrowNonInt(seq);
             assert(PyTuple_CheckExact(seq_o));
             DEOPT_IF(PyTuple_GET_SIZE(seq_o) != oparg);
             STAT_INC(UNPACK_SEQUENCE, hit);
@@ -1620,7 +1596,7 @@ dummy_func(
             _GUARD_TOS_LIST + unused/1 + _UNPACK_SEQUENCE_LIST;
 
         op(_UNPACK_SEQUENCE_LIST, (seq -- values[oparg])) {
-            PyObject *seq_o = PyStackRef_AsPyObjectBorrow(seq);
+            PyObject *seq_o = PyStackRef_AsPyObjectBorrowNonInt(seq);
             assert(PyList_CheckExact(seq_o));
             DEOPT_IF(!LOCK_OBJECT(seq_o));
             if (PyList_GET_SIZE(seq_o) != oparg) {
@@ -1664,8 +1640,8 @@ dummy_func(
 
         op(_STORE_ATTR, (v, owner --)) {
             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg);
-            int err = PyObject_SetAttr(PyStackRef_AsPyObjectBorrow(owner),
-                                       name, PyStackRef_AsPyObjectBorrow(v));
+            int err = PyObject_SetAttr(PyStackRef_AsPyObjectBorrowed(&owner),
+                                       name, PyStackRef_AsPyObjectBorrowed(&v));
             DECREF_INPUTS();
             ERROR_IF(err);
         }
@@ -1674,14 +1650,14 @@ dummy_func(
 
         inst(DELETE_ATTR, (owner --)) {
             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg);
-            int err = PyObject_DelAttr(PyStackRef_AsPyObjectBorrow(owner), name);
+            int err = PyObject_DelAttr(PyStackRef_AsPyObjectBorrowed(&owner), name);
             PyStackRef_CLOSE(owner);
             ERROR_IF(err);
         }
 
         inst(STORE_GLOBAL, (v --)) {
             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg);
-            int err = PyDict_SetItem(GLOBALS(), name, PyStackRef_AsPyObjectBorrow(v));
+            int err = PyDict_SetItem(GLOBALS(), name, PyStackRef_AsPyObjectBorrowed(&v));
             PyStackRef_CLOSE(v);
             ERROR_IF(err);
         }
@@ -1713,7 +1689,7 @@ dummy_func(
         inst(LOAD_FROM_DICT_OR_GLOBALS, (mod_or_class_dict -- v)) {
             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg);
             PyObject *v_o;
-            int err = PyMapping_GetOptionalItem(PyStackRef_AsPyObjectBorrow(mod_or_class_dict), name, &v_o);
+            int err = PyMapping_GetOptionalItem(PyStackRef_AsPyObjectBorrowed(&mod_or_class_dict), name, &v_o);
             PyStackRef_CLOSE(mod_or_class_dict);
             ERROR_IF(err < 0);
             if (v_o == NULL) {
@@ -1876,18 +1852,18 @@ dummy_func(
         inst(MAKE_CELL, (--)) {
             // "initial" is probably NULL but not if it's an arg (or set
             // via the f_locals proxy before MAKE_CELL has run).
-            PyObject *initial = PyStackRef_AsPyObjectBorrow(GETLOCAL(oparg));
+            PyObject *initial = PyStackRef_AsPyObjectBorrowed(&GETLOCAL(oparg));
             PyObject *cell = PyCell_New(initial);
             if (cell == NULL) {
                 ERROR_NO_POP();
             }
             _PyStackRef tmp = GETLOCAL(oparg);
-            GETLOCAL(oparg) = PyStackRef_FromPyObjectSteal(cell);
+            GETLOCAL(oparg) = PyStackRef_FromPyObjectStealNonInt(cell);
             PyStackRef_XCLOSE(tmp);
         }
 
         inst(DELETE_DEREF, (--)) {
-            PyObject *cell = PyStackRef_AsPyObjectBorrow(GETLOCAL(oparg));
+            PyObject *cell = PyStackRef_AsPyObjectBorrowed(&GETLOCAL(oparg));
             // Can't use ERROR_IF here.
             // Fortunately we don't need its superpower.
             PyObject *oldobj = PyCell_SwapTakeRef((PyCellObject *)cell, NULL);
@@ -1901,7 +1877,7 @@ dummy_func(
         inst(LOAD_FROM_DICT_OR_DEREF, (class_dict_st -- value)) {
             PyObject *value_o;
             PyObject *name;
-            PyObject *class_dict = PyStackRef_AsPyObjectBorrow(class_dict_st);
+            PyObject *class_dict = PyStackRef_AsPyObjectBorrowed(&class_dict_st);
 
             assert(class_dict);
             assert(oparg >= 0 && oparg < _PyFrame_GetCode(frame)->co_nlocalsplus);
@@ -1911,7 +1887,7 @@ dummy_func(
                 ERROR_NO_POP();
             }
             if (!value_o) {
-                PyCellObject *cell = (PyCellObject *)PyStackRef_AsPyObjectBorrow(GETLOCAL(oparg));
+                PyCellObject *cell = (PyCellObject *)PyStackRef_AsPyObjectBorrowed(&GETLOCAL(oparg));
                 value_o = PyCell_GetRef(cell);
                 if (value_o == NULL) {
                     _PyEval_FormatExcUnbound(tstate, _PyFrame_GetCode(frame), oparg);
@@ -1923,7 +1899,7 @@ dummy_func(
         }
 
         inst(LOAD_DEREF, ( -- value)) {
-            PyCellObject *cell = (PyCellObject *)PyStackRef_AsPyObjectBorrow(GETLOCAL(oparg));
+            PyCellObject *cell = (PyCellObject *)PyStackRef_AsPyObjectBorrowNonInt(GETLOCAL(oparg));
             value = _PyCell_GetStackRef(cell);
             if (PyStackRef_IsNull(value)) {
                 _PyEval_FormatExcUnbound(tstate, _PyFrame_GetCode(frame), oparg);
@@ -1932,7 +1908,7 @@ dummy_func(
         }
 
         inst(STORE_DEREF, (v --)) {
-            PyCellObject *cell = (PyCellObject *)PyStackRef_AsPyObjectBorrow(GETLOCAL(oparg));
+            PyCellObject *cell = (PyCellObject *)PyStackRef_AsPyObjectBorrowNonInt(GETLOCAL(oparg));
             PyCell_SetTakeRef(cell, PyStackRef_AsPyObjectSteal(v));
         }
 
@@ -1940,7 +1916,7 @@ dummy_func(
             /* Copy closure variables to free variables */
             PyCodeObject *co = _PyFrame_GetCode(frame);
             assert(PyStackRef_FunctionCheck(frame->f_funcobj));
-            PyFunctionObject *func = (PyFunctionObject *)PyStackRef_AsPyObjectBorrow(frame->f_funcobj);
+            PyFunctionObject *func = (PyFunctionObject *)PyStackRef_AsPyObjectBorrowNonInt(frame->f_funcobj);
             PyObject *closure = func->func_closure;
             assert(oparg == co->co_nfreevars);
             int offset = co->co_nlocalsplus - oparg;
@@ -1964,12 +1940,12 @@ dummy_func(
         }
 
         inst(BUILD_INTERPOLATION, (value, str, format[oparg & 1] -- interpolation)) {
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
-            PyObject *str_o = PyStackRef_AsPyObjectBorrow(str);
+            PyObject *value_o = PyStackRef_AsPyObjectBorrowed(&value);
+            PyObject *str_o = PyStackRef_AsPyObjectBorrowNonInt(str);
             int conversion = oparg >> 2;
             PyObject *format_o;
             if (oparg & 1) {
-                format_o = PyStackRef_AsPyObjectBorrow(format[0]);
+                format_o = PyStackRef_AsPyObjectBorrowNonInt(format[0]);
             }
             else {
                 format_o = &_Py_STR(empty);
@@ -1988,8 +1964,8 @@ dummy_func(
         }
 
         inst(BUILD_TEMPLATE, (strings, interpolations -- template)) {
-            PyObject *strings_o = PyStackRef_AsPyObjectBorrow(strings);
-            PyObject *interpolations_o = PyStackRef_AsPyObjectBorrow(interpolations);
+            PyObject *strings_o = PyStackRef_AsPyObjectBorrowNonInt(strings);
+            PyObject *interpolations_o = PyStackRef_AsPyObjectBorrowNonInt(interpolations);
             PyObject *template_o = _PyTemplate_Build(strings_o, interpolations_o);
             PyStackRef_CLOSE(interpolations);
             PyStackRef_CLOSE(strings);
@@ -2016,8 +1992,8 @@ dummy_func(
         }
 
         inst(LIST_EXTEND, (list_st, unused[oparg-1], iterable_st -- list_st, unused[oparg-1])) {
-            PyObject *list = PyStackRef_AsPyObjectBorrow(list_st);
-            PyObject *iterable = PyStackRef_AsPyObjectBorrow(iterable_st);
+            PyObject *list = PyStackRef_AsPyObjectBorrowNonInt(list_st);
+            PyObject *iterable = PyStackRef_AsPyObjectBorrowed(&iterable_st);
 
             PyObject *none_val = _PyList_Extend((PyListObject *)list, iterable);
             if (none_val == NULL) {
@@ -2038,8 +2014,8 @@ dummy_func(
         }
 
         inst(SET_UPDATE, (set, unused[oparg-1], iterable -- set, unused[oparg-1])) {
-            int err = _PySet_Update(PyStackRef_AsPyObjectBorrow(set),
-                                    PyStackRef_AsPyObjectBorrow(iterable));
+            int err = _PySet_Update(PyStackRef_AsPyObjectBorrowNonInt(set),
+                                    PyStackRef_AsPyObjectBorrowed(&iterable));
             PyStackRef_CLOSE(iterable);
             ERROR_IF(err < 0);
         }
@@ -2116,8 +2092,8 @@ dummy_func(
         };
 
         inst(DICT_UPDATE, (dict, unused[oparg - 1], update -- dict, unused[oparg - 1])) {
-            PyObject *dict_o = PyStackRef_AsPyObjectBorrow(dict);
-            PyObject *update_o = PyStackRef_AsPyObjectBorrow(update);
+            PyObject *dict_o = PyStackRef_AsPyObjectBorrowNonInt(dict);
+            PyObject *update_o = PyStackRef_AsPyObjectBorrowed(&update);
 
             int err = PyDict_Update(dict_o, update_o);
             if (err < 0) {
@@ -2134,12 +2110,13 @@ dummy_func(
         }
 
         inst(DICT_MERGE, (callable, unused, unused, dict, unused[oparg - 1], update -- callable, unused, unused, dict, unused[oparg - 1])) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
-            PyObject *dict_o = PyStackRef_AsPyObjectBorrow(dict);
-            PyObject *update_o = PyStackRef_AsPyObjectBorrow(update);
+            PyObject *dict_o = PyStackRef_AsPyObjectBorrowNonInt(dict);
+            PyObject *update_o = PyStackRef_AsPyObjectBorrowed(&update);
 
             int err = _PyDict_MergeEx(dict_o, update_o, 2);
             if (err < 0) {
+                /* TO DO -- Handle possible tagged int callable */
+                PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
                 _PyEval_FormatKwargsError(tstate, callable_o, update_o);
                 PyStackRef_CLOSE(update);
                 ERROR_IF(true);
@@ -2148,7 +2125,7 @@ dummy_func(
         }
 
         inst(MAP_ADD, (dict_st, unused[oparg - 1], key, value -- dict_st, unused[oparg - 1])) {
-            PyObject *dict = PyStackRef_AsPyObjectBorrow(dict_st);
+            PyObject *dict = PyStackRef_AsPyObjectBorrowNonInt(dict_st);
             assert(PyDict_CheckExact(dict));
             /* dict[key] = value */
             // Do not DECREF INPUTS because the function steals the references
@@ -2184,9 +2161,9 @@ dummy_func(
         }
 
         tier1 op(_LOAD_SUPER_ATTR, (global_super_st, class_st, self_st -- attr)) {
-            PyObject *global_super = PyStackRef_AsPyObjectBorrow(global_super_st);
-            PyObject *class = PyStackRef_AsPyObjectBorrow(class_st);
-            PyObject *self = PyStackRef_AsPyObjectBorrow(self_st);
+            PyObject *global_super = PyStackRef_AsPyObjectBorrowed(&global_super_st);
+            PyObject *class = PyStackRef_AsPyObjectBorrowed(&class_st);
+            PyObject *self = PyStackRef_AsPyObjectBorrowed(&self_st);
 
             if (opcode == INSTRUMENTED_LOAD_SUPER_ATTR) {
                 PyObject *arg = oparg & 2 ? class : &_PyInstrumentation_MISSING;
@@ -2233,13 +2210,13 @@ dummy_func(
             _PUSH_NULL_CONDITIONAL;
 
         inst(LOAD_SUPER_ATTR_ATTR, (unused/1, global_super_st, class_st, self_st -- attr_st)) {
-            PyObject *global_super = PyStackRef_AsPyObjectBorrow(global_super_st);
-            PyObject *class = PyStackRef_AsPyObjectBorrow(class_st);
-            PyObject *self = PyStackRef_AsPyObjectBorrow(self_st);
+            PyObject *global_super = PyStackRef_AsPyObjectBorrowed(&global_super_st);
+            DEOPT_IF(!PyStackRef_TypeCheck(class_st));
+            PyObject *class = PyStackRef_AsPyObjectBorrowNonInt(class_st);
+            PyObject *self = PyStackRef_AsPyObjectBorrowed(&self_st);
 
             assert(!(oparg & 1));
             DEOPT_IF(global_super != (PyObject *)&PySuper_Type);
-            DEOPT_IF(!PyType_Check(class));
             STAT_INC(LOAD_SUPER_ATTR, hit);
             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg >> 2);
             PyObject *attr = _PySuper_Lookup((PyTypeObject *)class, self, name, NULL);
@@ -2249,13 +2226,13 @@ dummy_func(
         }
 
         inst(LOAD_SUPER_ATTR_METHOD, (unused/1, global_super_st, class_st, self_st -- attr, self_or_null)) {
-            PyObject *global_super = PyStackRef_AsPyObjectBorrow(global_super_st);
-            PyObject *class = PyStackRef_AsPyObjectBorrow(class_st);
-            PyObject *self = PyStackRef_AsPyObjectBorrow(self_st);
+            PyObject *global_super = PyStackRef_AsPyObjectBorrowed(&global_super_st);
+            DEOPT_IF(!PyStackRef_TypeCheck(class_st));
+            PyObject *class = PyStackRef_AsPyObjectBorrowNonInt(class_st);
+            PyObject *self = PyStackRef_AsPyObjectBorrowed(&self_st);
 
             assert(oparg & 1);
             DEOPT_IF(global_super != (PyObject *)&PySuper_Type);
-            DEOPT_IF(!PyType_Check(class));
             STAT_INC(LOAD_SUPER_ATTR, hit);
             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg >> 2);
             PyTypeObject *cls = (PyTypeObject *)class;
@@ -2312,7 +2289,7 @@ dummy_func(
             if (oparg & 1) {
                 /* Designed to work in tandem with CALL, pushes two values. */
                 attr_o = NULL;
-                int is_meth = _PyObject_GetMethod(PyStackRef_AsPyObjectBorrow(owner), name, &attr_o);
+                int is_meth = _PyObject_GetMethod(PyStackRef_AsPyObjectBorrowed(&owner), name, &attr_o);
                 if (is_meth) {
                     /* We can bypass temporary bound method object.
                        meth is unbound method and obj is self.
@@ -2336,7 +2313,7 @@ dummy_func(
             }
             else {
                 /* Classic, pushes one value. */
-                attr_o = PyObject_GetAttr(PyStackRef_AsPyObjectBorrow(owner), name);
+                attr_o = PyObject_GetAttr(PyStackRef_AsPyObjectBorrowed(&owner), name);
                 PyStackRef_CLOSE(owner);
                 ERROR_IF(attr_o == NULL);
             }
@@ -2349,13 +2326,13 @@ dummy_func(
             _LOAD_ATTR;
 
         op(_GUARD_TYPE_VERSION, (type_version/2, owner -- owner)) {
-            PyTypeObject *tp = Py_TYPE(PyStackRef_AsPyObjectBorrow(owner));
+            PyTypeObject *tp = PyStackRef_TYPE(owner);
             assert(type_version != 0);
             EXIT_IF(FT_ATOMIC_LOAD_UINT_RELAXED(tp->tp_version_tag) != type_version);
         }
 
         op(_GUARD_TYPE_VERSION_AND_LOCK, (type_version/2, owner -- owner)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowed(&owner);
             assert(type_version != 0);
             EXIT_IF(!LOCK_OBJECT(owner_o));
             PyTypeObject *tp = Py_TYPE(owner_o);
@@ -2366,14 +2343,14 @@ dummy_func(
         }
 
         op(_CHECK_MANAGED_OBJECT_HAS_VALUES, (owner -- owner)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowNonInt(owner);
             assert(Py_TYPE(owner_o)->tp_dictoffset < 0);
             assert(Py_TYPE(owner_o)->tp_flags & Py_TPFLAGS_INLINE_VALUES);
             DEOPT_IF(!FT_ATOMIC_LOAD_UINT8(_PyObject_InlineValues(owner_o)->valid));
         }
 
         op(_LOAD_ATTR_INSTANCE_VALUE, (offset/1, owner -- attr)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowNonInt(owner);
             PyObject **value_ptr = (PyObject**)(((char *)owner_o) + offset);
             PyObject *attr_o = FT_ATOMIC_LOAD_PTR_ACQUIRE(*value_ptr);
             DEOPT_IF(attr_o == NULL);
@@ -2398,7 +2375,8 @@ dummy_func(
             _PUSH_NULL_CONDITIONAL;
 
         op(_LOAD_ATTR_MODULE, (dict_version/2, index/1, owner -- attr)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
+            DEOPT_IF(PyStackRef_IsTaggedInt(owner));
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowNonInt(owner);
             DEOPT_IF(Py_TYPE(owner_o)->tp_getattro != PyModule_Type.tp_getattro);
             PyDictObject *dict = (PyDictObject *)((PyModuleObject *)owner_o)->md_dict;
             assert(dict != NULL);
@@ -2428,7 +2406,7 @@ dummy_func(
             _PUSH_NULL_CONDITIONAL;
 
         op(_LOAD_ATTR_WITH_HINT, (hint/1, owner -- attr)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowNonInt(owner);
             assert(Py_TYPE(owner_o)->tp_flags & Py_TPFLAGS_MANAGED_DICT);
             PyDictObject *dict = _PyObject_GetManagedDict(owner_o);
             DEOPT_IF(dict == NULL);
@@ -2474,7 +2452,7 @@ dummy_func(
             _PUSH_NULL_CONDITIONAL;
 
         op(_LOAD_ATTR_SLOT, (index/1, owner -- attr)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowNonInt(owner);
 
             PyObject **addr = (PyObject **)((char *)owner_o + index);
             PyObject *attr_o = FT_ATOMIC_LOAD_PTR(*addr);
@@ -2497,8 +2475,8 @@ dummy_func(
             _PUSH_NULL_CONDITIONAL;
 
         op(_CHECK_ATTR_CLASS, (type_version/2, owner -- owner)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
-
+            EXIT_IF(PyStackRef_IsTaggedInt(owner));
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowNonInt(owner);
             EXIT_IF(!PyType_Check(owner_o));
             assert(type_version != 0);
             EXIT_IF(FT_ATOMIC_LOAD_UINT_RELAXED(((PyTypeObject *)owner_o)->tp_version_tag) != type_version);
@@ -2551,7 +2529,8 @@ dummy_func(
             _PUSH_FRAME;
 
         inst(LOAD_ATTR_GETATTRIBUTE_OVERRIDDEN, (unused/1, type_version/2, func_version/2, getattribute/4, owner -- unused)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
+            DEOPT_IF(PyStackRef_IsTaggedInt(owner));
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowNonInt(owner);
 
             assert((oparg & 1) == 0);
             DEOPT_IF(tstate->interp->eval_frame);
@@ -2580,7 +2559,7 @@ dummy_func(
         }
 
         op(_GUARD_DORV_NO_DICT, (owner -- owner)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowNonInt(owner);
 
             assert(Py_TYPE(owner_o)->tp_dictoffset < 0);
             assert(Py_TYPE(owner_o)->tp_flags & Py_TPFLAGS_INLINE_VALUES);
@@ -2592,7 +2571,7 @@ dummy_func(
         }
 
         op(_STORE_ATTR_INSTANCE_VALUE, (offset/1, value, owner --)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowNonInt(owner);
 
             STAT_INC(STORE_ATTR, hit);
             assert(_PyObject_GetManagedDict(owner_o) == NULL);
@@ -2616,7 +2595,7 @@ dummy_func(
             _STORE_ATTR_INSTANCE_VALUE;
 
         op(_STORE_ATTR_WITH_HINT, (hint/1, value, owner --)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowNonInt(owner);
             assert(Py_TYPE(owner_o)->tp_flags & Py_TPFLAGS_MANAGED_DICT);
             PyDictObject *dict = _PyObject_GetManagedDict(owner_o);
             DEOPT_IF(dict == NULL);
@@ -2644,7 +2623,8 @@ dummy_func(
                 UNLOCK_OBJECT(dict);
                 DEOPT_IF(true);
             }
-            _PyDict_NotifyEvent(tstate->interp, PyDict_EVENT_MODIFIED, dict, name, PyStackRef_AsPyObjectBorrow(value));
+            PyObject *value_o = PyStackRef_AsPyObjectBorrowed(&value);
+            _PyDict_NotifyEvent(tstate->interp, PyDict_EVENT_MODIFIED, dict, name, value_o);
             FT_ATOMIC_STORE_PTR_RELEASE(ep->me_value, PyStackRef_AsPyObjectSteal(value));
             UNLOCK_OBJECT(dict);
 
@@ -2661,7 +2641,7 @@ dummy_func(
             _STORE_ATTR_WITH_HINT;
 
         op(_STORE_ATTR_SLOT, (index/1, value, owner --)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowNonInt(owner);
 
             DEOPT_IF(!LOCK_OBJECT(owner_o));
             char *addr = (char *)owner_o + index;
@@ -2697,8 +2677,8 @@ dummy_func(
         }
 
         op(_COMPARE_OP, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowed(&left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowed(&right);
 
             assert((oparg >> 5) <= Py_GE);
             PyObject *res_o = PyObject_RichCompare(left_o, right_o, oparg >> 5);
@@ -2727,8 +2707,8 @@ dummy_func(
             _GUARD_TOS_UNICODE + _GUARD_NOS_UNICODE + unused/1 + _COMPARE_OP_STR;
 
         op(_COMPARE_OP_FLOAT, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
 
             STAT_INC(COMPARE_OP, hit);
             double dleft = PyFloat_AS_DOUBLE(left_o);
@@ -2745,21 +2725,11 @@ dummy_func(
 
         // Similar to COMPARE_OP_FLOAT
         op(_COMPARE_OP_INT, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
-
-            assert(_PyLong_IsCompact((PyLongObject *)left_o));
-            assert(_PyLong_IsCompact((PyLongObject *)right_o));
-            STAT_INC(COMPARE_OP, hit);
-            assert(_PyLong_DigitCount((PyLongObject *)left_o) <= 1 &&
-                   _PyLong_DigitCount((PyLongObject *)right_o) <= 1);
-            Py_ssize_t ileft = _PyLong_CompactValue((PyLongObject *)left_o);
-            Py_ssize_t iright = _PyLong_CompactValue((PyLongObject *)right_o);
+            intptr_t ileft = PyStackRef_UntagInt(left);
+            intptr_t iright = PyStackRef_UntagInt(right);
             // 2 if <, 4 if >, 8 if ==; this matches the low 4 bits of the oparg
             int sign_ish = COMPARISON_BIT(ileft, iright);
-            PyStackRef_CLOSE_SPECIALIZED(left, _PyLong_ExactDealloc);
             DEAD(left);
-            PyStackRef_CLOSE_SPECIALIZED(right, _PyLong_ExactDealloc);
             DEAD(right);
             res =  (sign_ish & oparg) ? PyStackRef_True : PyStackRef_False;
             // It's always a bool, so we don't care about oparg & 16.
@@ -2767,8 +2737,8 @@ dummy_func(
 
         // Similar to COMPARE_OP_FLOAT, but for ==, != only
         op(_COMPARE_OP_STR, (left, right -- res)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
 
             STAT_INC(COMPARE_OP, hit);
             int eq = _PyUnicode_Equal(left_o, right_o);
@@ -2785,7 +2755,7 @@ dummy_func(
         }
 
         inst(IS_OP, (left, right -- b)) {
-            int res = Py_Is(PyStackRef_AsPyObjectBorrow(left), PyStackRef_AsPyObjectBorrow(right)) ^ oparg;
+            int res = PyStackRef_Is(left, right) ^ oparg;
             DECREF_INPUTS();
             b = res ? PyStackRef_True : PyStackRef_False;
         }
@@ -2796,8 +2766,8 @@ dummy_func(
         };
 
         op(_CONTAINS_OP, (left, right -- b)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowed(&left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowed(&right);
 
             int res = PySequence_Contains(right_o, left_o);
             DECREF_INPUTS();
@@ -2820,15 +2790,14 @@ dummy_func(
         macro(CONTAINS_OP) = _SPECIALIZE_CONTAINS_OP + _CONTAINS_OP;
 
         op(_GUARD_TOS_ANY_SET, (tos -- tos)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(tos);
-            DEOPT_IF(!PyAnySet_CheckExact(o));
+            DEOPT_IF(!PyStackRef_AnySetCheckExact(tos));
         }
 
         macro(CONTAINS_OP_SET) = _GUARD_TOS_ANY_SET + unused/1 + _CONTAINS_OP_SET;
 
         op(_CONTAINS_OP_SET, (left, right -- b)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowed(&left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
 
             assert(PyAnySet_CheckExact(right_o));
             STAT_INC(CONTAINS_OP, hit);
@@ -2842,8 +2811,8 @@ dummy_func(
         macro(CONTAINS_OP_DICT) = _GUARD_TOS_DICT + unused/1 + _CONTAINS_OP_DICT;
 
         op(_CONTAINS_OP_DICT, (left, right -- b)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowed(&left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowNonInt(right);
 
             assert(PyDict_CheckExact(right_o));
             STAT_INC(CONTAINS_OP, hit);
@@ -2854,8 +2823,8 @@ dummy_func(
         }
 
         inst(CHECK_EG_MATCH, (exc_value_st, match_type_st -- rest, match)) {
-            PyObject *exc_value = PyStackRef_AsPyObjectBorrow(exc_value_st);
-            PyObject *match_type = PyStackRef_AsPyObjectBorrow(match_type_st);
+            PyObject *exc_value = PyStackRef_AsPyObjectBorrowNonInt(exc_value_st);
+            PyObject *match_type = PyStackRef_AsPyObjectBorrowed(&match_type_st);
             int err = _PyEval_CheckExceptStarTypeValid(tstate, match_type);
             if (err < 0) {
                 DECREF_INPUTS();
@@ -2880,8 +2849,8 @@ dummy_func(
         }
 
         inst(CHECK_EXC_MATCH, (left, right -- left, b)) {
-            PyObject *left_o = PyStackRef_AsPyObjectBorrow(left);
-            PyObject *right_o = PyStackRef_AsPyObjectBorrow(right);
+            PyObject *left_o = PyStackRef_AsPyObjectBorrowNonInt(left);
+            PyObject *right_o = PyStackRef_AsPyObjectBorrowed(&right);
 
             assert(PyExceptionInstance_Check(left_o));
             int err = _PyEval_CheckExceptTypeValid(tstate, right_o);
@@ -2895,10 +2864,11 @@ dummy_func(
         }
 
          inst(IMPORT_NAME, (level, fromlist -- res)) {
+            // level is almost certainly an int, so we should avoid all the boxing.
             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg);
             PyObject *res_o = _PyEval_ImportName(tstate, frame, name,
-                              PyStackRef_AsPyObjectBorrow(fromlist),
-                              PyStackRef_AsPyObjectBorrow(level));
+                              PyStackRef_AsPyObjectBorrowNonInt(fromlist),
+                              PyStackRef_AsPyObjectBorrowed(&level));
             DECREF_INPUTS();
             ERROR_IF(res_o == NULL);
             res = PyStackRef_FromPyObjectSteal(res_o);
@@ -2906,7 +2876,7 @@ dummy_func(
 
         inst(IMPORT_FROM, (from -- from, res)) {
             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg);
-            PyObject *res_o = _PyEval_ImportFrom(tstate, PyStackRef_AsPyObjectBorrow(from), name);
+            PyObject *res_o = _PyEval_ImportFrom(tstate, PyStackRef_AsPyObjectBorrowed(&from), name);
             ERROR_IF(res_o == NULL);
             res = PyStackRef_FromPyObjectSteal(res_o);
         }
@@ -3067,25 +3037,23 @@ dummy_func(
 
         inst(GET_LEN, (obj -- obj, len)) {
             // PUSH(len(TOS))
-            Py_ssize_t len_i = PyObject_Length(PyStackRef_AsPyObjectBorrow(obj));
+            Py_ssize_t len_i = PyObject_Length(PyStackRef_AsPyObjectBorrowed(&obj));
             ERROR_IF(len_i < 0);
-            PyObject *len_o = PyLong_FromSsize_t(len_i);
-            ERROR_IF(len_o == NULL);
-            len = PyStackRef_FromPyObjectSteal(len_o);
+            len = PyStackRef_TagInt(len_i);
         }
 
         inst(MATCH_CLASS, (subject, type, names -- attrs)) {
             // Pop TOS and TOS1. Set TOS to a tuple of attributes on success, or
             // None on failure.
-            assert(PyTuple_CheckExact(PyStackRef_AsPyObjectBorrow(names)));
+            assert(PyTuple_CheckExact(PyStackRef_AsPyObjectBorrowNonInt(names)));
             PyObject *attrs_o = _PyEval_MatchClass(tstate,
-                PyStackRef_AsPyObjectBorrow(subject),
-                PyStackRef_AsPyObjectBorrow(type), oparg,
-                PyStackRef_AsPyObjectBorrow(names));
+                PyStackRef_AsPyObjectBorrowed(&subject),
+                PyStackRef_AsPyObjectBorrowed(&type), oparg,
+                PyStackRef_AsPyObjectBorrowNonInt(names));
             DECREF_INPUTS();
             if (attrs_o) {
                 assert(PyTuple_CheckExact(attrs_o));  // Success!
-                attrs = PyStackRef_FromPyObjectSteal(attrs_o);
+                attrs = PyStackRef_FromPyObjectStealNonInt(attrs_o);
             }
             else {
                 ERROR_IF(_PyErr_Occurred(tstate));  // Error!
@@ -3106,7 +3074,7 @@ dummy_func(
         inst(MATCH_KEYS, (subject, keys -- subject, keys, values_or_none)) {
             // On successful match, PUSH(values). Otherwise, PUSH(None).
             PyObject *values_or_none_o = _PyEval_MatchKeys(tstate,
-                PyStackRef_AsPyObjectBorrow(subject), PyStackRef_AsPyObjectBorrow(keys));
+                PyStackRef_AsPyObjectBorrowed(&subject), PyStackRef_AsPyObjectBorrowed(&keys));
             ERROR_IF(values_or_none_o == NULL);
             values_or_none = PyStackRef_FromPyObjectSteal(values_or_none_o);
         }
@@ -3123,7 +3091,7 @@ dummy_func(
                 index_or_null = PyStackRef_TagInt(0);
             }
             else {
-                PyObject *iter_o = PyObject_GetIter(PyStackRef_AsPyObjectBorrow(iterable));
+                PyObject *iter_o = PyObject_GetIter(PyStackRef_AsPyObjectBorrowed(&iterable));
                 PyStackRef_CLOSE(iterable);
                 ERROR_IF(iter_o == NULL);
                 iter = PyStackRef_FromPyObjectSteal(iter_o);
@@ -3133,7 +3101,7 @@ dummy_func(
 
         inst(GET_YIELD_FROM_ITER, (iterable -- iter)) {
             /* before: [obj]; after [getiter(obj)] */
-            PyObject *iterable_o = PyStackRef_AsPyObjectBorrow(iterable);
+            PyObject *iterable_o = PyStackRef_AsPyObjectBorrowed(&iterable);
             if (PyCoro_CheckExact(iterable_o)) {
                 /* `iterable` is a coroutine */
                 if (!(_PyFrame_GetCode(frame)->co_flags & (CO_COROUTINE | CO_ITERABLE_COROUTINE))) {
@@ -3232,10 +3200,10 @@ dummy_func(
         }
 
         op(_ITER_CHECK_LIST, (iter, null_or_index -- iter, null_or_index)) {
-            PyObject *iter_o = PyStackRef_AsPyObjectBorrow(iter);
-            EXIT_IF(Py_TYPE(iter_o) != &PyList_Type);
+            EXIT_IF(PyStackRef_TYPE(iter) != &PyList_Type);
             assert(PyStackRef_IsTaggedInt(null_or_index));
 #ifdef Py_GIL_DISABLED
+            PyObject *iter_o = PyStackRef_AsPyObjectBorrowNonInt(iter);
             EXIT_IF(!_Py_IsOwnedByCurrentThread(iter_o) && !_PyObject_GC_IS_SHARED(iter_o));
 #endif
         }
@@ -3247,7 +3215,7 @@ dummy_func(
             // separately before item retrieval. Any length check we do here can be
             // invalid by the time we actually try to fetch the item.
 #else
-            PyObject *list_o = PyStackRef_AsPyObjectBorrow(iter);
+            PyObject *list_o = PyStackRef_AsPyObjectBorrowNonInt(iter);
             assert(Py_TYPE(list_o) == &PyList_Type);
             STAT_INC(FOR_ITER, hit);
             if ((size_t)PyStackRef_UntagInt(null_or_index) >= (size_t)PyList_GET_SIZE(list_o)) {
@@ -3262,14 +3230,14 @@ dummy_func(
         // Only used by Tier 2
         op(_GUARD_NOT_EXHAUSTED_LIST, (iter, null_or_index -- iter, null_or_index)) {
 #ifndef Py_GIL_DISABLED
-            PyObject *list_o = PyStackRef_AsPyObjectBorrow(iter);
+            PyObject *list_o = PyStackRef_AsPyObjectBorrowNonInt(iter);
             assert(Py_TYPE(list_o) == &PyList_Type);
             EXIT_IF((size_t)PyStackRef_UntagInt(null_or_index) >= (size_t)PyList_GET_SIZE(list_o));
 #endif
         }
 
         replaced op(_ITER_NEXT_LIST, (iter, null_or_index -- iter, null_or_index, next)) {
-            PyObject *list_o = PyStackRef_AsPyObjectBorrow(iter);
+            PyObject *list_o = PyStackRef_AsPyObjectBorrowNonInt(iter);
             assert(PyList_CheckExact(list_o));
 #ifdef Py_GIL_DISABLED
             assert(_Py_IsOwnedByCurrentThread(list_o) ||
@@ -3293,7 +3261,7 @@ dummy_func(
 
         // Only used by Tier 2
         op(_ITER_NEXT_LIST_TIER_TWO, (iter, null_or_index -- iter, null_or_index, next)) {
-            PyObject *list_o = PyStackRef_AsPyObjectBorrow(iter);
+            PyObject *list_o = PyStackRef_AsPyObjectBorrowNonInt(iter);
             assert(PyList_CheckExact(list_o));
 #ifdef Py_GIL_DISABLED
             assert(_Py_IsOwnedByCurrentThread((PyObject *)list_o) ||
@@ -3317,14 +3285,12 @@ dummy_func(
             _ITER_NEXT_LIST;
 
         op(_ITER_CHECK_TUPLE, (iter, null_or_index -- iter, null_or_index)) {
-            PyObject *iter_o = PyStackRef_AsPyObjectBorrow(iter);
-            EXIT_IF(Py_TYPE(iter_o) != &PyTuple_Type);
+            EXIT_IF(!PyStackRef_TupleCheckExact(iter));
             assert(PyStackRef_IsTaggedInt(null_or_index));
         }
 
         replaced op(_ITER_JUMP_TUPLE, (iter, null_or_index -- iter, null_or_index)) {
-            PyObject *tuple_o = PyStackRef_AsPyObjectBorrow(iter);
-            (void)tuple_o;
+            PyObject *tuple_o = PyStackRef_AsPyObjectBorrowNonInt(iter);
             assert(Py_TYPE(tuple_o) == &PyTuple_Type);
             STAT_INC(FOR_ITER, hit);
             if ((size_t)PyStackRef_UntagInt(null_or_index) >= (size_t)PyTuple_GET_SIZE(tuple_o)) {
@@ -3337,13 +3303,13 @@ dummy_func(
 
         // Only used by Tier 2
         op(_GUARD_NOT_EXHAUSTED_TUPLE, (iter, null_or_index -- iter, null_or_index)) {
-            PyObject *tuple_o = PyStackRef_AsPyObjectBorrow(iter);
+            PyObject *tuple_o = PyStackRef_AsPyObjectBorrowNonInt(iter);
             assert(Py_TYPE(tuple_o) == &PyTuple_Type);
             EXIT_IF((size_t)PyStackRef_UntagInt(null_or_index) >= (size_t)PyTuple_GET_SIZE(tuple_o));
         }
 
         op(_ITER_NEXT_TUPLE, (iter, null_or_index -- iter, null_or_index, next)) {
-            PyObject *tuple_o = PyStackRef_AsPyObjectBorrow(iter);
+            PyObject *tuple_o = PyStackRef_AsPyObjectBorrowNonInt(iter);
             assert(Py_TYPE(tuple_o) == &PyTuple_Type);
             uintptr_t i = PyStackRef_UntagInt(null_or_index);
             assert((size_t)i < (size_t)PyTuple_GET_SIZE(tuple_o));
@@ -3358,15 +3324,15 @@ dummy_func(
             _ITER_NEXT_TUPLE;
 
         op(_ITER_CHECK_RANGE, (iter, null_or_index -- iter, null_or_index)) {
-            _PyRangeIterObject *r = (_PyRangeIterObject *)PyStackRef_AsPyObjectBorrow(iter);
-            EXIT_IF(Py_TYPE(r) != &PyRangeIter_Type);
+            EXIT_IF(PyStackRef_TYPE(iter) != &PyRangeIter_Type);
 #ifdef Py_GIL_DISABLED
+            _PyRangeIterObject *r = (_PyRangeIterObject *)PyStackRef_AsPyObjectBorrowNonInt(iter);
             EXIT_IF(!_PyObject_IsUniquelyReferenced((PyObject *)r));
 #endif
         }
 
         replaced op(_ITER_JUMP_RANGE, (iter, null_or_index -- iter, null_or_index)) {
-            _PyRangeIterObject *r = (_PyRangeIterObject *)PyStackRef_AsPyObjectBorrow(iter);
+            _PyRangeIterObject *r = (_PyRangeIterObject *)PyStackRef_AsPyObjectBorrowNonInt(iter);
             assert(Py_TYPE(r) == &PyRangeIter_Type);
 #ifdef Py_GIL_DISABLED
             assert(_PyObject_IsUniquelyReferenced((PyObject *)r));
@@ -3381,13 +3347,13 @@ dummy_func(
 
         // Only used by Tier 2
         op(_GUARD_NOT_EXHAUSTED_RANGE, (iter, null_or_index -- iter, null_or_index)) {
-            _PyRangeIterObject *r = (_PyRangeIterObject *)PyStackRef_AsPyObjectBorrow(iter);
+            _PyRangeIterObject *r = (_PyRangeIterObject *)PyStackRef_AsPyObjectBorrowNonInt(iter);
             assert(Py_TYPE(r) == &PyRangeIter_Type);
             EXIT_IF(r->len <= 0);
         }
 
         op(_ITER_NEXT_RANGE, (iter, null_or_index -- iter, null_or_index, next)) {
-            _PyRangeIterObject *r = (_PyRangeIterObject *)PyStackRef_AsPyObjectBorrow(iter);
+            _PyRangeIterObject *r = (_PyRangeIterObject *)PyStackRef_AsPyObjectBorrowNonInt(iter);
             assert(Py_TYPE(r) == &PyRangeIter_Type);
 #ifdef Py_GIL_DISABLED
             assert(_PyObject_IsUniquelyReferenced((PyObject *)r));
@@ -3396,9 +3362,7 @@ dummy_func(
             long value = r->start;
             r->start = value + r->step;
             r->len--;
-            PyObject *res = PyLong_FromLong(value);
-            ERROR_IF(res == NULL);
-            next = PyStackRef_FromPyObjectSteal(res);
+            next = PyStackRef_TagInt(value);
         }
 
         macro(FOR_ITER_RANGE) =
@@ -3408,7 +3372,7 @@ dummy_func(
             _ITER_NEXT_RANGE;
 
         op(_FOR_ITER_GEN_FRAME, (iter, null -- iter, null, gen_frame)) {
-            PyGenObject *gen = (PyGenObject *)PyStackRef_AsPyObjectBorrow(iter);
+            PyGenObject *gen = (PyGenObject *)PyStackRef_AsPyObjectBorrowNonInt(iter);
             DEOPT_IF(Py_TYPE(gen) != &PyGen_Type);
 #ifdef Py_GIL_DISABLED
             // Since generators can't be used by multiple threads anyway we
@@ -3447,7 +3411,7 @@ dummy_func(
             int err = _PyObject_LookupSpecialMethod(name, method_and_self);
             if (err <= 0) {
                 if (err == 0) {
-                    PyObject *owner = PyStackRef_AsPyObjectBorrow(method_and_self[1]);
+                    PyObject *owner = PyStackRef_AsPyObjectBorrowed(&method_and_self[1]);
                     const char *errfmt = _PyEval_SpecialMethodCanSuggest(owner, oparg)
                         ? _Py_SpecialMethods[oparg].error_suggestion
                         : _Py_SpecialMethods[oparg].error;
@@ -3475,8 +3439,8 @@ dummy_func(
             */
             PyObject *exc, *tb;
 
-            PyObject *val_o = PyStackRef_AsPyObjectBorrow(val);
-            PyObject *exit_func_o = PyStackRef_AsPyObjectBorrow(exit_func);
+            PyObject *val_o = PyStackRef_AsPyObjectBorrowNonInt(val);
+            PyObject *exit_func_o = PyStackRef_AsPyObjectBorrowNonInt(exit_func);
 
             assert(val_o && PyExceptionInstance_Check(val_o));
             exc = PyExceptionInstance_Class(val_o);
@@ -3486,7 +3450,7 @@ dummy_func(
             }
             assert(PyStackRef_IsTaggedInt(lasti));
             (void)lasti; // Shut up compiler warning if asserts are off
-            PyObject *stack[5] = {NULL, PyStackRef_AsPyObjectBorrow(exit_self), exc, val_o, tb};
+            PyObject *stack[5] = {NULL, PyStackRef_AsPyObjectBorrowNonInt(exit_self), exc, val_o, tb};
             int has_self = !PyStackRef_IsNull(exit_self);
             PyObject *res_o = PyObject_Vectorcall(exit_func_o, stack + 2 - has_self,
                     (3 + has_self) | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
@@ -3523,7 +3487,7 @@ dummy_func(
 
             _PyErr_StackItem *exc_info = tstate->exc_info;
             if (exc_info->exc_value != NULL) {
-                prev_exc = PyStackRef_FromPyObjectSteal(exc_info->exc_value);
+                prev_exc = PyStackRef_FromPyObjectStealNonInt(exc_info->exc_value);
             }
             else {
                 prev_exc = PyStackRef_None;
@@ -3535,14 +3499,14 @@ dummy_func(
         }
 
         op(_GUARD_DORV_VALUES_INST_ATTR_FROM_DICT, (owner -- owner)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
+            PyObject *owner_o = PyStackRef_AsPyObjectBorrowNonInt(owner);
             assert(Py_TYPE(owner_o)->tp_flags & Py_TPFLAGS_INLINE_VALUES);
             PyDictValues *ivs = _PyObject_InlineValues(owner_o);
             DEOPT_IF(!FT_ATOMIC_LOAD_UINT8(ivs->valid));
         }
 
         op(_GUARD_KEYS_VERSION, (keys_version/2, owner -- owner)) {
-            PyTypeObject *owner_cls = Py_TYPE(PyStackRef_AsPyObjectBorrow(owner));
+            PyTypeObject *owner_cls = Py_TYPE(PyStackRef_AsPyObjectBorrowNonInt(owner));
             PyHeapTypeObject *owner_heap_type = (PyHeapTypeObject *)owner_cls;
             PyDictKeysObject *keys = owner_heap_type->ht_cached_keys;
             DEOPT_IF(FT_ATOMIC_LOAD_UINT32_RELAXED(keys->dk_version) != keys_version);
@@ -3568,7 +3532,7 @@ dummy_func(
 
         op(_LOAD_ATTR_METHOD_NO_DICT, (descr/4, owner -- attr, self)) {
             assert(oparg & 1);
-            assert(Py_TYPE(PyStackRef_AsPyObjectBorrow(owner))->tp_dictoffset == 0);
+            assert(PyStackRef_TYPE(owner)->tp_dictoffset == 0);
             STAT_INC(LOAD_ATTR, hit);
             assert(descr != NULL);
             assert(_PyType_HasFeature(Py_TYPE(descr), Py_TPFLAGS_METHOD_DESCRIPTOR));
@@ -3600,7 +3564,7 @@ dummy_func(
 
         op(_LOAD_ATTR_NONDESCRIPTOR_NO_DICT, (descr/4, owner -- attr)) {
             assert((oparg & 1) == 0);
-            assert(Py_TYPE(PyStackRef_AsPyObjectBorrow(owner))->tp_dictoffset == 0);
+            assert(PyStackRef_TYPE(owner)->tp_dictoffset == 0);
             STAT_INC(LOAD_ATTR, hit);
             assert(descr != NULL);
             PyStackRef_CLOSE(owner);
@@ -3614,7 +3578,7 @@ dummy_func(
             _LOAD_ATTR_NONDESCRIPTOR_NO_DICT;
 
         op(_CHECK_ATTR_METHOD_LAZY_DICT, (dictoffset/1, owner -- owner)) {
-            char *ptr = ((char *)PyStackRef_AsPyObjectBorrow(owner)) + MANAGED_DICT_OFFSET + dictoffset;
+            char *ptr = ((char *)PyStackRef_AsPyObjectBorrowNonInt(owner)) + MANAGED_DICT_OFFSET + dictoffset;
             PyObject *dict = FT_ATOMIC_LOAD_PTR_ACQUIRE(*(PyObject **)ptr);
             /* This object has a __dict__, just not yet created */
             DEOPT_IF(dict != NULL);
@@ -3676,7 +3640,7 @@ dummy_func(
 
         op(_MAYBE_EXPAND_METHOD, (callable, self_or_null, unused[oparg] -- callable, self_or_null, unused[oparg])) {
             if (PyStackRef_TYPE(callable) == &PyMethod_Type && PyStackRef_IsNull(self_or_null)) {
-                PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+                PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
                 PyObject *self = ((PyMethodObject *)callable_o)->im_self;
                 self_or_null = PyStackRef_FromPyObjectNew(self);
                 PyObject *method = ((PyMethodObject *)callable_o)->im_func;
@@ -3688,7 +3652,11 @@ dummy_func(
 
         // When calling Python, inline the call using DISPATCH_INLINED().
         op(_DO_CALL, (callable, self_or_null, args[oparg] -- res)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            if (PyStackRef_IsTaggedInt(callable)) {
+                _PyErr_SetString(tstate, PyExc_TypeError, "'int' object is not callable");
+                ERROR_NO_POP();
+            }
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
 
             // oparg counts all of the args, but *not* self:
             int total_args = oparg;
@@ -3734,7 +3702,7 @@ dummy_func(
             STACKREFS_TO_PYOBJECTS_CLEANUP(args_o);
             if (opcode == INSTRUMENTED_CALL) {
                 PyObject *arg = total_args == 0 ?
-                    &_PyInstrumentation_MISSING : PyStackRef_AsPyObjectBorrow(arguments[0]);
+                    &_PyInstrumentation_MISSING : PyStackRef_AsPyObjectBorrowed(&arguments[0]);
                 if (res_o == NULL) {
                     _Py_call_instrumentation_exc2(
                         tstate, PY_MONITORING_EVENT_C_RAISE,
@@ -3757,13 +3725,13 @@ dummy_func(
 
         op(_MONITOR_CALL, (func, maybe_self, args[oparg] -- func, maybe_self, args[oparg])) {
             int is_meth = !PyStackRef_IsNull(maybe_self);
-            PyObject *function = PyStackRef_AsPyObjectBorrow(func);
+            PyObject *function = PyStackRef_AsPyObjectBorrowed(&func);
             PyObject *arg0;
             if (is_meth) {
-                arg0 = PyStackRef_AsPyObjectBorrow(maybe_self);
+                arg0 = PyStackRef_AsPyObjectBorrowed(&maybe_self);
             }
             else if (oparg) {
-                arg0 = PyStackRef_AsPyObjectBorrow(args[0]);
+                arg0 = PyStackRef_AsPyObjectBorrowed(&args[0]);
             }
             else {
                 arg0 = &_PyInstrumentation_MISSING;
@@ -3780,7 +3748,7 @@ dummy_func(
         macro(INSTRUMENTED_CALL) = unused/3 + _MAYBE_EXPAND_METHOD + _MONITOR_CALL + _DO_CALL + _CHECK_PERIODIC;
 
         op(_PY_FRAME_GENERAL, (callable, self_or_null, args[oparg] -- new_frame)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
 
             // oparg counts all of the args, but *not* self:
             int total_args = oparg;
@@ -3805,8 +3773,8 @@ dummy_func(
         }
 
         op(_CHECK_FUNCTION_VERSION, (func_version/2, callable, unused, unused[oparg] -- callable, unused, unused[oparg])) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
-            EXIT_IF(!PyFunction_Check(callable_o));
+            EXIT_IF(!PyStackRef_FunctionCheck(callable));
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             PyFunctionObject *func = (PyFunctionObject *)callable_o;
             EXIT_IF(func->func_version != func_version);
         }
@@ -3827,9 +3795,8 @@ dummy_func(
             _PUSH_FRAME;
 
         op(_CHECK_METHOD_VERSION, (func_version/2, callable, null, unused[oparg] -- callable, null, unused[oparg])) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
-
-            EXIT_IF(Py_TYPE(callable_o) != &PyMethod_Type);
+            EXIT_IF(!PyStackRef_MethodCheck(callable));
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             PyObject *func = ((PyMethodObject *)callable_o)->im_func;
             EXIT_IF(!PyFunction_Check(func));
             EXIT_IF(((PyFunctionObject *)func)->func_version != func_version);
@@ -3837,7 +3804,7 @@ dummy_func(
         }
 
         op(_EXPAND_METHOD, (callable, self_or_null, unused[oparg] -- callable, self_or_null, unused[oparg])) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             assert(PyStackRef_IsNull(self_or_null));
             assert(Py_TYPE(callable_o) == &PyMethod_Type);
             self_or_null = PyStackRef_FromPyObjectNew(((PyMethodObject *)callable_o)->im_self);
@@ -3859,7 +3826,8 @@ dummy_func(
             _PUSH_FRAME;
 
         op(_CHECK_IS_NOT_PY_CALLABLE, (callable, unused, unused[oparg] -- callable, unused, unused[oparg])) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            EXIT_IF(PyStackRef_IsTaggedInt(callable));
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             EXIT_IF(PyFunction_Check(callable_o));
             EXIT_IF(Py_TYPE(callable_o) == &PyMethod_Type);
         }
@@ -3868,7 +3836,7 @@ dummy_func(
 #if TIER_ONE
             assert(opcode != INSTRUMENTED_CALL);
 #endif
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
 
             int total_args = oparg;
             _PyStackRef *arguments = args;
@@ -3902,12 +3870,12 @@ dummy_func(
 
         op(_CHECK_CALL_BOUND_METHOD_EXACT_ARGS, (callable, null, unused[oparg] -- callable, null, unused[oparg])) {
             EXIT_IF(!PyStackRef_IsNull(null));
-            EXIT_IF(Py_TYPE(PyStackRef_AsPyObjectBorrow(callable)) != &PyMethod_Type);
+            EXIT_IF(!PyStackRef_MethodCheck(callable));
         }
 
         op(_INIT_CALL_BOUND_METHOD_EXACT_ARGS, (callable, self_or_null, unused[oparg] -- callable, self_or_null, unused[oparg])) {
             assert(PyStackRef_IsNull(self_or_null));
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             STAT_INC(CALL, hit);
             self_or_null = PyStackRef_FromPyObjectNew(((PyMethodObject *)callable_o)->im_self);
             _PyStackRef temp = callable;
@@ -3920,7 +3888,7 @@ dummy_func(
         }
 
         op(_CHECK_FUNCTION_EXACT_ARGS, (callable, self_or_null, unused[oparg] -- callable, self_or_null, unused[oparg])) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             assert(PyFunction_Check(callable_o));
             PyFunctionObject *func = (PyFunctionObject *)callable_o;
             PyCodeObject *code = (PyCodeObject *)func->func_code;
@@ -3928,7 +3896,7 @@ dummy_func(
         }
 
         op(_CHECK_STACK_SPACE, (callable, unused, unused[oparg] -- callable, unused, unused[oparg])) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             PyFunctionObject *func = (PyFunctionObject *)callable_o;
             PyCodeObject *code = (PyCodeObject *)func->func_code;
             DEOPT_IF(!_PyThreadState_HasStackSpace(tstate, code->co_framesize));
@@ -3992,12 +3960,11 @@ dummy_func(
             _PUSH_FRAME;
 
         op(_GUARD_NOS_NULL, (null, unused -- null, unused)) {
-            DEOPT_IF(!PyStackRef_IsNull(null));
+            EXIT_IF(!PyStackRef_IsNull(null));
         }
 
         op(_GUARD_NOS_NOT_NULL, (nos, unused -- nos, unused)) {
-            PyObject *o = PyStackRef_AsPyObjectBorrow(nos);
-            EXIT_IF(o == NULL);
+            EXIT_IF(PyStackRef_IsNull(nos));
         }
 
         op(_GUARD_THIRD_NULL, (null, unused, unused -- null, unused, unused)) {
@@ -4005,20 +3972,17 @@ dummy_func(
         }
 
         op(_GUARD_CALLABLE_TYPE_1, (callable, unused, unused -- callable, unused, unused)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
-            DEOPT_IF(callable_o != (PyObject *)&PyType_Type);
+            DEOPT_IF(!PyStackRef_IsNonIntObject(callable, (PyObject *)&PyType_Type));
         }
 
         op(_CALL_TYPE_1, (callable, null, arg -- res)) {
-            PyObject *arg_o = PyStackRef_AsPyObjectBorrow(arg);
-
             assert(oparg == 1);
             DEAD(null);
             DEAD(callable);
             (void)callable; // Silence compiler warnings about unused variables
             (void)null;
             STAT_INC(CALL, hit);
-            res = PyStackRef_FromPyObjectNew(Py_TYPE(arg_o));
+            res = PyStackRef_FromPyObjectNew(PyStackRef_TYPE(arg));
             PyStackRef_CLOSE(arg);
         }
 
@@ -4030,12 +3994,11 @@ dummy_func(
             _CALL_TYPE_1;
 
         op(_GUARD_CALLABLE_STR_1, (callable, unused, unused -- callable, unused, unused)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
-            DEOPT_IF(callable_o != (PyObject *)&PyUnicode_Type);
+            DEOPT_IF(!PyStackRef_IsNonIntObject(callable, (PyObject *)&PyUnicode_Type));
         }
 
         op(_CALL_STR_1, (callable, null, arg -- res)) {
-            PyObject *arg_o = PyStackRef_AsPyObjectBorrow(arg);
+            PyObject *arg_o = PyStackRef_AsPyObjectBorrowed(&arg);
 
             assert(oparg == 1);
             STAT_INC(CALL, hit);
@@ -4058,21 +4021,26 @@ dummy_func(
             _CHECK_PERIODIC;
 
         op(_GUARD_CALLABLE_TUPLE_1, (callable, unused, unused -- callable, unused, unused)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
-            DEOPT_IF(callable_o != (PyObject *)&PyTuple_Type);
+            DEOPT_IF(!PyStackRef_IsNonIntObject(callable, (PyObject *)&PyTuple_Type));
         }
 
         op(_CALL_TUPLE_1, (callable, null, arg -- res)) {
-            PyObject *arg_o = PyStackRef_AsPyObjectBorrow(arg);
-
-            assert(oparg == 1);
-            STAT_INC(CALL, hit);
-            PyObject *res_o = PySequence_Tuple(arg_o);
-            DEAD(null);
-            DEAD(callable);
             (void)callable; // Silence compiler warnings about unused variables
             (void)null;
-            PyStackRef_CLOSE(arg);
+            assert(oparg == 1);
+            STAT_INC(CALL, hit);
+            PyObject *res_o;
+            if (PyStackRef_IsTaggedInt(arg)) {
+                DEAD(arg);
+                _PyErr_SetString(tstate, PyExc_TypeError, "'int' object is not iterable");
+                res_o = NULL;
+            }
+            else {
+                res_o = PySequence_Tuple(PyStackRef_AsPyObjectBorrowNonInt(arg));
+                PyStackRef_CLOSE(arg);
+            }
+            DEAD(null);
+            DEAD(callable);
             ERROR_IF(res_o == NULL);
             res = PyStackRef_FromPyObjectSteal(res_o);
         }
@@ -4086,9 +4054,9 @@ dummy_func(
             _CHECK_PERIODIC;
 
         op(_CHECK_AND_ALLOCATE_OBJECT, (type_version/2, callable, self_or_null, unused[oparg] -- callable, self_or_null, unused[oparg])) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
             DEOPT_IF(!PyStackRef_IsNull(self_or_null));
-            DEOPT_IF(!PyType_Check(callable_o));
+            DEOPT_IF(!PyStackRef_TypeCheck(callable));
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             PyTypeObject *tp = (PyTypeObject *)callable_o;
             DEOPT_IF(FT_ATOMIC_LOAD_UINT32_RELAXED(tp->tp_version_tag) != type_version);
             assert(tp->tp_new == PyBaseObject_Type.tp_new);
@@ -4103,7 +4071,7 @@ dummy_func(
             if (self_o == NULL) {
                 ERROR_NO_POP();
             }
-            self_or_null = PyStackRef_FromPyObjectSteal(self_o);
+            self_or_null = PyStackRef_FromPyObjectStealNonInt(self_o);
             _PyStackRef temp = callable;
             callable = PyStackRef_FromPyObjectNew(init_func);
             PyStackRef_CLOSE(temp);
@@ -4145,15 +4113,15 @@ dummy_func(
             if (!PyStackRef_IsNone(should_be_none)) {
                 PyErr_Format(PyExc_TypeError,
                     "__init__() should return None, not '%.200s'",
-                    Py_TYPE(PyStackRef_AsPyObjectBorrow(should_be_none))->tp_name);
+                    Py_TYPE(PyStackRef_TYPE(should_be_none)->tp_name));
                 ERROR_NO_POP();
             }
             DEAD(should_be_none);
         }
 
         op(_CALL_BUILTIN_CLASS, (callable, self_or_null, args[oparg] -- res)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
-            DEOPT_IF(!PyType_Check(callable_o));
+            DEOPT_IF(!PyStackRef_TypeCheck(callable));
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             PyTypeObject *tp = (PyTypeObject *)callable_o;
             int total_args = oparg;
             _PyStackRef *arguments = args;
@@ -4183,7 +4151,6 @@ dummy_func(
 
         op(_CALL_BUILTIN_O, (callable, self_or_null, args[oparg] -- res)) {
             /* Builtin METH_O functions */
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
 
             int total_args = oparg;
             if (!PyStackRef_IsNull(self_or_null)) {
@@ -4191,14 +4158,15 @@ dummy_func(
                 total_args++;
             }
             EXIT_IF(total_args != 1);
-            EXIT_IF(!PyCFunction_CheckExact(callable_o));
+            EXIT_IF(!PyStackRef_CFunctionCheckExact(callable));
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             EXIT_IF(PyCFunction_GET_FLAGS(callable_o) != METH_O);
             // CPython promises to check all non-vectorcall function calls.
             EXIT_IF(_Py_ReachedRecursionLimit(tstate));
             STAT_INC(CALL, hit);
             PyCFunction cfunc = PyCFunction_GET_FUNCTION(callable_o);
             _PyStackRef arg = args[0];
-            PyObject *res_o = _PyCFunction_TrampolineCall(cfunc, PyCFunction_GET_SELF(callable_o), PyStackRef_AsPyObjectBorrow(arg));
+            PyObject *res_o = _PyCFunction_TrampolineCall(cfunc, PyCFunction_GET_SELF(callable_o), PyStackRef_AsPyObjectBorrowed(&arg));
             _Py_LeaveRecursiveCallTstate(tstate);
             assert((res_o != NULL) ^ (_PyErr_Occurred(tstate) != NULL));
 
@@ -4218,7 +4186,6 @@ dummy_func(
 
         op(_CALL_BUILTIN_FAST, (callable, self_or_null, args[oparg] -- res)) {
             /* Builtin METH_FASTCALL functions, without keywords */
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
 
             int total_args = oparg;
             _PyStackRef *arguments = args;
@@ -4226,8 +4193,9 @@ dummy_func(
                 arguments--;
                 total_args++;
             }
-            DEOPT_IF(!PyCFunction_CheckExact(callable_o));
-            DEOPT_IF(PyCFunction_GET_FLAGS(callable_o) != METH_FASTCALL);
+            EXIT_IF(!PyStackRef_CFunctionCheckExact(callable));
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
+            EXIT_IF(PyCFunction_GET_FLAGS(callable_o) != METH_FASTCALL);
             STAT_INC(CALL, hit);
             PyCFunction cfunc = PyCFunction_GET_FUNCTION(callable_o);
             /* res = func(self, args, nargs) */
@@ -4255,7 +4223,6 @@ dummy_func(
 
         op(_CALL_BUILTIN_FAST_WITH_KEYWORDS, (callable, self_or_null, args[oparg] -- res)) {
             /* Builtin METH_FASTCALL | METH_KEYWORDS functions */
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
 
             int total_args = oparg;
             _PyStackRef *arguments = args;
@@ -4263,8 +4230,9 @@ dummy_func(
                 arguments--;
                 total_args++;
             }
-            DEOPT_IF(!PyCFunction_CheckExact(callable_o));
-            DEOPT_IF(PyCFunction_GET_FLAGS(callable_o) != (METH_FASTCALL | METH_KEYWORDS));
+            EXIT_IF(!PyStackRef_CFunctionCheckExact(callable));
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
+            EXIT_IF(PyCFunction_GET_FLAGS(callable_o) != (METH_FASTCALL | METH_KEYWORDS));
             STAT_INC(CALL, hit);
             /* res = func(self, arguments, nargs, kwnames) */
             PyCFunctionFastWithKeywords cfunc =
@@ -4297,16 +4265,19 @@ dummy_func(
             _CALL_LEN;
 
         op(_GUARD_CALLABLE_LEN, (callable, unused, unused -- callable, unused, unused)){
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
             PyInterpreterState *interp = tstate->interp;
-            DEOPT_IF(callable_o != interp->callable_cache.len);
+            EXIT_IF(!PyStackRef_IsNonIntObject(callable, interp->callable_cache.len));
         }
 
         op(_CALL_LEN, (callable, null, arg -- res)) {
             /* len(o) */
             (void)null;
             STAT_INC(CALL, hit);
-            PyObject *arg_o = PyStackRef_AsPyObjectBorrow(arg);
+            if (PyStackRef_IsTaggedInt(callable)) {
+                _PyErr_SetString(tstate, PyExc_TypeError, "object of type 'int' has no len()");
+                ERROR_NO_POP();
+            }
+            PyObject *arg_o = PyStackRef_AsPyObjectBorrowed(&arg);
             Py_ssize_t len_i = PyObject_Length(arg_o);
             if (len_i < 0) {
                 ERROR_NO_POP();
@@ -4323,23 +4294,28 @@ dummy_func(
         }
 
         op(_GUARD_CALLABLE_ISINSTANCE, (callable, unused, unused, unused -- callable, unused, unused, unused)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
             PyInterpreterState *interp = tstate->interp;
-            DEOPT_IF(callable_o != interp->callable_cache.isinstance);
+            EXIT_IF(!PyStackRef_IsNonIntObject(callable, interp->callable_cache.isinstance));
         }
 
         op(_CALL_ISINSTANCE, (callable, null, instance, cls -- res)) {
             /* isinstance(o, o2) */
             STAT_INC(CALL, hit);
-            PyObject *inst_o = PyStackRef_AsPyObjectBorrow(instance);
-            PyObject *cls_o = PyStackRef_AsPyObjectBorrow(cls);
+            PyObject *cls_o = PyStackRef_AsPyObjectBorrowed(&cls);
+            PyObject *inst_o;
+            if (PyStackRef_IsTaggedInt(instance)) {
+                inst_o = _PyLong_GetZero();
+            }
+            else {
+                inst_o = PyStackRef_AsPyObjectBorrowNonInt(instance);
+            }
             int retval = PyObject_IsInstance(inst_o, cls_o);
             if (retval < 0) {
                 ERROR_NO_POP();
             }
-            (void)null; // Silence compiler warnings about unused variables
             PyStackRef_CLOSE(cls);
             PyStackRef_CLOSE(instance);
+            (void)null; // Silence compiler warnings about unused variables
             DEAD(null);
             PyStackRef_CLOSE(callable);
             res = retval ? PyStackRef_True : PyStackRef_False;
@@ -4362,17 +4338,16 @@ dummy_func(
             _CALL_LIST_APPEND;
 
         op(_GUARD_CALLABLE_LIST_APPEND, (callable, unused, unused -- callable, unused, unused)){
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
             PyInterpreterState *interp = tstate->interp;
-            DEOPT_IF(callable_o != interp->callable_cache.list_append);
+            EXIT_IF(!PyStackRef_IsNonIntObject(callable, interp->callable_cache.list_append));
         }
 
         // This is secretly a super-instruction
         op(_CALL_LIST_APPEND, (callable, self, arg -- )) {
             assert(oparg == 1);
-            PyObject *self_o = PyStackRef_AsPyObjectBorrow(self);
+            DEOPT_IF(!PyStackRef_ListCheckExact(self));
+            PyObject *self_o = PyStackRef_AsPyObjectBorrowNonInt(self);
 
-            DEOPT_IF(!PyList_CheckExact(self_o));
             DEOPT_IF(!LOCK_OBJECT(self_o));
             STAT_INC(CALL, hit);
             int err = _PyList_AppendTakeRef((PyListObject *)self_o, PyStackRef_AsPyObjectSteal(arg));
@@ -4389,7 +4364,6 @@ dummy_func(
         }
 
          op(_CALL_METHOD_DESCRIPTOR_O, (callable, self_or_null, args[oparg] -- res)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
 
             int total_args = oparg;
             _PyStackRef *arguments = args;
@@ -4398,22 +4372,20 @@ dummy_func(
                 total_args++;
             }
 
+            EXIT_IF(PyStackRef_TYPE(callable) != &PyMethodDescr_Type);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             PyMethodDescrObject *method = (PyMethodDescrObject *)callable_o;
             EXIT_IF(total_args != 2);
-            EXIT_IF(!Py_IS_TYPE(method, &PyMethodDescr_Type));
             PyMethodDef *meth = method->d_method;
             EXIT_IF(meth->ml_flags != METH_O);
             // CPython promises to check all non-vectorcall function calls.
             EXIT_IF(_Py_ReachedRecursionLimit(tstate));
-            _PyStackRef arg_stackref = arguments[1];
-            _PyStackRef self_stackref = arguments[0];
-            EXIT_IF(!Py_IS_TYPE(PyStackRef_AsPyObjectBorrow(self_stackref),
-                                 method->d_common.d_type));
+            EXIT_IF(PyStackRef_TYPE(arguments[0]) != method->d_common.d_type);
             STAT_INC(CALL, hit);
             PyCFunction cfunc = meth->ml_meth;
             PyObject *res_o = _PyCFunction_TrampolineCall(cfunc,
-                                  PyStackRef_AsPyObjectBorrow(self_stackref),
-                                  PyStackRef_AsPyObjectBorrow(arg_stackref));
+                                  PyStackRef_AsPyObjectBorrowed(&arguments[0]),
+                                  PyStackRef_AsPyObjectBorrowed(&arguments[1]));
             _Py_LeaveRecursiveCallTstate(tstate);
             assert((res_o != NULL) ^ (_PyErr_Occurred(tstate) != NULL));
             DECREF_INPUTS();
@@ -4428,7 +4400,8 @@ dummy_func(
             _CHECK_PERIODIC;
 
         op(_CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS, (callable, self_or_null, args[oparg] -- res)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            EXIT_IF(PyStackRef_TYPE(callable) != &PyMethodDescr_Type);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
 
             int total_args = oparg;
             _PyStackRef *arguments = args;
@@ -4438,11 +4411,10 @@ dummy_func(
             }
             EXIT_IF(total_args == 0);
             PyMethodDescrObject *method = (PyMethodDescrObject *)callable_o;
-            EXIT_IF(!Py_IS_TYPE(method, &PyMethodDescr_Type));
             PyMethodDef *meth = method->d_method;
             EXIT_IF(meth->ml_flags != (METH_FASTCALL|METH_KEYWORDS));
             PyTypeObject *d_type = method->d_common.d_type;
-            PyObject *self = PyStackRef_AsPyObjectBorrow(arguments[0]);
+            PyObject *self = PyStackRef_AsPyObjectBorrowed(&arguments[0]);
             assert(self != NULL);
             EXIT_IF(!Py_IS_TYPE(self, d_type));
             STAT_INC(CALL, hit);
@@ -4471,7 +4443,6 @@ dummy_func(
 
         op(_CALL_METHOD_DESCRIPTOR_NOARGS, (callable, self_or_null, args[oparg] -- res)) {
             assert(oparg == 0 || oparg == 1);
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
 
             int total_args = oparg;
             if (!PyStackRef_IsNull(self_or_null)) {
@@ -4479,12 +4450,12 @@ dummy_func(
                 total_args++;
             }
             EXIT_IF(total_args != 1);
+            EXIT_IF(PyStackRef_TYPE(callable) != &PyMethodDescr_Type);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             PyMethodDescrObject *method = (PyMethodDescrObject *)callable_o;
-            EXIT_IF(!Py_IS_TYPE(method, &PyMethodDescr_Type));
             PyMethodDef *meth = method->d_method;
-            _PyStackRef self_stackref = args[0];
-            PyObject *self = PyStackRef_AsPyObjectBorrow(self_stackref);
-            EXIT_IF(!Py_IS_TYPE(self, method->d_common.d_type));
+            EXIT_IF(PyStackRef_TYPE(args[0]) != method->d_common.d_type);
+            PyObject *self = PyStackRef_AsPyObjectBorrowed(&args[0]);
             EXIT_IF(meth->ml_flags != METH_NOARGS);
             // CPython promises to check all non-vectorcall function calls.
             EXIT_IF(_Py_ReachedRecursionLimit(tstate));
@@ -4493,8 +4464,7 @@ dummy_func(
             PyObject *res_o = _PyCFunction_TrampolineCall(cfunc, self, NULL);
             _Py_LeaveRecursiveCallTstate(tstate);
             assert((res_o != NULL) ^ (_PyErr_Occurred(tstate) != NULL));
-            PyStackRef_CLOSE(self_stackref);
-            DEAD(args);
+            PyStackRef_CLOSE(args[0]);
             DEAD(self_or_null);
             PyStackRef_CLOSE(callable);
             ERROR_IF(res_o == NULL);
@@ -4508,8 +4478,6 @@ dummy_func(
             _CHECK_PERIODIC;
 
         op(_CALL_METHOD_DESCRIPTOR_FAST, (callable, self_or_null, args[oparg] -- res)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
-
             int total_args = oparg;
             _PyStackRef *arguments = args;
             if (!PyStackRef_IsNull(self_or_null)) {
@@ -4517,12 +4485,13 @@ dummy_func(
                 total_args++;
             }
             EXIT_IF(total_args == 0);
+            EXIT_IF(PyStackRef_TYPE(callable) != &PyMethodDescr_Type);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             PyMethodDescrObject *method = (PyMethodDescrObject *)callable_o;
             /* Builtin METH_FASTCALL methods, without keywords */
-            EXIT_IF(!Py_IS_TYPE(method, &PyMethodDescr_Type));
             PyMethodDef *meth = method->d_method;
             EXIT_IF(meth->ml_flags != METH_FASTCALL);
-            PyObject *self = PyStackRef_AsPyObjectBorrow(arguments[0]);
+            PyObject *self = PyStackRef_AsPyObjectBorrowed(&arguments[0]);
             assert(self != NULL);
             EXIT_IF(!Py_IS_TYPE(self, method->d_common.d_type));
             STAT_INC(CALL, hit);
@@ -4559,15 +4528,15 @@ dummy_func(
             int is_meth = !PyStackRef_IsNull(self_or_null);
             PyObject *arg;
             if (is_meth) {
-                arg = PyStackRef_AsPyObjectBorrow(self_or_null);
+                arg = PyStackRef_AsPyObjectBorrowed(&self_or_null);
             }
             else if (args) {
-                arg = PyStackRef_AsPyObjectBorrow(args[0]);
+                arg = PyStackRef_AsPyObjectBorrowed(&args[0]);
             }
             else {
                 arg = &_PyInstrumentation_MISSING;
             }
-            PyObject *function = PyStackRef_AsPyObjectBorrow(callable);
+            PyObject *function = PyStackRef_AsPyObjectBorrowed(&callable);
             int err = _Py_call_instrumentation_2args(
                     tstate, PY_MONITORING_EVENT_CALL,
                     frame, this_instr, function, arg);
@@ -4576,7 +4545,7 @@ dummy_func(
 
         op(_MAYBE_EXPAND_METHOD_KW, (callable, self_or_null, unused[oparg], unused -- callable, self_or_null, unused[oparg], unused)) {
             if (PyStackRef_TYPE(callable) == &PyMethod_Type && PyStackRef_IsNull(self_or_null)) {
-                PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+                PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
                 PyObject *self = ((PyMethodObject *)callable_o)->im_self;
                 self_or_null = PyStackRef_FromPyObjectNew(self);
                 PyObject *method = ((PyMethodObject *)callable_o)->im_func;
@@ -4587,8 +4556,12 @@ dummy_func(
         }
 
         op(_DO_CALL_KW, (callable, self_or_null, args[oparg], kwnames -- res)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
-            PyObject *kwnames_o = PyStackRef_AsPyObjectBorrow(kwnames);
+            if (PyStackRef_IsTaggedInt(callable)) {
+                _PyErr_SetString(tstate, PyExc_TypeError, "'int' object is not callable");
+                ERROR_NO_POP();
+            }
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
+            PyObject *kwnames_o = PyStackRef_AsPyObjectBorrowNonInt(kwnames);
 
             // oparg counts all of the args, but *not* self:
             int total_args = oparg;
@@ -4637,7 +4610,7 @@ dummy_func(
             STACKREFS_TO_PYOBJECTS_CLEANUP(args_o);
             if (opcode == INSTRUMENTED_CALL_KW) {
                 PyObject *arg = total_args == 0 ?
-                    &_PyInstrumentation_MISSING : PyStackRef_AsPyObjectBorrow(arguments[0]);
+                    &_PyInstrumentation_MISSING : PyStackRef_AsPyObjectBorrowed(&arguments[0]);
                 if (res_o == NULL) {
                     _Py_call_instrumentation_exc2(
                         tstate, PY_MONITORING_EVENT_C_RAISE,
@@ -4658,7 +4631,7 @@ dummy_func(
         }
 
         op(_PY_FRAME_KW, (callable, self_or_null, args[oparg], kwnames -- new_frame)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
 
             // oparg counts all of the args, but *not* self:
             int total_args = oparg;
@@ -4667,7 +4640,7 @@ dummy_func(
                 arguments--;
                 total_args++;
             }
-            PyObject *kwnames_o = PyStackRef_AsPyObjectBorrow(kwnames);
+            PyObject *kwnames_o = PyStackRef_AsPyObjectBorrowNonInt(kwnames);
             int positional_args = total_args - (int)PyTuple_GET_SIZE(kwnames_o);
             assert(Py_TYPE(callable_o) == &PyFunction_Type);
             int code_flags = ((PyCodeObject*)PyFunction_GET_CODE(callable_o))->co_flags;
@@ -4688,8 +4661,8 @@ dummy_func(
         }
 
         op(_CHECK_FUNCTION_VERSION_KW, (func_version/2, callable, unused, unused[oparg], unused -- callable, unused, unused[oparg], unused)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
-            EXIT_IF(!PyFunction_Check(callable_o));
+            EXIT_IF(!PyStackRef_FunctionCheck(callable));
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             PyFunctionObject *func = (PyFunctionObject *)callable_o;
             EXIT_IF(func->func_version != func_version);
         }
@@ -4703,9 +4676,9 @@ dummy_func(
             _PUSH_FRAME;
 
         op(_CHECK_METHOD_VERSION_KW, (func_version/2, callable, null, unused[oparg], unused -- callable, null, unused[oparg], unused)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            EXIT_IF(!PyStackRef_MethodCheck(callable));
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
 
-            EXIT_IF(Py_TYPE(callable_o) != &PyMethod_Type);
             PyObject *func = ((PyMethodObject *)callable_o)->im_func;
             EXIT_IF(!PyFunction_Check(func));
             EXIT_IF(((PyFunctionObject *)func)->func_version != func_version);
@@ -4715,7 +4688,7 @@ dummy_func(
         op(_EXPAND_METHOD_KW, (callable, self_or_null, unused[oparg], unused -- callable, self_or_null, unused[oparg], unused)) {
             assert(PyStackRef_IsNull(self_or_null));
             _PyStackRef callable_s = callable;
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             assert(Py_TYPE(callable_o) == &PyMethod_Type);
             self_or_null = PyStackRef_FromPyObjectNew(((PyMethodObject *)callable_o)->im_self);
             callable = PyStackRef_FromPyObjectNew(((PyMethodObject *)callable_o)->im_func);
@@ -4759,7 +4732,8 @@ dummy_func(
             _DO_CALL_KW;
 
         op(_CHECK_IS_NOT_PY_CALLABLE_KW, (callable, unused, unused[oparg], unused -- callable, unused, unused[oparg], unused)) {
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            EXIT_IF(PyStackRef_IsTaggedInt(callable));
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
             EXIT_IF(PyFunction_Check(callable_o));
             EXIT_IF(Py_TYPE(callable_o) == &PyMethod_Type);
         }
@@ -4769,7 +4743,7 @@ dummy_func(
 #if TIER_ONE
             assert(opcode != INSTRUMENTED_CALL);
 #endif
-            PyObject *callable_o = PyStackRef_AsPyObjectBorrow(callable);
+            PyObject *callable_o = PyStackRef_AsPyObjectBorrowNonInt(callable);
 
             int total_args = oparg;
             _PyStackRef *arguments = args;
@@ -4783,7 +4757,7 @@ dummy_func(
                 DECREF_INPUTS();
                 ERROR_IF(true);
             }
-            PyObject *kwnames_o = PyStackRef_AsPyObjectBorrow(kwnames);
+            PyObject *kwnames_o = PyStackRef_AsPyObjectBorrowNonInt(kwnames);
             int positional_args = total_args - (int)PyTuple_GET_SIZE(kwnames_o);
             PyObject *res_o = PyObject_Vectorcall(
                 callable_o, args_o,
@@ -4805,12 +4779,12 @@ dummy_func(
             _CHECK_PERIODIC;
 
         op(_MAKE_CALLARGS_A_TUPLE, (func, unused, callargs, kwargs -- func, unused, callargs, kwargs)) {
-            PyObject *callargs_o = PyStackRef_AsPyObjectBorrow(callargs);
-            if (!PyTuple_CheckExact(callargs_o)) {
-                int err = _Py_Check_ArgsIterable(tstate, PyStackRef_AsPyObjectBorrow(func), callargs_o);
+            if (!PyStackRef_TupleCheckExact(callargs)) {
+                int err = _Py_Check_ArgsIterable(tstate, func, callargs);
                 if (err < 0) {
                     ERROR_NO_POP();
                 }
+                PyObject *callargs_o = PyStackRef_AsPyObjectBorrowNonInt(callargs);
                 PyObject *tuple_o = PySequence_Tuple(callargs_o);
                 if (tuple_o == NULL) {
                     ERROR_NO_POP();
@@ -4823,7 +4797,11 @@ dummy_func(
 
         op(_DO_CALL_FUNCTION_EX, (func_st, null, callargs_st, kwargs_st -- result)) {
             (void)null;
-            PyObject *func = PyStackRef_AsPyObjectBorrow(func_st);
+            if (PyStackRef_IsTaggedInt(func_st)) {
+                _PyErr_SetString(tstate, PyExc_TypeError, "'int' object is not callable");
+                ERROR_NO_POP();
+            }
+            PyObject *func = PyStackRef_AsPyObjectBorrowNonInt(func_st);
 
             // DICT_MERGE is called before this opcode if there are kwargs.
             // It converts all dict subtypes in kwargs into regular dicts.
@@ -4831,8 +4809,8 @@ dummy_func(
             PyObject *result_o;
             assert(!_PyErr_Occurred(tstate));
             if (opcode == INSTRUMENTED_CALL_FUNCTION_EX) {
-                PyObject *callargs = PyStackRef_AsPyObjectBorrow(callargs_st);
-                PyObject *kwargs = PyStackRef_AsPyObjectBorrow(kwargs_st);
+                PyObject *callargs = PyStackRef_AsPyObjectBorrowNonInt(callargs_st);
+                PyObject *kwargs = PyStackRef_AsPyObjectBorrowNonInt(kwargs_st);
                 assert(kwargs == NULL || PyDict_CheckExact(kwargs));
                 assert(PyTuple_CheckExact(callargs));
                 PyObject *arg = PyTuple_GET_SIZE(callargs) > 0 ?
@@ -4886,9 +4864,9 @@ dummy_func(
                     frame->return_offset = 1;
                     DISPATCH_INLINED(new_frame);
                 }
-                PyObject *callargs = PyStackRef_AsPyObjectBorrow(callargs_st);
+                PyObject *callargs = PyStackRef_AsPyObjectBorrowNonInt(callargs_st);
                 assert(PyTuple_CheckExact(callargs));
-                PyObject *kwargs = PyStackRef_AsPyObjectBorrow(kwargs_st);
+                PyObject *kwargs = PyStackRef_AsPyObjectBorrowNonInt(kwargs_st);
                 assert(kwargs == NULL || PyDict_CheckExact(kwargs));
                 result_o = PyObject_Call(func, callargs, kwargs);
             }
@@ -4911,7 +4889,7 @@ dummy_func(
             _CHECK_PERIODIC;
 
         inst(MAKE_FUNCTION, (codeobj_st -- func)) {
-            PyObject *codeobj = PyStackRef_AsPyObjectBorrow(codeobj_st);
+            PyObject *codeobj = PyStackRef_AsPyObjectBorrowNonInt(codeobj_st);
 
             PyFunctionObject *func_obj = (PyFunctionObject *)
                 PyFunction_New(codeobj, GLOBALS());
@@ -4925,7 +4903,7 @@ dummy_func(
         }
 
         inst(SET_FUNCTION_ATTRIBUTE, (attr_st, func_in -- func_out)) {
-            PyObject *func = PyStackRef_AsPyObjectBorrow(func_in);
+            PyObject *func = PyStackRef_AsPyObjectBorrowNonInt(func_in);
             PyObject *attr = PyStackRef_AsPyObjectSteal(attr_st);
             func_out = func_in;
             DEAD(func_in);
@@ -4939,7 +4917,7 @@ dummy_func(
 
         inst(RETURN_GENERATOR, (-- res)) {
             assert(PyStackRef_FunctionCheck(frame->f_funcobj));
-            PyFunctionObject *func = (PyFunctionObject *)PyStackRef_AsPyObjectBorrow(frame->f_funcobj);
+            PyFunctionObject *func = (PyFunctionObject *)PyStackRef_AsPyObjectBorrowNonInt(frame->f_funcobj);
             PyGenObject *gen = (PyGenObject *)_Py_MakeCoro(func);
             ERROR_IF(gen == NULL);
             assert(STACK_LEVEL() == 0);
@@ -4961,9 +4939,10 @@ dummy_func(
         }
 
         inst(BUILD_SLICE, (args[oparg] -- slice)) {
-            PyObject *start_o = PyStackRef_AsPyObjectBorrow(args[0]);
-            PyObject *stop_o = PyStackRef_AsPyObjectBorrow(args[1]);
-            PyObject *step_o = oparg == 3 ? PyStackRef_AsPyObjectBorrow(args[2]) : NULL;
+            // TO DO --slices are usually composed of ints, so handle ints here.
+            PyObject *start_o = PyStackRef_AsPyObjectBorrowed(&args[0]);
+            PyObject *stop_o = PyStackRef_AsPyObjectBorrowed(&args[1]);
+            PyObject *step_o = oparg == 3 ? PyStackRef_AsPyObjectBorrowed(&args[2]) : NULL;
             PyObject *slice_o = PySlice_New(start_o, stop_o, step_o);
             DECREF_INPUTS();
             ERROR_IF(slice_o == NULL);
@@ -4974,17 +4953,17 @@ dummy_func(
             conversion_func conv_fn;
             assert(oparg >= FVC_STR && oparg <= FVC_ASCII);
             conv_fn = _PyEval_ConversionFuncs[oparg];
-            PyObject *result_o = conv_fn(PyStackRef_AsPyObjectBorrow(value));
+            PyObject *result_o = conv_fn(PyStackRef_AsPyObjectBorrowed(&value));
             PyStackRef_CLOSE(value);
             ERROR_IF(result_o == NULL);
             result = PyStackRef_FromPyObjectSteal(result_o);
         }
 
         inst(FORMAT_SIMPLE, (value -- res)) {
-            PyObject *value_o = PyStackRef_AsPyObjectBorrow(value);
             /* If value is a unicode object, then we know the result
              * of format(value) is value itself. */
-            if (!PyUnicode_CheckExact(value_o)) {
+            if (!PyStackRef_UnicodeCheckExact(value)) {
+                PyObject *value_o = PyStackRef_AsPyObjectBorrowed(&value);
                 PyObject *res_o = PyObject_Format(value_o, NULL);
                 PyStackRef_CLOSE(value);
                 ERROR_IF(res_o == NULL);
@@ -4997,7 +4976,7 @@ dummy_func(
         }
 
         inst(FORMAT_WITH_SPEC, (value, fmt_spec -- res)) {
-            PyObject *res_o = PyObject_Format(PyStackRef_AsPyObjectBorrow(value), PyStackRef_AsPyObjectBorrow(fmt_spec));
+            PyObject *res_o = PyObject_Format(PyStackRef_AsPyObjectBorrowed(&value), PyStackRef_AsPyObjectBorrowed(&fmt_spec));
             DECREF_INPUTS();
             ERROR_IF(res_o == NULL);
             res = PyStackRef_FromPyObjectSteal(res_o);
@@ -5022,14 +5001,15 @@ dummy_func(
         }
 
         op(_BINARY_OP, (lhs, rhs -- res)) {
-            PyObject *lhs_o = PyStackRef_AsPyObjectBorrow(lhs);
-            PyObject *rhs_o = PyStackRef_AsPyObjectBorrow(rhs);
+            PyObject *lhs_o = PyStackRef_AsPyObjectBorrowed(&lhs);
+            PyObject *rhs_o = PyStackRef_AsPyObjectBorrowed(&rhs);
 
             assert(_PyEval_BinaryOps[oparg]);
             PyObject *res_o = _PyEval_BinaryOps[oparg](lhs_o, rhs_o);
             if (res_o == NULL) {
                 ERROR_NO_POP();
             }
+            // Make sure tagged ints are used to allow specialization
             res = PyStackRef_FromPyObjectSteal(res_o);
             DECREF_INPUTS();
         }
@@ -5361,7 +5341,7 @@ dummy_func(
 
         tier2 op(_CHECK_FUNCTION, (func_version/2 -- )) {
             assert(PyStackRef_FunctionCheck(frame->f_funcobj));
-            PyFunctionObject *func = (PyFunctionObject *)PyStackRef_AsPyObjectBorrow(frame->f_funcobj);
+            PyFunctionObject *func = (PyFunctionObject *)PyStackRef_AsPyObjectBorrowNonInt(frame->f_funcobj);
             DEOPT_IF(func->func_version != func_version);
         }
 
@@ -5521,7 +5501,7 @@ dummy_func(
                 _PyStackRef executor = frame->localsplus[0];
                 assert(tstate->current_executor == NULL);
                 if (!PyStackRef_IsNull(executor)) {
-                    tstate->current_executor = PyStackRef_AsPyObjectBorrow(executor);
+                    tstate->current_executor = PyStackRef_AsPyObjectBorrowNonInt(executor);
                     PyStackRef_CLOSE(executor);
                 }
 #endif

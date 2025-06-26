@@ -6908,3 +6908,16 @@ PyLongWriter_Finish(PyLongWriter *writer)
 
     return (PyObject*)obj;
 }
+
+/* Is the given object a small int with the given value */
+extern bool
+_PyLong_IsSmallValue(PyObject *op, intptr_t val)
+{
+    if (!IS_SMALL_INT(val)) {
+        return false;
+    }
+    return op == get_small_int(val);
+}
+
+
+

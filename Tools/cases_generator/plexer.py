@@ -81,7 +81,7 @@ class PLexer:
             if tkn.kind == "RPAREN":
                 parens -= 1
         raise self.make_syntax_error(
-            f"Expected {end!r} but reached EOF", tkn)
+            f"Expected {end!r} but reached EOF", res[0])
 
     def extract_line(self, lineno: int) -> str:
         # Return source line `lineno` (1-based)

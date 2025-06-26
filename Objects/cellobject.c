@@ -10,6 +10,7 @@
 PyObject *
 PyCell_New(PyObject *obj)
 {
+    assert(obj == NULL || ((uintptr_t)obj) > 1000000 || ((uintptr_t)obj) < -10000000);
     PyCellObject *op;
 
     op = (PyCellObject *)PyObject_GC_New(PyCellObject, &PyCell_Type);

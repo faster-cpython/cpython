@@ -2603,7 +2603,7 @@ sys__getframemodulename_impl(PyObject *module, int depth)
     if (f == NULL || PyStackRef_IsNull(f->f_funcobj)) {
         Py_RETURN_NONE;
     }
-    PyObject *func = PyStackRef_AsPyObjectBorrow(f->f_funcobj);
+    PyObject *func = PyStackRef_AsPyObjectBorrowNonInt(f->f_funcobj);
     PyObject *r = PyFunction_GetModule(func);
     if (!r) {
         PyErr_Clear();

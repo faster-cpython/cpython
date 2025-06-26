@@ -19,7 +19,7 @@ extern "C" {
 
 static inline PyCodeObject *_PyFrame_GetCode(_PyInterpreterFrame *f) {
     assert(!PyStackRef_IsNull(f->f_executable));
-    PyObject *executable = PyStackRef_AsPyObjectBorrow(f->f_executable);
+    PyObject *executable = PyStackRef_AsPyObjectBorrowNonInt(f->f_executable);
     assert(PyCode_Check(executable));
     return (PyCodeObject *)executable;
 }
@@ -38,7 +38,7 @@ _PyFrame_GetBytecode(_PyInterpreterFrame *f)
 }
 
 static inline PyFunctionObject *_PyFrame_GetFunction(_PyInterpreterFrame *f) {
-    PyObject *func = PyStackRef_AsPyObjectBorrow(f->f_funcobj);
+    PyObject *func = PyStackRef_AsPyObjectBorrowNonInt(f->f_funcobj);
     assert(PyFunction_Check(func));
     return (PyFunctionObject *)func;
 }
@@ -131,7 +131,7 @@ _PyFrame_Initialize(
     frame->previous = previous;
     frame->f_funcobj = func;
     frame->f_executable = PyStackRef_FromPyObjectNew(code);
-    PyFunctionObject *func_obj = (PyFunctionObject *)PyStackRef_AsPyObjectBorrow(func);
+    PyFunctionObject *func_obj = (PyFunctionObject *)PyStackRef_AsPyObjectBorrowNonInt(func);
     frame->f_builtins = func_obj->func_builtins;
     frame->f_globals = func_obj->func_globals;
     frame->f_locals = locals;
@@ -290,7 +290,7 @@ static inline _PyInterpreterFrame *
 _PyFrame_PushUnchecked(PyThreadState *tstate, _PyStackRef func, int null_locals_from, _PyInterpreterFrame * previous)
 {
     CALL_STAT_INC(frames_pushed);
-    PyFunctionObject *func_obj = (PyFunctionObject *)PyStackRef_AsPyObjectBorrow(func);
+    PyFunctionObject *func_obj = (PyFunctionObject *)PyStackRef_AsPyObjectBorrowNonInt(func);
     PyCodeObject *code = (PyCodeObject *)func_obj->func_code;
     _PyInterpreterFrame *new_frame = (_PyInterpreterFrame *)tstate->datastack_top;
     tstate->datastack_top += code->co_framesize;

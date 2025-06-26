@@ -674,12 +674,16 @@ _Py_uop_symbol_is_immortal(JitOptSymbol *sym)
     return false;
 }
 
+
 bool
 _Py_uop_sym_is_compact_int(JitOptRef ref)
 {
     JitOptSymbol *sym = PyJitRef_Unwrap(ref);
     if (sym->tag == JIT_SYM_KNOWN_VALUE_TAG) {
-        return (bool)_PyLong_CheckExactAndCompact(sym->value.value);
+        PyObject *i = sym->value.value;
+        if (PyLong_CheckExact(i) && _PyLong_DigitCount((PyLongObject *)i) <= 2) {
+            return true;
+        }
     }
     return sym->tag == JIT_SYM_COMPACT_INT;
 }

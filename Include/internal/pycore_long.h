@@ -318,6 +318,7 @@ _PyLong_CheckExactAndCompact(PyObject *op)
     return PyLong_CheckExact(op) && _PyLong_IsCompact((const PyLongObject *)op);
 }
 
+
 #ifdef __cplusplus
 }
 #endif

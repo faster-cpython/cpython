@@ -842,7 +842,7 @@ PyObject_VectorcallMethod(PyObject *name, PyObject *const *args,
         _PyThreadState_PopCStackRef(tstate, &method);
         return NULL;
     }
-    PyObject *callable = PyStackRef_AsPyObjectBorrow(method.ref);
+    PyObject *callable = PyStackRef_AsPyObjectBorrowNonInt(method.ref);
 
     if (unbound) {
         /* We must remove PY_VECTORCALL_ARGUMENTS_OFFSET since
@@ -878,7 +878,7 @@ PyObject_CallMethodObjArgs(PyObject *obj, PyObject *name, ...)
         _PyThreadState_PopCStackRef(tstate, &method);
         return NULL;
     }
-    PyObject *callable = PyStackRef_AsPyObjectBorrow(method.ref);
+    PyObject *callable = PyStackRef_AsPyObjectBorrowNonInt(method.ref);
     obj = is_method ? obj : NULL;
 
     va_list vargs;
@@ -910,7 +910,7 @@ _PyObject_CallMethodIdObjArgs(PyObject *obj, _Py_Identifier *name, ...)
         _PyThreadState_PopCStackRef(tstate, &method);
         return NULL;
     }
-    PyObject *callable = PyStackRef_AsPyObjectBorrow(method.ref);
+    PyObject *callable = PyStackRef_AsPyObjectBorrowNonInt(method.ref);
 
     obj = is_method ? obj : NULL;
 

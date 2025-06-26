@@ -82,7 +82,6 @@
             PyObject *val = PyLong_FromLong(oparg);
             assert(val);
             assert(_Py_IsImmortal(val));
-            REPLACE_OP(this_instr, _LOAD_CONST_INLINE_BORROW, 0, (uintptr_t)val);
             value = PyJitRef_Borrow(sym_new_const(ctx, val));
             stack_pointer[0] = value;
             stack_pointer += 1;
@@ -145,8 +144,8 @@
             JitOptRef value;
             JitOptRef res;
             value = stack_pointer[-1];
-            if (sym_is_compact_int(value)) {
-                res = sym_new_compact_int(ctx);
+            if (sym_matches_type(value, &PyLong_Type)) {
+                res = sym_new_type(ctx, &PyLong_Type);
             }
             else {
                 res = sym_new_not_null(ctx);
@@ -295,8 +294,8 @@
             JitOptRef value;
             JitOptRef res;
             value = stack_pointer[-1];
-            if (sym_matches_type(value, &PyLong_Type)) {
-                res = sym_new_type(ctx, &PyLong_Type);
+            if (sym_is_compact_int(value)) {
+                res = sym_new_compact_int(ctx);
             }
             else {
                 res = sym_new_not_null(ctx);
@@ -311,12 +310,6 @@
             if (sym_is_compact_int(left)) {
                 REPLACE_OP(this_instr, _NOP, 0, 0);
             }
-            else {
-                if (sym_get_type(left) == &PyLong_Type) {
-                    REPLACE_OP(this_instr, _GUARD_NOS_OVERFLOWED, 0, 0);
-                }
-                sym_set_compact_int(left);
-            }
             break;
         }
 
@@ -326,20 +319,6 @@
             if (sym_is_compact_int(value)) {
                 REPLACE_OP(this_instr, _NOP, 0, 0);
             }
-            else {
-                if (sym_get_type(value) == &PyLong_Type) {
-                    REPLACE_OP(this_instr, _GUARD_TOS_OVERFLOWED, 0, 0);
-                }
-                sym_set_compact_int(value);
-            }
-            break;
-        }
-
-        case _GUARD_NOS_OVERFLOWED: {
-            break;
-        }
-
-        case _GUARD_TOS_OVERFLOWED: {
             break;
         }
 

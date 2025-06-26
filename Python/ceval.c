@@ -164,8 +164,12 @@ dump_item(_PyStackRef item)
         printf("%" PRId64, (int64_t)PyStackRef_UntagInt(item));
         return;
     }
+    if (PyStackRef_IsError(item)) {
+        printf("ERROR");
+        return;
+    }
     if (PyStackRef_IsValid(item)) {
-        PyObject *obj = PyStackRef_AsPyObjectBorrow(item);
+        PyObject *obj = PyStackRef_AsPyObjectBorrowNonInt(item);
         if (obj == NULL) {
             printf("<nil>");
             return;
@@ -174,15 +178,9 @@ dump_item(_PyStackRef item)
         printf("<%s at %p>", Py_TYPE(obj)->tp_name, (void *)obj);
     }
     else {
-        /* Already handled NULL */
-        if (PyStackRef_IsError(item)) {
-            printf("ERROR");
-        }
-        else {
-            // Wrapped item
-            void *ptr = PyStackRef_Unwrap(item);
-            printf("Wrapped(pointer %p)", ptr);
-        }
+        // Wrapped item (already handled NULL and error)
+        void *ptr = PyStackRef_Unwrap(item);
+        printf("Wrapped(pointer %p)", ptr);
     }
 }
 
@@ -245,7 +243,7 @@ lltrace_instruction(_PyInterpreterFrame *frame,
 static void
 lltrace_resume_frame(_PyInterpreterFrame *frame)
 {
-    PyObject *fobj = PyStackRef_AsPyObjectBorrow(frame->f_funcobj);
+    PyObject *fobj = PyStackRef_AsPyObjectBorrowNonInt(frame->f_funcobj);
     if (!PyStackRef_CodeCheck(frame->f_executable) ||
         fobj == NULL ||
         !PyFunction_Check(fobj)
@@ -966,7 +964,7 @@ _PyObjectArray_FromStackRefArray(_PyStackRef *input, Py_ssize_t nargs, PyObject 
         result = scratch;
     }
     for (int i = 0; i < nargs; i++) {
-        result[i] = PyStackRef_AsPyObjectBorrow(input[i]);
+        result[i] = PyStackRef_AsPyObjectBorrowed(&input[i]);
     }
     return result;
 }
@@ -1383,7 +1381,7 @@ too_many_positional(PyThreadState *tstate, PyCodeObject *co,
     assert((co->co_flags & CO_VARARGS) == 0);
     /* Count missing keyword-only args. */
     for (i = co_argcount; i < co_argcount + co->co_kwonlyargcount; i++) {
-        if (PyStackRef_AsPyObjectBorrow(localsplus[i]) != NULL) {
+        if (!PyStackRef_IsNull(localsplus[i])) {
             kwonly_given++;
         }
     }
@@ -1579,7 +1577,7 @@ initialize_locals(PyThreadState *tstate, PyFunctionObject *func,
             i++;
         }
         assert(PyStackRef_IsNull(localsplus[i]));
-        localsplus[i] = PyStackRef_FromPyObjectSteal(kwdict);
+        localsplus[i] = PyStackRef_FromPyObjectStealNonInt(kwdict);
     }
     else {
         kwdict = NULL;
@@ -1615,7 +1613,7 @@ initialize_locals(PyThreadState *tstate, PyFunctionObject *func,
         if (u == NULL) {
             goto fail_post_positional;
         }
-        assert(PyStackRef_AsPyObjectBorrow(localsplus[total_args]) == NULL);
+        assert(PyStackRef_IsNull(localsplus[total_args]));
         localsplus[total_args] = PyStackRef_FromPyObjectSteal(u);
     }
     else if (argcount > n) {
@@ -1704,7 +1702,7 @@ initialize_locals(PyThreadState *tstate, PyFunctionObject *func,
                 goto kw_fail;
             }
 
-            if (PyDict_SetItem(kwdict, keyword, PyStackRef_AsPyObjectBorrow(value_stackref)) == -1) {
+            if (PyDict_SetItem(kwdict, keyword, PyStackRef_AsPyObjectBorrowed(&value_stackref)) == -1) {
                 goto kw_fail;
             }
             PyStackRef_CLOSE(value_stackref);
@@ -1717,7 +1715,7 @@ initialize_locals(PyThreadState *tstate, PyFunctionObject *func,
             goto fail_post_args;
 
         kw_found:
-            if (PyStackRef_AsPyObjectBorrow(localsplus[j]) != NULL) {
+            if (!PyStackRef_IsNull(localsplus[j])) {
                 _PyErr_Format(tstate, PyExc_TypeError,
                             "%U() got multiple values for argument '%S'",
                           func->func_qualname, keyword);
@@ -1756,7 +1754,7 @@ initialize_locals(PyThreadState *tstate, PyFunctionObject *func,
         if (defcount) {
             PyObject **defs = &PyTuple_GET_ITEM(func->func_defaults, 0);
             for (; i < defcount; i++) {
-                if (PyStackRef_AsPyObjectBorrow(localsplus[m+i]) == NULL) {
+                if (PyStackRef_IsNull(localsplus[m+i])) {
                     PyObject *def = defs[i];
                     localsplus[m+i] = PyStackRef_FromPyObjectNew(def);
                 }
@@ -1768,7 +1766,7 @@ initialize_locals(PyThreadState *tstate, PyFunctionObject *func,
     if (co->co_kwonlyargcount > 0) {
         Py_ssize_t missing = 0;
         for (i = co->co_argcount; i < total_args; i++) {
-            if (PyStackRef_AsPyObjectBorrow(localsplus[i]) != NULL)
+            if (!PyStackRef_IsNull(localsplus[i]))
                 continue;
             PyObject *varname = PyTuple_GET_ITEM(co->co_localsplusnames, i);
             if (func->func_kwdefaults != NULL) {
@@ -1854,7 +1852,7 @@ _PyEvalFramePushAndInit(PyThreadState *tstate, _PyStackRef func,
                         PyObject *locals, _PyStackRef const* args,
                         size_t argcount, PyObject *kwnames, _PyInterpreterFrame *previous)
 {
-    PyFunctionObject *func_obj = (PyFunctionObject *)PyStackRef_AsPyObjectBorrow(func);
+    PyFunctionObject *func_obj = (PyFunctionObject *)PyStackRef_AsPyObjectBorrowNonInt(func);
     PyCodeObject * code = (PyCodeObject *)func_obj->func_code;
     CALL_STAT_INC(frames_pushed);
     _PyInterpreterFrame *frame = _PyThreadState_PushFrame(tstate, code->co_framesize);
@@ -3280,22 +3278,40 @@ _PyEval_CheckExceptStarTypeValid(PyThreadState *tstate, PyObject* right)
     return 0;
 }
 
+static int
+args_iterable_error(PyThreadState *tstate, _PyStackRef func, const char *tp_name) {
+    /* _Py_Check_ArgsIterable() may be called with a live exception:
+    * clear it to prevent calling _PyObject_FunctionStr() with an
+    * exception set. */
+    _PyErr_Clear(tstate);
+    PyObject *funcstr = NULL;
+    if (PyStackRef_IsTaggedInt(func)) {
+        _PyErr_Format(tstate, PyExc_TypeError,
+                      "'int' object is not callable");
+    }
+    else {
+        funcstr = _PyObject_FunctionStr(PyStackRef_AsPyObjectBorrowNonInt(func));
+    }
+    if (funcstr != NULL) {
+        _PyErr_Format(tstate, PyExc_TypeError,
+                    "%U argument after * must be an iterable, not %.200s",
+                    funcstr, tp_name);
+        Py_DECREF(funcstr);
+    }
+    return -1;
+}
+
 int
-_Py_Check_ArgsIterable(PyThreadState *tstate, PyObject *func, PyObject *args)
+_Py_Check_ArgsIterable(PyThreadState *tstate, _PyStackRef func, _PyStackRef args)
 {
-    if (Py_TYPE(args)->tp_iter == NULL && !PySequence_Check(args)) {
-        /* _Py_Check_ArgsIterable() may be called with a live exception:
-         * clear it to prevent calling _PyObject_FunctionStr() with an
-         * exception set. */
-        _PyErr_Clear(tstate);
-        PyObject *funcstr = _PyObject_FunctionStr(func);
-        if (funcstr != NULL) {
-            _PyErr_Format(tstate, PyExc_TypeError,
-                          "%U argument after * must be an iterable, not %.200s",
-                          funcstr, Py_TYPE(args)->tp_name);
-            Py_DECREF(funcstr);
+    if (PyStackRef_IsTaggedInt(args)) {
+        return args_iterable_error(tstate, func, "int");
+    }
+    else {
+        PyObject *args_o = PyStackRef_AsPyObjectBorrowNonInt(args);
+        if (Py_TYPE(args_o)->tp_iter == NULL && !PySequence_Check(args_o)) {
+            return args_iterable_error(tstate, func, Py_TYPE(args_o)->tp_name);
         }
-        return -1;
     }
     return 0;
 }
@@ -3594,7 +3610,7 @@ foriter_next(PyObject *seq, _PyStackRef index)
 
 _PyStackRef _PyForIter_VirtualIteratorNext(PyThreadState* tstate, _PyInterpreterFrame* frame, _PyStackRef iter, _PyStackRef* index_ptr)
 {
-    PyObject *iter_o = PyStackRef_AsPyObjectBorrow(iter);
+    PyObject *iter_o = PyStackRef_AsPyObjectBorrowNonInt(iter);
     _PyStackRef index = *index_ptr;
     if (PyStackRef_IsTaggedInt(index)) {
         *index_ptr = PyStackRef_IncrementTaggedIntNoOverflow(index);

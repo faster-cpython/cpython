@@ -423,8 +423,8 @@ def analyze_caches(inputs: list[parser.InputEffect]) -> list[CacheEntry]:
 
 def find_variable_stores(node: parser.InstDef) -> list[lexer.Token]:
     res: list[lexer.Token] = []
-    outnames = { out.name for out in node.outputs }
-    innames = { out.name for out in node.inputs }
+    outnames = { out.name for out in node.outputs if not out.size }
+    innames = { out.name for out in node.inputs if not out.size }
 
     def find_stores_in_tokens(tokens: list[lexer.Token], callback: Callable[[lexer.Token], None]) -> None:
         while tokens and tokens[0].kind == "COMMENT":
@@ -576,7 +576,9 @@ NON_ESCAPING_FUNCTIONS = (
     "PyLong_FromLong",
     "PyLong_FromSsize_t",
     "PySlice_New",
-    "PyStackRef_AsPyObjectBorrow",
+    "PyStackRef_AsPyObjectBorrow",  # TO DO -- remove this
+    "PyStackRef_AsPyObjectBorrowed",
+    "PyStackRef_AsPyObjectBorrowNonInt",
     "PyStackRef_AsPyObjectNew",
     "PyStackRef_FromPyObjectNewMortal",
     "PyStackRef_AsPyObjectSteal",
@@ -690,6 +692,10 @@ NON_ESCAPING_FUNCTIONS = (
     "PyStackRef_Wrap",
     "PyStackRef_Unwrap",
     "_PyLong_CheckExactAndCompact",
+    "_Py_TaggedIntAddOverflow",
+    "_Py_TaggedIntSubtractOverflow",
+    "_Py_TaggedIntMultiplyOverflow",
+    "PyStackRef_IsNonIntObject",
 )
 
 

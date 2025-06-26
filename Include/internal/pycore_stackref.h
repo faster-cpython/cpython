@@ -357,12 +357,25 @@ static const _PyStackRef PyStackRef_NULL = { .bits = Py_TAG_DEFERRED};
 #define PyStackRef_IsNullOrInt(stackref) (PyStackRef_IsNull(stackref) || PyStackRef_IsTaggedInt(stackref))
 
 static inline PyObject *
-PyStackRef_AsPyObjectBorrow(_PyStackRef stackref)
+PyStackRef_AsPyObjectBorrowNonInt(_PyStackRef stackref)
 {
     assert(!PyStackRef_IsTaggedInt(stackref));
     PyObject *cleared = ((PyObject *)((stackref).bits & (~Py_TAG_BITS)));
     return cleared;
 }
+
+static inline _PyStackRef
+PyStackRef_BoxInt(_PyStackRef i)
+{
+    assert(PyStackRef_IsTaggedInt(i));
+    intptr_t val = PyStackRef_UntagInt(i);
+    PyObject *boxed = PyLong_FromSsize_t(val);
+    if (boxed == NULL) {
+        return PyStackRef_ERROR;
+    }
+    return PyStackRef_FromPyObjectSteal(boxed);
+}
+
 
 #define PyStackRef_IsDeferred(ref) (((ref).bits & Py_TAG_BITS) == Py_TAG_DEFERRED)
 
@@ -471,7 +484,7 @@ PyStackRef_DUP(_PyStackRef stackref)
     if (PyStackRef_IsDeferredOrTaggedInt(stackref)) {
         return stackref;
     }
-    Py_INCREF(PyStackRef_AsPyObjectBorrow(stackref));
+    Py_INCREF(PyStackRef_AsPyObjectBorrowNonInt(stackref));
     return stackref;
 }
 
@@ -560,7 +573,7 @@ static inline void PyStackRef_CheckValid(_PyStackRef ref) {
 
 #ifdef _WIN32
 #define PyStackRef_RefcountOnObject(REF) (((REF).bits & Py_TAG_REFCNT) == 0)
-#define PyStackRef_AsPyObjectBorrow BITS_TO_PTR_MASKED
+#define PyStackRef_AsPyObjectBorrowNonInt BITS_TO_PTR_MASKED
 #define PyStackRef_Borrow(REF) (_PyStackRef){ .bits = ((REF).bits) | Py_TAG_REFCNT};
 #else
 /* Does this ref not have an embedded refcount and thus not refer to a declared immmortal object? */
@@ -571,7 +584,7 @@ PyStackRef_RefcountOnObject(_PyStackRef ref)
 }
 
 static inline PyObject *
-PyStackRef_AsPyObjectBorrow(_PyStackRef ref)
+PyStackRef_AsPyObjectBorrowNonInt(_PyStackRef ref)
 {
     assert(!PyStackRef_IsTaggedInt(ref));
     return BITS_TO_PTR_MASKED(ref);
@@ -584,11 +597,17 @@ PyStackRef_Borrow(_PyStackRef ref)
 }
 #endif
 
+extern PyObject *
+_Py_StackRef_BoxAndReturnObject(_PyStackRef ref);
+
 static inline PyObject *
 PyStackRef_AsPyObjectSteal(_PyStackRef ref)
 {
     if (PyStackRef_RefcountOnObject(ref)) {
         return BITS_TO_PTR(ref);
+    }
+    else if (PyStackRef_IsTaggedInt(ref)) {
+        return _Py_StackRef_BoxAndReturnObject(ref);
     }
     else {
         return Py_NewRef(BITS_TO_PTR_MASKED(ref));
@@ -596,7 +615,7 @@ PyStackRef_AsPyObjectSteal(_PyStackRef ref)
 }
 
 static inline _PyStackRef
-PyStackRef_FromPyObjectSteal(PyObject *obj)
+_PyStackRef_FromPyObjectStealUnchecked(PyObject *obj)
 {
     assert(obj != NULL);
 #if SIZEOF_VOID_P > 4
@@ -607,6 +626,34 @@ PyStackRef_FromPyObjectSteal(PyObject *obj)
     _PyStackRef ref = ((_PyStackRef){.bits = ((uintptr_t)(obj)) | tag});
     PyStackRef_CheckValid(ref);
     return ref;
+}
+
+
+static inline _PyStackRef
+PyStackRef_FromPyObjectStealNonInt(PyObject *obj)
+{
+    assert(!PyLong_CheckExact(obj));
+    return _PyStackRef_FromPyObjectStealUnchecked(obj);
+}
+
+
+#define PYSTACKREF_INT_MIN Py_ARITHMETIC_RIGHT_SHIFT(intptr_t, INTPTR_MIN, 2)
+#define PYSTACKREF_INT_MAX (INTPTR_MAX >> 2)
+
+extern void _PyLong_ExactDealloc(PyObject *self);
+
+static inline _PyStackRef
+PyStackRef_FromPyObjectSteal(PyObject *obj)
+{
+    if (PyLong_CheckExact(obj)) {
+        int overflow;
+        long val = PyLong_AsLongAndOverflow(obj, &overflow);
+        if (!overflow && val >= PYSTACKREF_INT_MIN && val <= PYSTACKREF_INT_MAX) {
+            _Py_DECREF_SPECIALIZED(obj, _PyLong_ExactDealloc);
+            return PyStackRef_TagInt(val);
+        }
+    }
+    return _PyStackRef_FromPyObjectStealUnchecked(obj);
 }
 
 static inline _PyStackRef
@@ -743,24 +790,61 @@ PyStackRef_XCLOSE(_PyStackRef ref)
 
 #endif // Py_GIL_DISABLED
 
-// Note: this is a macro because MSVC (Windows) has trouble inlining it.
+extern bool
+_PyLong_IsSmallValue(PyObject *op, intptr_t val);
 
-#define PyStackRef_Is(a, b) (((a).bits & (~Py_TAG_REFCNT)) == ((b).bits & (~Py_TAG_REFCNT)))
-
+static inline bool
+PyStackRef_Is(_PyStackRef a, _PyStackRef b)
+{
+    assert(!PyStackRef_IsError(a) && !PyStackRef_IsError(b));
+    if ((a.bits & ~Py_TAG_REFCNT) == (b.bits & ~Py_TAG_REFCNT)) {
+        return true;
+    }
+    if ((a.bits & 2) == (b.bits & 2)) {
+        return false;
+    }
+    if (PyStackRef_IsTaggedInt(a)) {
+        PyObject *bop = BITS_TO_PTR_MASKED(b);
+        return _PyLong_IsSmallValue(bop, PyStackRef_UntagInt(a));
+    }
+    assert(PyStackRef_IsTaggedInt(b));
+    PyObject *aop = BITS_TO_PTR_MASKED(a);
+    return _PyLong_IsSmallValue(aop, PyStackRef_UntagInt(b));
+}
 
 #endif // !defined(Py_GIL_DISABLED) && defined(Py_STACKREF_DEBUG)
+
+static inline PyObject *
+PyStackRef_AsPyObjectBorrowed(_PyStackRef *ptr)
+{
+    if (PyStackRef_IsTaggedInt(*ptr)) {
+        PyObject *res = _Py_StackRef_BoxAndReturnObject(*ptr);
+        *ptr = _PyStackRef_FromPyObjectStealUnchecked(res);
+        return res;
+    }
+    PyObject *cleared = ((PyObject *)(ptr->bits & (~Py_TAG_BITS)));
+    return cleared;
+}
 
 static inline PyTypeObject *
 PyStackRef_TYPE(_PyStackRef stackref) {
     if (PyStackRef_IsTaggedInt(stackref)) {
         return &PyLong_Type;
     }
-    return Py_TYPE(PyStackRef_AsPyObjectBorrow(stackref));
+    return Py_TYPE(PyStackRef_AsPyObjectBorrowNonInt(stackref));
 }
 
 // Converts a PyStackRef back to a PyObject *, converting the
 // stackref to a new reference.
-#define PyStackRef_AsPyObjectNew(stackref) Py_NewRef(PyStackRef_AsPyObjectBorrow(stackref))
+static inline PyObject *
+PyStackRef_AsPyObjectNew(_PyStackRef ref)
+{
+    if (PyStackRef_IsTaggedInt(ref)) {
+        return _Py_StackRef_BoxAndReturnObject(ref);
+    }
+    return Py_NewRef(PyStackRef_AsPyObjectBorrowNonInt(ref));
+
+}
 
 // StackRef type checks
 
@@ -770,7 +854,16 @@ PyStackRef_TYPE(_PyStackRef stackref) {
         if (PyStackRef_IsTaggedInt(stackref)) { \
             return false; \
         } \
-        return Py ## T ## _Check(PyStackRef_AsPyObjectBorrow(stackref)); \
+        return Py ## T ## _Check(PyStackRef_AsPyObjectBorrowNonInt(stackref)); \
+    }
+
+#define STACKREF_CHECKEXACT_FUNC(T) \
+    static inline bool \
+    PyStackRef_ ## T ## CheckExact(_PyStackRef stackref) { \
+        if (PyStackRef_IsTaggedInt(stackref)) { \
+            return false; \
+        } \
+        return Py ## T ## _CheckExact(PyStackRef_AsPyObjectBorrowNonInt(stackref)); \
     }
 
 STACKREF_CHECK_FUNC(Gen)
@@ -778,6 +871,18 @@ STACKREF_CHECK_FUNC(Bool)
 STACKREF_CHECK_FUNC(ExceptionInstance)
 STACKREF_CHECK_FUNC(Code)
 STACKREF_CHECK_FUNC(Function)
+STACKREF_CHECK_FUNC(Method)
+STACKREF_CHECK_FUNC(Slice)
+STACKREF_CHECK_FUNC(Cell)
+STACKREF_CHECK_FUNC(Type)
+
+STACKREF_CHECKEXACT_FUNC(Dict)
+STACKREF_CHECKEXACT_FUNC(List)
+STACKREF_CHECKEXACT_FUNC(Tuple)
+STACKREF_CHECKEXACT_FUNC(Unicode)
+STACKREF_CHECKEXACT_FUNC(Float)
+STACKREF_CHECKEXACT_FUNC(AnySet)
+STACKREF_CHECKEXACT_FUNC(CFunction)
 
 static inline bool
 PyStackRef_LongCheck(_PyStackRef stackref)
@@ -785,7 +890,23 @@ PyStackRef_LongCheck(_PyStackRef stackref)
     if (PyStackRef_IsTaggedInt(stackref)) {
         return true;
     }
-    return PyLong_Check(PyStackRef_AsPyObjectBorrow(stackref));
+    return PyLong_Check(PyStackRef_AsPyObjectBorrowNonInt(stackref));
+}
+
+static inline bool
+PyStackRef_LongCheckExact(_PyStackRef stackref)
+{
+    if (PyStackRef_IsTaggedInt(stackref)) {
+        return true;
+    }
+    return PyLong_CheckExact(PyStackRef_AsPyObjectBorrowNonInt(stackref));
+}
+
+static inline bool
+PyStackRef_IsNonIntObject(_PyStackRef stackref, PyObject *obj)
+{
+    assert(Py_TYPE(obj) != &PyLong_Type);
+    return BITS_TO_PTR_MASKED(stackref) == obj;
 }
 
 static inline void
@@ -848,6 +969,45 @@ _Py_TryXGetStackRef(PyObject **src, _PyStackRef *out)
                 return vret;                                            \
         }                                                               \
     } while (0)
+
+
+/// TO DO -- define these for other compilers that don't have these builtins
+static inline int
+_Py_TaggedIntAddOverflow(_PyStackRef a, _PyStackRef b, _PyStackRef *r)
+{
+    assert(PyStackRef_IsTaggedInt(a) && PyStackRef_IsTaggedInt(b));
+    intptr_t ai = (intptr_t)a.bits;
+    intptr_t bi = (intptr_t)b.bits - Py_INT_TAG;
+    return __builtin_add_overflow(ai, bi, (intptr_t *)&r->bits);
+}
+
+static inline int
+_Py_TaggedIntSubtractOverflow(_PyStackRef a, _PyStackRef b, _PyStackRef *r)
+{
+    assert(PyStackRef_IsTaggedInt(a) && PyStackRef_IsTaggedInt(b));
+    intptr_t ai = (intptr_t)a.bits;
+    intptr_t bi = (intptr_t)b.bits - Py_INT_TAG;
+    return __builtin_sub_overflow(ai, bi, (intptr_t *)&r->bits);
+}
+
+static inline int
+_Py_TaggedIntMultiplyOverflow(_PyStackRef a, _PyStackRef b, _PyStackRef *r)
+{
+    assert(PyStackRef_IsTaggedInt(a) && PyStackRef_IsTaggedInt(b));
+    intptr_t ai = (intptr_t)a.bits >> 2;
+    intptr_t bi = (intptr_t)b.bits - Py_INT_TAG;
+    intptr_t ri;
+    int overflow = __builtin_mul_overflow(ai, bi, &ri);
+    r->bits = (uintptr_t)(ri | Py_INT_TAG);
+    return overflow;
+}
+
+
+#define _Py_IntAddOverflow __builtin_add_overflow
+#define _Py_IntSubtractOverflow __builtin_sub_overflow
+#define _Py_IntMultiplyOverflow __builtin_mul_overflow
+
+
 
 #ifdef __cplusplus
 }

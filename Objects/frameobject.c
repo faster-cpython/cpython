@@ -45,7 +45,7 @@ framelocalsproxy_getval(_PyInterpreterFrame *frame, PyCodeObject *co, int i)
     _PyStackRef *fast = _PyFrame_GetLocalsArray(frame);
     _PyLocals_Kind kind = _PyLocals_GetKind(co->co_localspluskinds, i);
 
-    PyObject *value = PyStackRef_AsPyObjectBorrow(fast[i]);
+    PyObject *value = PyStackRef_AsPyObjectBorrowed(&fast[i]);
     PyObject *cell = NULL;
 
     if (value == NULL) {
@@ -263,15 +263,14 @@ framelocalsproxy_setitem(PyObject *self, PyObject *key, PyObject *value)
         _Py_Executors_InvalidateDependency(PyInterpreterState_Get(), co, 1);
 
         _PyLocals_Kind kind = _PyLocals_GetKind(co->co_localspluskinds, i);
-        _PyStackRef oldvalue = fast[i];
         PyObject *cell = NULL;
         if (kind == CO_FAST_FREE) {
             // The cell was set when the frame was created from
             // the function's closure.
-            assert(!PyStackRef_IsNull(oldvalue) && PyCell_Check(PyStackRef_AsPyObjectBorrow(oldvalue)));
-            cell = PyStackRef_AsPyObjectBorrow(oldvalue);
-        } else if (kind & CO_FAST_CELL && !PyStackRef_IsNull(oldvalue)) {
-            PyObject *as_obj = PyStackRef_AsPyObjectBorrow(oldvalue);
+            assert(!PyStackRef_IsNull(fast[i]) && PyStackRef_CellCheck(fast[i]));
+            cell = PyStackRef_AsPyObjectBorrowNonInt(fast[i]);
+        } else if (kind & CO_FAST_CELL && !PyStackRef_IsNull(fast[i])) {
+            PyObject *as_obj = PyStackRef_AsPyObjectBorrowed(&fast[i]);
             if (PyCell_Check(as_obj)) {
                 cell = as_obj;
             }
@@ -279,8 +278,12 @@ framelocalsproxy_setitem(PyObject *self, PyObject *key, PyObject *value)
         if (cell != NULL) {
             Py_XINCREF(value);
             PyCell_SetTakeRef((PyCellObject *)cell, value);
-        } else if (value != PyStackRef_AsPyObjectBorrow(oldvalue)) {
-            PyObject *old_obj = PyStackRef_AsPyObjectBorrow(fast[i]);
+        }
+        else if (PyStackRef_IsTaggedInt(fast[i])) {
+            fast[i] = PyStackRef_FromPyObjectNew(value);
+        }
+        else if (value != PyStackRef_AsPyObjectBorrowNonInt(fast[i])) {
+            PyObject *old_obj = PyStackRef_AsPyObjectBorrowNonInt(fast[i]);
             if (old_obj != NULL && !_Py_IsImmortal(old_obj)) {
                 if (add_overwritten_fast_local(frame, old_obj) < 0) {
                     return -1;
@@ -1820,7 +1823,7 @@ frame_lineno_set_impl(PyFrameObject *self, PyObject *value)
         _PyStackRef popped = _PyFrame_StackPop(self->f_frame);
         if (top_of_stack(start_stack) == Except) {
             /* Pop exception stack as well as the evaluation stack */
-            PyObject *exc = PyStackRef_AsPyObjectBorrow(popped);
+            PyObject *exc = PyStackRef_AsPyObjectBorrowNonInt(popped);
             assert(PyExceptionInstance_Check(exc) || exc == Py_None);
             PyThreadState *tstate = _PyThreadState_GET();
             Py_XSETREF(tstate->exc_info->exc_value, exc == Py_None ? NULL : exc);
@@ -2213,7 +2216,7 @@ frame_get_var(_PyInterpreterFrame *frame, PyCodeObject *co, int i,
 
     PyObject *value = NULL;
     if (frame->stackpointer == NULL || frame->stackpointer > frame->localsplus + i) {
-        value = PyStackRef_AsPyObjectBorrow(frame->localsplus[i]);
+        value = PyStackRef_AsPyObjectBorrowed(&frame->localsplus[i]);
         if (kind & CO_FAST_FREE) {
             // The cell was set by COPY_FREE_VARS.
             assert(value != NULL && PyCell_Check(value));
