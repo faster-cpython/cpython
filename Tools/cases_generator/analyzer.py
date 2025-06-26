@@ -1303,7 +1303,6 @@ def dump_analysis(analysis: Analysis) -> None:
         p.dump("    ")
 
 
-
 if __name__ == "__main__":
     import sys
 
