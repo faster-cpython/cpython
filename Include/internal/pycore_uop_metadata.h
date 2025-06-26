@@ -69,6 +69,10 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_STORE_FAST_7] = HAS_LOCAL_FLAG | HAS_ESCAPES_FLAG,
     [_STORE_FAST] = HAS_ARG_FLAG | HAS_LOCAL_FLAG | HAS_ESCAPES_FLAG,
     [_POP_TOP] = HAS_ESCAPES_FLAG | HAS_PURE_FLAG,
+    [_POP_TOP_NOP] = 0,
+    [_POP_TOP_INT] = 0,
+    [_POP_TOP_FLOAT] = 0,
+    [_POP_TOP_UNICODE] = 0,
     [_POP_TWO] = HAS_ESCAPES_FLAG,
     [_PUSH_NULL] = HAS_PURE_FLAG,
     [_END_FOR] = HAS_ESCAPES_FLAG | HAS_NO_SAVE_IP_FLAG,
@@ -391,6 +395,10 @@ const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1] = {
     [_STORE_FAST_7] = { 1, 1, -1, 0, { 0, _STORE_FAST_7_r10, 0, 0 } },
     [_STORE_FAST] = { 1, 1, -1, 0, { 0, _STORE_FAST_r10, 0, 0 } },
     [_POP_TOP] = { 1, 1, -1, 0, { 0, _POP_TOP_r10, 0, 0 } },
+    [_POP_TOP_NOP] = { 1, 3, -1, 0, { 0, _POP_TOP_NOP_r10, _POP_TOP_NOP_r21, _POP_TOP_NOP_r32 } },
+    [_POP_TOP_INT] = { 1, 3, -1, 0, { 0, _POP_TOP_INT_r10, _POP_TOP_INT_r21, _POP_TOP_INT_r32 } },
+    [_POP_TOP_FLOAT] = { 1, 3, -1, 0, { 0, _POP_TOP_FLOAT_r10, _POP_TOP_FLOAT_r21, _POP_TOP_FLOAT_r32 } },
+    [_POP_TOP_UNICODE] = { 1, 3, -1, 0, { 0, _POP_TOP_UNICODE_r10, _POP_TOP_UNICODE_r21, _POP_TOP_UNICODE_r32 } },
     [_POP_TWO] = { 2, 2, -2, 0, { 0, 0, _POP_TWO_r20, 0 } },
     [_PUSH_NULL] = { 0, 2, 1, 0, { _PUSH_NULL_r01, _PUSH_NULL_r12, _PUSH_NULL_r23, 0 } },
     [_END_FOR] = { 1, 1, -1, 0, { 0, _END_FOR_r10, 0, 0 } },
@@ -758,6 +766,18 @@ const uint16_t _PyUop_Uncached[MAX_UOP_REGS_ID+1] = {
     [_STORE_FAST_7_r10] = _STORE_FAST_7,
     [_STORE_FAST_r10] = _STORE_FAST,
     [_POP_TOP_r10] = _POP_TOP,
+    [_POP_TOP_NOP_r10] = _POP_TOP_NOP,
+    [_POP_TOP_NOP_r21] = _POP_TOP_NOP,
+    [_POP_TOP_NOP_r32] = _POP_TOP_NOP,
+    [_POP_TOP_INT_r10] = _POP_TOP_INT,
+    [_POP_TOP_INT_r21] = _POP_TOP_INT,
+    [_POP_TOP_INT_r32] = _POP_TOP_INT,
+    [_POP_TOP_FLOAT_r10] = _POP_TOP_FLOAT,
+    [_POP_TOP_FLOAT_r21] = _POP_TOP_FLOAT,
+    [_POP_TOP_FLOAT_r32] = _POP_TOP_FLOAT,
+    [_POP_TOP_UNICODE_r10] = _POP_TOP_UNICODE,
+    [_POP_TOP_UNICODE_r21] = _POP_TOP_UNICODE,
+    [_POP_TOP_UNICODE_r32] = _POP_TOP_UNICODE,
     [_POP_TWO_r20] = _POP_TWO,
     [_PUSH_NULL_r01] = _PUSH_NULL,
     [_PUSH_NULL_r12] = _PUSH_NULL,
@@ -1922,10 +1942,26 @@ const char *const _PyOpcode_uop_name[MAX_UOP_REGS_ID+1] = {
     [_POP_ITER_r20] = "_POP_ITER_r20",
     [_POP_TOP] = "_POP_TOP",
     [_POP_TOP_r10] = "_POP_TOP_r10",
+    [_POP_TOP_FLOAT] = "_POP_TOP_FLOAT",
+    [_POP_TOP_FLOAT_r10] = "_POP_TOP_FLOAT_r10",
+    [_POP_TOP_FLOAT_r21] = "_POP_TOP_FLOAT_r21",
+    [_POP_TOP_FLOAT_r32] = "_POP_TOP_FLOAT_r32",
+    [_POP_TOP_INT] = "_POP_TOP_INT",
+    [_POP_TOP_INT_r10] = "_POP_TOP_INT_r10",
+    [_POP_TOP_INT_r21] = "_POP_TOP_INT_r21",
+    [_POP_TOP_INT_r32] = "_POP_TOP_INT_r32",
     [_POP_TOP_LOAD_CONST_INLINE] = "_POP_TOP_LOAD_CONST_INLINE",
     [_POP_TOP_LOAD_CONST_INLINE_r11] = "_POP_TOP_LOAD_CONST_INLINE_r11",
     [_POP_TOP_LOAD_CONST_INLINE_BORROW] = "_POP_TOP_LOAD_CONST_INLINE_BORROW",
     [_POP_TOP_LOAD_CONST_INLINE_BORROW_r11] = "_POP_TOP_LOAD_CONST_INLINE_BORROW_r11",
+    [_POP_TOP_NOP] = "_POP_TOP_NOP",
+    [_POP_TOP_NOP_r10] = "_POP_TOP_NOP_r10",
+    [_POP_TOP_NOP_r21] = "_POP_TOP_NOP_r21",
+    [_POP_TOP_NOP_r32] = "_POP_TOP_NOP_r32",
+    [_POP_TOP_UNICODE] = "_POP_TOP_UNICODE",
+    [_POP_TOP_UNICODE_r10] = "_POP_TOP_UNICODE_r10",
+    [_POP_TOP_UNICODE_r21] = "_POP_TOP_UNICODE_r21",
+    [_POP_TOP_UNICODE_r32] = "_POP_TOP_UNICODE_r32",
     [_POP_TWO] = "_POP_TWO",
     [_POP_TWO_r20] = "_POP_TWO_r20",
     [_POP_TWO_LOAD_CONST_INLINE_BORROW] = "_POP_TWO_LOAD_CONST_INLINE_BORROW",
@@ -2170,6 +2206,14 @@ int _PyUop_num_popped(int opcode, int oparg)
         case _STORE_FAST:
             return 1;
         case _POP_TOP:
+            return 1;
+        case _POP_TOP_NOP:
+            return 1;
+        case _POP_TOP_INT:
+            return 1;
+        case _POP_TOP_FLOAT:
+            return 1;
+        case _POP_TOP_UNICODE:
             return 1;
         case _POP_TWO:
             return 2;
