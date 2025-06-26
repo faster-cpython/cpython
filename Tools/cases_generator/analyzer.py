@@ -1276,9 +1276,9 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int, int]]:
         inputs, outputs = 0, outputs-inputs
     else:
         inputs, outputs = inputs-outputs, 0
-    while inputs <= 3 and outputs <= 3:
+    while inputs <= MAX_CACHED_REGISTER and outputs <= MAX_CACHED_REGISTER:
         if inputs != ideal_inputs:
-            yield inputs,  outputs, inputs
+            yield inputs, outputs, inputs
         inputs += 1
         outputs += 1
 

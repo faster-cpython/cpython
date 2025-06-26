@@ -61,7 +61,7 @@ def declare_variables(uop: Uop, out: CWriter) -> None:
 
 class Tier2Emitter(Emitter):
 
-    def __init__(self, out: CWriter, labels: dict[str, Label], exit_cache_depth:int):
+    def __init__(self, out: CWriter, labels: dict[str, Label], exit_cache_depth: int):
         super().__init__(out, labels)
         self._replacers["oparg"] = self.oparg
         self.exit_cache_depth = exit_cache_depth
@@ -141,7 +141,7 @@ class Tier2Emitter(Emitter):
         return True
 
 
-def write_uop(uop: Uop, emitter: Emitter, stack: Stack, cached_items:int=0) -> Stack:
+def write_uop(uop: Uop, emitter: Emitter, stack: Stack, cached_items: int = 0) -> Stack:
     locals: dict[str, Local] = {}
     try:
         emitter.out.start_line()
