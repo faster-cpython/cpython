@@ -223,10 +223,18 @@ you can count such references to the type object.)
 */
 
 #if defined(Py_REF_DEBUG) && !defined(Py_LIMITED_API)
+
 PyAPI_FUNC(void) _Py_NegativeRefcount(const char *filename, int lineno,
                                       PyObject *op);
 PyAPI_FUNC(void) _Py_INCREF_IncRefTotal(void);
 PyAPI_FUNC(void) _Py_DECREF_DecRefTotal(void);
+
+#else
+
+#define _Py_NegativeRefcount(F, L, O) ((void)0)
+#define _Py_INCREF_IncRefTotal() ((void)0)
+#define _Py_DECREF_DecRefTotal() ((void)0)
+
 #endif  // Py_REF_DEBUG && !Py_LIMITED_API
 
 PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
