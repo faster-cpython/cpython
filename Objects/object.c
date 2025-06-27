@@ -349,9 +349,65 @@ _Py_IncRef(PyObject *o)
 }
 
 void
-_Py_DecRef(PyObject *o)
+_Py_DecRef(PyObject *op)
 {
-    Py_DECREF(o);
+    if (_Py_IsImmortal(op)) {
+        _Py_DECREF_IMMORTAL_STAT_INC();
+        return;
+    }
+    _Py_DECREF_STAT_INC();
+    if (--op->ob_refcnt == 0) {
+        _Py_Dealloc(op);
+    }
+}
+
+void
+_Py_DecRefMortal(PyObject *op)
+{
+    _Py_DECREF_STAT_INC();
+    if (--op->ob_refcnt == 0) {
+        _Py_Dealloc(op);
+    }
+}
+
+
+void
+_Py_DecRefMortal_Debug(const char *filename, int lineno, PyObject *op)
+{
+    if (op->ob_refcnt <= 0) {
+        _Py_NegativeRefcount(filename, lineno, op);
+    }
+    _Py_DECREF_STAT_INC();
+    assert(!_Py_IsStaticImmortal(op));
+    if (!_Py_IsImmortal(op)) {
+        _Py_DECREF_DecRefTotal();
+    }
+    if (--op->ob_refcnt == 0) {
+        _Py_Dealloc(op);
+    }
+}
+
+void
+_Py_DecRef_Debug(const char *filename, int lineno, PyObject *op)
+{
+#if SIZEOF_VOID_P > 4
+    /* If an object has been freed, it will have a negative full refcnt
+     * If it has not it been freed, will have a very large refcnt */
+    if (op->ob_refcnt_full <= 0 || op->ob_refcnt > (((PY_UINT32_T)-1) - (1<<20))) {
+#else
+    if (op->ob_refcnt <= 0) {
+#endif
+        _Py_NegativeRefcount(filename, lineno, op);
+    }
+    if (_Py_IsImmortal(op)) {
+        _Py_DECREF_IMMORTAL_STAT_INC();
+        return;
+    }
+    _Py_DECREF_STAT_INC();
+    _Py_DECREF_DecRefTotal();
+    if (--op->ob_refcnt == 0) {
+        _Py_Dealloc(op);
+    }
 }
 
 #ifdef Py_GIL_DISABLED

@@ -392,45 +392,14 @@ static inline void Py_DECREF(PyObject *op)
 
 #elif defined(Py_REF_DEBUG)
 
-static inline void Py_DECREF(const char *filename, int lineno, PyObject *op)
-{
-#if SIZEOF_VOID_P > 4
-    /* If an object has been freed, it will have a negative full refcnt
-     * If it has not it been freed, will have a very large refcnt */
-    if (op->ob_refcnt_full <= 0 || op->ob_refcnt > (((PY_UINT32_T)-1) - (1<<20))) {
-#else
-    if (op->ob_refcnt <= 0) {
-#endif
-        _Py_NegativeRefcount(filename, lineno, op);
-    }
-    if (_Py_IsImmortal(op)) {
-        _Py_DECREF_IMMORTAL_STAT_INC();
-        return;
-    }
-    _Py_DECREF_STAT_INC();
-    _Py_DECREF_DecRefTotal();
-    if (--op->ob_refcnt == 0) {
-        _Py_Dealloc(op);
-    }
-}
-#define Py_DECREF(op) Py_DECREF(__FILE__, __LINE__, _PyObject_CAST(op))
+
+PyAPI_FUNC(void) _Py_DecRef_Debug(const char *filename, int lineno, PyObject *op);
+
+#define Py_DECREF(op) _Py_DecRef_Debug(__FILE__, __LINE__, _PyObject_CAST(op))
 
 #else
 
-static inline Py_ALWAYS_INLINE void Py_DECREF(PyObject *op)
-{
-    // Non-limited C API and limited C API for Python 3.9 and older access
-    // directly PyObject.ob_refcnt.
-    if (_Py_IsImmortal(op)) {
-        _Py_DECREF_IMMORTAL_STAT_INC();
-        return;
-    }
-    _Py_DECREF_STAT_INC();
-    if (--op->ob_refcnt == 0) {
-        _Py_Dealloc(op);
-    }
-}
-#define Py_DECREF(op) Py_DECREF(_PyObject_CAST(op))
+#define Py_DECREF(op) _Py_DecRef(_PyObject_CAST(op))
 #endif
 
 
