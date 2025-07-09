@@ -314,21 +314,16 @@ PyAPI_FUNC(void) _Py_DecRefSharedDebug(PyObject *, const char *, int);
 PyAPI_FUNC(void) _Py_MergeZeroLocalRefcount(PyObject *);
 #endif
 
-#if defined(Py_LIMITED_API) && (Py_LIMITED_API+0 >= 0x030c0000 || defined(Py_REF_DEBUG))
-// Stable ABI implements Py_DECREF() as a function call on limited C API
-// version 3.12 and newer, and on Python built in debug mode. _Py_DecRef() was
-// added to Python 3.10.0a7, use Py_DecRef() on older Python versions.
-// Py_DecRef() accepts NULL whereas _Py_DecRef() doesn't.
-static inline void Py_DECREF(PyObject *op) {
-#  if Py_LIMITED_API+0 >= 0x030a00A7
-    _Py_DecRef(op);
-#  else
-    Py_DecRef(op);
-#  endif
-}
-#define Py_DECREF(op) Py_DECREF(_PyObject_CAST(op))
+PyAPI_FUNC(void) Py_DecRefDebug(const char *filename, int lineno,PyObject *);
 
-#elif defined(Py_GIL_DISABLED) && defined(Py_REF_DEBUG)
+#ifdef Py_DEBUG
+#define Py_DECREF(op) Py_DecRefDebug(__FILE__, __LINE__, _PyObject_CAST(op))
+#else
+#define Py_DECREF(op) Py_DecRef(_PyObject_CAST(op))
+#endif
+
+#ifdef Py_GIL_DISABLED
+#  ifdef Py_REF_DEBUG
 static inline void Py_DECREF(const char *filename, int lineno, PyObject *op)
 {
     uint32_t local = _Py_atomic_load_uint32_relaxed(&op->ob_ref_local);
@@ -353,8 +348,7 @@ static inline void Py_DECREF(const char *filename, int lineno, PyObject *op)
     }
 }
 #define Py_DECREF(op) Py_DECREF(__FILE__, __LINE__, _PyObject_CAST(op))
-
-#elif defined(Py_GIL_DISABLED)
+#  else
 static inline void Py_DECREF(PyObject *op)
 {
     uint32_t local = _Py_atomic_load_uint32_relaxed(&op->ob_ref_local);
@@ -375,38 +369,8 @@ static inline void Py_DECREF(PyObject *op)
     }
 }
 #define Py_DECREF(op) Py_DECREF(_PyObject_CAST(op))
-
-#elif defined(Py_REF_DEBUG)
-
-static inline void Py_DECREF(const char *filename, int lineno, PyObject *op)
-{
-#if SIZEOF_VOID_P > 4
-    /* If an object has been freed, it will have a negative full refcnt
-     * If it has not it been freed, will have a very large refcnt */
-    if (op->ob_refcnt_full <= 0 || op->ob_refcnt > (((PY_UINT32_T)-1) - (1<<20))) {
-#else
-    if (op->ob_refcnt <= 0) {
+#  endif
 #endif
-        _Py_NegativeRefcount(filename, lineno, op);
-    }
-    if (_Py_IsImmortal(op)) {
-        _Py_DECREF_IMMORTAL_STAT_INC();
-        return;
-    }
-    _Py_DECREF_STAT_INC();
-    _Py_DECREF_DecRefTotal();
-    if (--op->ob_refcnt == 0) {
-        _Py_Dealloc(op);
-    }
-}
-#define Py_DECREF(op) Py_DECREF(__FILE__, __LINE__, _PyObject_CAST(op))
-
-#else
-
-extern Py_NO_INLINE PyAPI_FUNC(void) Py_DECREF(PyObject *op);
-#define Py_DECREF(op) Py_DECREF(_PyObject_CAST(op))
-#endif
-
 
 /* Safely decref `op` and set `op` to NULL, especially useful in tp_clear
  * and tp_dealloc implementations.

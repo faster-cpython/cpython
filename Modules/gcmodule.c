@@ -159,12 +159,12 @@ gc_set_threshold_impl(PyObject *module, int threshold0, int group_right_1,
 {
     GCState *gcstate = get_gc_state();
 
-    gcstate->young.threshold = threshold0;
+    gcstate->live.threshold = threshold0;
     if (group_right_1) {
-        gcstate->old[0].threshold = threshold1;
+        gcstate->candidates[0].threshold = threshold1;
     }
     if (group_right_2) {
-        gcstate->old[1].threshold = threshold2;
+        gcstate->candidates[1].threshold = threshold2;
     }
     Py_RETURN_NONE;
 }
@@ -181,8 +181,8 @@ gc_get_threshold_impl(PyObject *module)
 {
     GCState *gcstate = get_gc_state();
     return Py_BuildValue("(iii)",
-                         gcstate->young.threshold,
-                         gcstate->old[0].threshold,
+                         gcstate->live.threshold,
+                         gcstate->candidates[0].threshold,
                          0);
 }
 
@@ -203,14 +203,14 @@ gc_get_count_impl(PyObject *module)
     struct _gc_thread_state *gc = &tstate->gc;
 
     // Flush the local allocation count to the global count
-    _Py_atomic_add_int(&gcstate->young.count, (int)gc->alloc_count);
+    _Py_atomic_add_int(&gcstate->live.count, (int)gc->alloc_count);
     gc->alloc_count = 0;
 #endif
 
     return Py_BuildValue("(iii)",
-                         gcstate->young.count,
-                         gcstate->old[gcstate->visited_space].count,
-                         gcstate->old[gcstate->visited_space^1].count);
+                         gcstate->live.count,
+                         gcstate->candidates[0].count,
+                         gcstate->candidates[1].count);
 }
 
 /*[clinic input]

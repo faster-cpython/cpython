@@ -436,6 +436,8 @@ _Py_DECREF_CODE(PyCodeObject *co)
 #ifndef Py_GIL_DISABLED
 #ifdef Py_REF_DEBUG
 
+extern void _Py_CandidateCycleRoot(PyObject *op);
+
 static inline void Py_DECREF_MORTAL(const char *filename, int lineno, PyObject *op)
 {
     if (op->ob_refcnt <= 0) {
@@ -448,6 +450,9 @@ static inline void Py_DECREF_MORTAL(const char *filename, int lineno, PyObject *
     }
     if (--op->ob_refcnt == 0) {
         _Py_Dealloc(op);
+    }
+    else if (PyObject_GC_IsTracked(op)) {
+        _Py_CandidateCycleRoot(op);
     }
 }
 #define Py_DECREF_MORTAL(op) Py_DECREF_MORTAL(__FILE__, __LINE__, _PyObject_CAST(op))

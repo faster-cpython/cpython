@@ -134,11 +134,7 @@ extern PyTypeObject _PyExc_MemoryError;
         }, \
         .gc = { \
             .enabled = 1, \
-            .young = { .threshold = 2000, }, \
-            .old = { \
-                { .threshold = 10, }, \
-                { .threshold = 0, }, \
-            }, \
+            .live = { .threshold = 2000, }, \
             .work_to_do = -5000, \
             .phase = GC_PHASE_MARK, \
         }, \

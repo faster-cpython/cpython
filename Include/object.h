@@ -634,6 +634,11 @@ given type object has a specified feature.
 #define _Py_TYPE_REVEALED_FLAG (1 << 3)
 #endif
 
+// TO DO: move to private header
+#define _Py_GC_OBJECT (1 << 4)
+#define _Py_GC_TRACKED (1 << 5)
+
+
 #define Py_CONSTANT_NONE 0
 #define Py_CONSTANT_FALSE 1
 #define Py_CONSTANT_TRUE 2

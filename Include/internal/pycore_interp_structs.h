@@ -200,7 +200,7 @@ enum _GCPhase {
 
 /* If we change this, we need to change the default value in the
    signature of gc.collect. */
-#define NUM_GENERATIONS 3
+#define NUM_GENERATIONS 4
 
 struct _gc_runtime_state {
     /* List of objects that still need to be cleaned up, singly linked
@@ -213,8 +213,8 @@ struct _gc_runtime_state {
     int enabled;
     int debug;
     /* linked lists of container objects */
-    struct gc_generation young;
-    struct gc_generation old[2];
+    struct gc_generation live;
+    struct gc_generation candidates[NUM_GENERATIONS];
     /* a permanent generation which won't be collected */
     struct gc_generation permanent_generation;
     struct gc_generation_stats generation_stats[NUM_GENERATIONS];
@@ -227,8 +227,6 @@ struct _gc_runtime_state {
 
     Py_ssize_t heap_size;
     Py_ssize_t work_to_do;
-    /* Which of the old spaces is the visited space */
-    int visited_space;
     int phase;
 
 #ifdef Py_GIL_DISABLED
