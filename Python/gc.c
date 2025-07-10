@@ -605,7 +605,7 @@ visit_reachable(PyObject *op, void *arg)
     // This also skips objects "to the left" of the current position in
     // move_unreachable's scan of the 'young' list - they've already been
     // traversed, and no longer have the PREV_MASK_COLLECTING flag.
-    if (! gc_is_collecting(gc)) {
+    if (!gc_is_collecting(gc)) {
         return 0;
     }
     // It would be a logic error elsewhere if the collecting flag were set on
@@ -1372,18 +1372,21 @@ struct container_and_flag {
 static int
 visit_add_to_container(PyObject *op, void *arg)
 {
+    if (!_PyObject_GC_IS_TRACKED(op)) {
+        return 0;
+    }
+    if (_Py_IsImmortal(op)) {
+        return 0;
+    }
     OBJECT_STAT_INC(object_visits);
     struct container_and_flag *cf = (struct container_and_flag *)arg;
     int visited = cf->visited_space;
     assert(visited == get_gc_state()->visited_space);
-    if (!_Py_IsImmortal(op) && _PyObject_IS_GC(op)) {
-        PyGC_Head *gc = AS_GC(op);
-        if (_PyObject_GC_IS_TRACKED(op) &&
-            gc_old_space(gc) != visited) {
-            gc_flip_old_space(gc);
-            gc_list_move(gc, cf->container);
-            cf->size++;
-        }
+    PyGC_Head *gc = AS_GC(op);
+    if (gc_old_space(gc) != visited) {
+        gc_flip_old_space(gc);
+        gc_list_move(gc, cf->container);
+        cf->size++;
     }
     return 0;
 }
