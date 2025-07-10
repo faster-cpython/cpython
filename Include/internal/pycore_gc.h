@@ -69,13 +69,16 @@ _PyObject_CLEAR_GC_BITS(PyObject *op, uint8_t bits_to_clear)
 
 #endif
 
+#define _Py_GC_OBJECT (1 << 4)
+#define _Py_GC_TRACKED (1 << 5)
+
+
 /* True if the object is currently tracked by the GC. */
 static inline int _PyObject_GC_IS_TRACKED(PyObject *op) {
 #ifdef Py_GIL_DISABLED
     return _PyObject_HAS_GC_BITS(op, _PyGC_BITS_TRACKED);
 #else
-    PyGC_Head *gc = _Py_AS_GC(op);
-    return (gc->_gc_next != 0);
+    return (op->ob_flags & _Py_GC_TRACKED) != 0;
 #endif
 }
 #define _PyObject_GC_IS_TRACKED(op) _PyObject_GC_IS_TRACKED(_Py_CAST(PyObject*, op))
@@ -246,6 +249,8 @@ static inline void _PyObject_GC_TRACK(
     uintptr_t not_visited = 1 ^ interp->gc.visited_space;
     gc->_gc_next = ((uintptr_t)generation0) | not_visited;
     generation0->_gc_prev = (uintptr_t)gc;
+    assert(op->ob_flags & _Py_GC_OBJECT);
+    op->ob_flags |= _Py_GC_TRACKED;
 #endif
 }
 
@@ -280,6 +285,7 @@ static inline void _PyObject_GC_UNTRACK(
     _PyGCHead_SET_PREV(next, prev);
     gc->_gc_next = 0;
     gc->_gc_prev &= _PyGC_PREV_MASK_FINALIZED;
+    op->ob_flags &= ~_Py_GC_TRACKED;
 #endif
 }
 

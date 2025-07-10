@@ -43,7 +43,7 @@ tuple_alloc(Py_ssize_t size)
     assert(size != 0);    // The empty tuple is statically allocated.
     Py_ssize_t index = size - 1;
     if (index < PyTuple_MAXSAVESIZE) {
-        PyTupleObject *op = _Py_FREELIST_POP(PyTupleObject, tuples[index]);
+        PyTupleObject *op = _Py_FREELIST_POP(PyTupleObject, tuples[index], 1);
         if (op != NULL) {
             _PyTuple_RESET_HASH_CACHE(op);
             return op;
@@ -976,6 +976,8 @@ _PyTuple_Resize(PyObject **pv, Py_ssize_t newsize)
         memset(&sv->ob_item[oldsize], 0,
                sizeof(*sv->ob_item) * (newsize - oldsize));
     *pv = (PyObject *) sv;
+    assert(((PyObject *)sv)->ob_flags == 0);
+    ((PyObject *)sv)->ob_flags = _Py_GC_OBJECT;
     _PyObject_GC_TRACK(sv);
     return 0;
 }
@@ -1138,7 +1140,7 @@ tuple_iter(PyObject *seq)
         PyErr_BadInternalCall();
         return NULL;
     }
-    _PyTupleIterObject *it = _Py_FREELIST_POP(_PyTupleIterObject, tuple_iters);
+    _PyTupleIterObject *it = _Py_FREELIST_POP(_PyTupleIterObject, tuple_iters, 1);
     if (it == NULL) {
         it = PyObject_GC_New(_PyTupleIterObject, &PyTupleIter_Type);
         if (it == NULL)

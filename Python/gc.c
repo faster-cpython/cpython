@@ -2260,6 +2260,8 @@ _PyObject_GC_Link(PyObject *op)
     GCState *gcstate = &tstate->interp->gc;
     gc->_gc_next = 0;
     gc->_gc_prev = 0;
+    assert(op->ob_flags == 0);
+    op->ob_flags = _Py_GC_OBJECT;
     gcstate->young.count++; /* number of allocated GC objects */
     gcstate->heap_size++;
     if (gcstate->young.count > gcstate->young.threshold &&
@@ -2295,7 +2297,6 @@ gc_alloc(PyTypeObject *tp, size_t basicsize, size_t presize)
     ((PyObject **)mem)[0] = NULL;
     ((PyObject **)mem)[1] = NULL;
     PyObject *op = (PyObject *)(mem + presize);
-    _PyObject_GC_Link(op);
     return op;
 }
 
@@ -2313,6 +2314,7 @@ _PyObject_GC_New(PyTypeObject *tp)
         return NULL;
     }
     _PyObject_Init(op, tp);
+    _PyObject_GC_Link(op);
     if (tp->tp_flags & Py_TPFLAGS_INLINE_VALUES) {
         _PyObject_InitInlineValues(op, tp);
     }
@@ -2335,6 +2337,7 @@ _PyObject_GC_NewVar(PyTypeObject *tp, Py_ssize_t nitems)
         return NULL;
     }
     _PyObject_InitVar(op, tp, nitems);
+    _PyObject_GC_Link((PyObject *)op);
     return op;
 }
 
@@ -2402,10 +2405,7 @@ PyObject_GC_Del(void *op)
 int
 PyObject_GC_IsTracked(PyObject* obj)
 {
-    if (_PyObject_IS_GC(obj) && _PyObject_GC_IS_TRACKED(obj)) {
-        return 1;
-    }
-    return 0;
+    return (obj->ob_flags & _Py_GC_TRACKED) != 0;
 }
 
 int

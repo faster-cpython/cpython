@@ -853,9 +853,7 @@ _PyObject_GET_WEAKREFS_LISTPTR_FROM_OFFSET(PyObject *op)
 static inline int
 _PyObject_IS_GC(PyObject *obj)
 {
-    PyTypeObject *type = Py_TYPE(obj);
-    return (_PyType_IS_GC(type)
-            && (type->tp_is_gc == NULL || type->tp_is_gc(obj)));
+    return (obj->ob_flags & _Py_GC_OBJECT) != 0;
 }
 
 // Fast inlined version of PyObject_Hash()

@@ -239,7 +239,7 @@ PyList_New(Py_ssize_t size)
         return NULL;
     }
 
-    PyListObject *op = _Py_FREELIST_POP(PyListObject, lists);
+    PyListObject *op = _Py_FREELIST_POP(PyListObject, lists, 1);
     if (op == NULL) {
         op = PyObject_GC_New(PyListObject, &PyList_Type);
         if (op == NULL) {
@@ -3976,7 +3976,7 @@ list_iter(PyObject *seq)
         PyErr_BadInternalCall();
         return NULL;
     }
-    _PyListIterObject *it = _Py_FREELIST_POP(_PyListIterObject, list_iters);
+    _PyListIterObject *it = _Py_FREELIST_POP(_PyListIterObject, list_iters, 1);
     if (it == NULL) {
         it = PyObject_GC_New(_PyListIterObject, &PyListIter_Type);
         if (it == NULL) {

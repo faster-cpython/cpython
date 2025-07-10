@@ -425,7 +425,7 @@ class _contextvars.Context "PyContext *" "&PyContext_Type"
 static inline PyContext *
 _context_alloc(void)
 {
-    PyContext *ctx = _Py_FREELIST_POP(PyContext, contexts);
+    PyContext *ctx = _Py_FREELIST_POP(PyContext, contexts, 1);
     if (ctx == NULL) {
         ctx = PyObject_GC_New(PyContext, &PyContext_Type);
         if (ctx == NULL) {

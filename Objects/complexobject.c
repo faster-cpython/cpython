@@ -410,7 +410,7 @@ complex_subtype_from_c_complex(PyTypeObject *type, Py_complex cval)
 PyObject *
 PyComplex_FromCComplex(Py_complex cval)
 {
-    PyComplexObject *op = _Py_FREELIST_POP(PyComplexObject, complexes);
+    PyComplexObject *op = _Py_FREELIST_POP(PyComplexObject, complexes, 0);
 
     if (op == NULL) {
         /* Inline PyObject_New */

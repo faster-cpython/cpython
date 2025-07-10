@@ -123,7 +123,7 @@ PyFloat_GetInfo(void)
 PyObject *
 PyFloat_FromDouble(double fval)
 {
-    PyFloatObject *op = _Py_FREELIST_POP(PyFloatObject, floats);
+    PyFloatObject *op = _Py_FREELIST_POP(PyFloatObject, floats, 0);
     if (op == NULL) {
         op = PyObject_Malloc(sizeof(PyFloatObject));
         if (!op) {

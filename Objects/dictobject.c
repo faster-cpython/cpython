@@ -872,7 +872,7 @@ new_dict(PyInterpreterState *interp,
          Py_ssize_t used, int free_values_on_failure)
 {
     assert(keys != NULL);
-    PyDictObject *mp = _Py_FREELIST_POP(PyDictObject, dicts);
+    PyDictObject *mp = _Py_FREELIST_POP(PyDictObject, dicts, 1);
     if (mp == NULL) {
         mp = PyObject_GC_New(PyDictObject, &PyDict_Type);
         if (mp == NULL) {

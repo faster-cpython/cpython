@@ -114,7 +114,7 @@ PyMethod_New(PyObject *func, PyObject *self)
         PyErr_BadInternalCall();
         return NULL;
     }
-    PyMethodObject *im = _Py_FREELIST_POP(PyMethodObject, pymethodobjects);
+    PyMethodObject *im = _Py_FREELIST_POP(PyMethodObject, pymethodobjects, 1);
     if (im == NULL) {
         im = PyObject_GC_New(PyMethodObject, &PyMethod_Type);
         if (im == NULL) {
