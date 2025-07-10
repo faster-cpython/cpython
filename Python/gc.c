@@ -2352,6 +2352,7 @@ PyUnstable_Object_GC_NewWithExtraData(PyTypeObject *tp, size_t extra_size)
     }
     memset((char *)op + sizeof(PyObject), 0, size - sizeof(PyObject));
     _PyObject_Init(op, tp);
+    _PyObject_GC_Link((PyObject *)op);
     return op;
 }
 
