@@ -38,8 +38,8 @@ _Py_freelists_GET(void)
     _PyFreeList_Push(&_Py_freelists_GET()->NAME, _PyObject_CAST(op), limit)
 
 // Pops a PyObject from the freelist, returns NULL if the freelist is empty.
-#define _Py_FREELIST_POP(TYPE, NAME) \
-    _Py_CAST(TYPE*, _PyFreeList_Pop(&_Py_freelists_GET()->NAME))
+#define _Py_FREELIST_POP(TYPE, NAME, IS_GC) \
+    _Py_CAST(TYPE*, _PyFreeList_Pop(&_Py_freelists_GET()->NAME, (IS_GC) ? _Py_GC_OBJECT : 0))
 
 // Pops a non-PyObject data structure from the freelist, returns NULL if the
 // freelist is empty.
@@ -83,12 +83,13 @@ _PyFreeList_PopNoStats(struct _Py_freelist *fl)
 }
 
 static inline PyObject *
-_PyFreeList_Pop(struct _Py_freelist *fl)
+_PyFreeList_Pop(struct _Py_freelist *fl, int flags)
 {
     PyObject *op = _PyFreeList_PopNoStats(fl);
     if (op != NULL) {
         OBJECT_STAT_INC(from_freelist);
         _Py_NewReference(op);
+        op->ob_flags = flags;
     }
     return op;
 }

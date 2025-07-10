@@ -57,7 +57,7 @@ make_range_object(PyTypeObject *type, PyObject *start,
     if (length == NULL) {
         return NULL;
     }
-    rangeobject *obj = _Py_FREELIST_POP(rangeobject, ranges);
+    rangeobject *obj = _Py_FREELIST_POP(rangeobject, ranges, 0);
     if (obj == NULL) {
         obj = PyObject_New(rangeobject, type);
         if (obj == NULL) {
@@ -981,7 +981,7 @@ get_len_of_range(long lo, long hi, long step)
 static PyObject *
 fast_range_iter(long start, long stop, long step, long len)
 {
-    _PyRangeIterObject *it = _Py_FREELIST_POP(_PyRangeIterObject, range_iters);
+    _PyRangeIterObject *it = _Py_FREELIST_POP(_PyRangeIterObject, range_iters, 0);
     if (it == NULL) {
         it = PyObject_New(_PyRangeIterObject, &PyRangeIter_Type);
         if (it == NULL) {

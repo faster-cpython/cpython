@@ -969,11 +969,13 @@ set_iter(PyObject *so)
     setiterobject *si = PyObject_GC_New(setiterobject, &PySetIter_Type);
     if (si == NULL)
         return NULL;
+    assert(si->ob_base.ob_flags & _Py_GC_OBJECT);
     si->si_set = (PySetObject*)Py_NewRef(so);
     si->si_used = size;
     si->si_pos = 0;
     si->len = size;
     _PyObject_GC_TRACK(si);
+    assert((si->ob_base.ob_flags & (_Py_GC_OBJECT | _Py_GC_TRACKED)) == (_Py_GC_OBJECT | _Py_GC_TRACKED));
     return (PyObject *)si;
 }
 

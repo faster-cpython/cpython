@@ -266,8 +266,6 @@ _Py_AddToAllObjects(PyObject *op)
 
 Py_NO_INLINE void Py_DecRef(PyObject *op)
 {
-    // Non-limited C API and limited C API for Python 3.9 and older access
-    // directly PyObject.ob_refcnt.
     if (_Py_IsImmortal(op)) {
         _Py_DECREF_IMMORTAL_STAT_INC();
         return;
@@ -280,14 +278,23 @@ Py_NO_INLINE void Py_DecRef(PyObject *op)
         _Py_Dealloc(op);
     }
     else if (PyObject_GC_IsTracked(op)) {
+        if (!_PyType_IS_GC(Py_TYPE(op))) {
+            Py_FatalError(Py_TYPE(op)->tp_name);
+        }
         _Py_CandidateCycleRoot(op);
-    }
+//     }
 }
 
 void Py_DecRefDebug(const char *filename, int lineno, PyObject *op)
 {
+
+    if (_Py_IsImmortal(op)) {
+        _Py_DECREF_IMMORTAL_STAT_INC();
+        return;
+    }
+    Py_DecrefMortalDebug(filename, lineno, op);
     // TO DO --implement properly
-     Py_DecRef(op);
+    Py_DecRef(op);
 }
 
 #ifdef Py_REF_DEBUG
@@ -2651,7 +2658,6 @@ new_reference(PyObject *op)
     op->ob_refcnt = 1;
 #endif
 #else
-    op->ob_flags = 0;
     op->ob_mutex = (PyMutex){ 0 };
 #ifdef _Py_THREAD_SANITIZER
     _Py_atomic_store_uintptr_relaxed(&op->ob_tid, _Py_ThreadId());
@@ -2706,7 +2712,7 @@ _Py_SetImmortalUntracked(PyObject *op)
     op->ob_ref_shared = 0;
     _Py_atomic_or_uint8(&op->ob_gc_bits, _PyGC_BITS_DEFERRED);
 #elif SIZEOF_VOID_P > 4
-    op->ob_flags = _Py_IMMORTAL_FLAGS;
+    op->ob_flags |= _Py_IMMORTAL_FLAGS;
     op->ob_refcnt = _Py_IMMORTAL_INITIAL_REFCNT;
 #else
     op->ob_refcnt = _Py_IMMORTAL_INITIAL_REFCNT;

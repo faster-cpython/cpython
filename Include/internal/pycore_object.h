@@ -438,7 +438,7 @@ _Py_DECREF_CODE(PyCodeObject *co)
 
 extern void _Py_CandidateCycleRoot(PyObject *op);
 
-static inline void Py_DECREF_MORTAL(const char *filename, int lineno, PyObject *op)
+static inline void Py_DecrefMortal(const char *filename, int lineno, PyObject *op)
 {
     if (op->ob_refcnt <= 0) {
         _Py_NegativeRefcount(filename, lineno, op);
@@ -451,11 +451,13 @@ static inline void Py_DECREF_MORTAL(const char *filename, int lineno, PyObject *
     if (--op->ob_refcnt == 0) {
         _Py_Dealloc(op);
     }
-    else if (PyObject_GC_IsTracked(op)) {
-        _Py_CandidateCycleRoot(op);
+    else {
+        if (PyObject_GC_IsTracked(op)) {
+            _Py_CandidateCycleRoot(op);
+        }
     }
 }
-#define Py_DECREF_MORTAL(op) Py_DECREF_MORTAL(__FILE__, __LINE__, _PyObject_CAST(op))
+#define Py_DECREF_MORTAL(op) Py_DecrefMortal(__FILE__, __LINE__, _PyObject_CAST(op))
 
 static inline void _Py_DECREF_MORTAL_SPECIALIZED(const char *filename, int lineno, PyObject *op, destructor destruct)
 {
@@ -486,6 +488,7 @@ extern Py_NO_INLINE PyAPI_FUNC(void) Py_DECREF_MORTAL(PyObject *op);
 static inline void Py_DECREF_MORTAL_SPECIALIZED(PyObject *op, destructor destruct)
 {
     assert(!_Py_IsStaticImmortal(op));
+    assert(!PyObject_GC_IsTracked(op));
     _Py_DECREF_STAT_INC();
     if (--op->ob_refcnt == 0) {
         _PyReftracerTrack(op, PyRefTracer_DESTROY);
@@ -852,9 +855,7 @@ _PyObject_GET_WEAKREFS_LISTPTR_FROM_OFFSET(PyObject *op)
 static inline int
 _PyObject_IS_GC(PyObject *obj)
 {
-    PyTypeObject *type = Py_TYPE(obj);
-    return (_PyType_IS_GC(type)
-            && (type->tp_is_gc == NULL || type->tp_is_gc(obj)));
+    return (obj->ob_flags & _Py_GC_OBJECT) != 0;
 }
 
 // Fast inlined version of PyObject_Hash()

@@ -169,7 +169,7 @@ long_alloc(Py_ssize_t size)
     Py_ssize_t ndigits = size ? size : 1;
 
     if (ndigits == 1) {
-        result = (PyLongObject *)_Py_FREELIST_POP(PyLongObject, ints);
+        result = (PyLongObject *)_Py_FREELIST_POP(PyLongObject, ints, 0);
     }
     if (result == NULL) {
         /* Number of bytes needed is: offsetof(PyLongObject, ob_digit) +
@@ -249,7 +249,7 @@ _PyLong_FromMedium(sdigit x)
     assert(!IS_SMALL_INT(x));
     assert(is_medium_int(x));
 
-    PyLongObject *v = (PyLongObject *)_Py_FREELIST_POP(PyLongObject, ints);
+    PyLongObject *v = (PyLongObject *)_Py_FREELIST_POP(PyLongObject, ints, 0);
     if (v == NULL) {
         v = PyObject_Malloc(sizeof(PyLongObject));
         if (v == NULL) {
@@ -329,7 +329,7 @@ medium_from_stwodigits(stwodigits x)
     if(!is_medium_int(x)) {
         return PyStackRef_NULL;
     }
-    PyLongObject *v = (PyLongObject *)_Py_FREELIST_POP(PyLongObject, ints);
+    PyLongObject *v = (PyLongObject *)_Py_FREELIST_POP(PyLongObject, ints, 0);
     if (v == NULL) {
         v = PyObject_Malloc(sizeof(PyLongObject));
         if (v == NULL) {

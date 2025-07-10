@@ -1934,6 +1934,7 @@ _PyObject_GC_Link(PyObject *op)
     gc->_gc_next = 0;
     gc->_gc_prev = 0;
     assert(op->ob_flags == 0);
+    op->ob_flags = _Py_GC_OBJECT;
     gcstate->live.count++; /* number of allocated GC objects */
     if (gcstate->live.count > gcstate->live.threshold &&
         gcstate->enabled &&
@@ -1967,7 +1968,6 @@ gc_alloc(PyTypeObject *tp, size_t basicsize, size_t presize)
     ((PyObject **)mem)[0] = NULL;
     ((PyObject **)mem)[1] = NULL;
     PyObject *op = (PyObject *)(mem + presize);
-    _PyObject_GC_Link(op);
     return op;
 }
 
@@ -1985,6 +1985,7 @@ _PyObject_GC_New(PyTypeObject *tp)
         return NULL;
     }
     _PyObject_Init(op, tp);
+    _PyObject_GC_Link(op);
     if (tp->tp_flags & Py_TPFLAGS_INLINE_VALUES) {
         _PyObject_InitInlineValues(op, tp);
     }
@@ -2007,6 +2008,7 @@ _PyObject_GC_NewVar(PyTypeObject *tp, Py_ssize_t nitems)
         return NULL;
     }
     _PyObject_InitVar(op, tp, nitems);
+    _PyObject_GC_Link((PyObject *)op);
     return op;
 }
 
@@ -2021,6 +2023,7 @@ PyUnstable_Object_GC_NewWithExtraData(PyTypeObject *tp, size_t extra_size)
     }
     memset((char *)op + sizeof(PyObject), 0, size - sizeof(PyObject));
     _PyObject_Init(op, tp);
+    _PyObject_GC_Link(op);
     return op;
 }
 
@@ -2069,7 +2072,9 @@ PyObject_GC_Del(void *op)
 int
 PyObject_GC_IsTracked(PyObject* obj)
 {
-    if (_PyObject_IS_GC(obj) && _PyObject_GC_IS_TRACKED(obj)) {
+    assert((obj->ob_flags & 63) == obj->ob_flags);
+    if (_PyObject_GC_IS_TRACKED(obj)) {
+        assert(_PyObject_IS_GC(obj));
         return 1;
     }
     return 0;

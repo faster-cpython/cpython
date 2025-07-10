@@ -246,6 +246,7 @@ PyAPI_FUNC(void) _Py_DecRef(PyObject *);
 
 static inline Py_ALWAYS_INLINE void Py_INCREF(PyObject *op)
 {
+    assert((op->ob_flags & (_Py_GC_OBJECT | _Py_GC_TRACKED)) != _Py_GC_TRACKED);
 #if defined(Py_LIMITED_API) && (Py_LIMITED_API+0 >= 0x030c0000 || defined(Py_REF_DEBUG))
     // Stable ABI implements Py_INCREF() as a function call on limited C API
     // version 3.12 and newer, and on Python built in debug mode. _Py_IncRef()

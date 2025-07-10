@@ -1972,7 +1972,7 @@ PyTypeObject _PyAsyncGenASend_Type = {
 static PyObject *
 async_gen_asend_new(PyAsyncGenObject *gen, PyObject *sendval)
 {
-    PyAsyncGenASend *ags = _Py_FREELIST_POP(PyAsyncGenASend, async_gen_asends);
+    PyAsyncGenASend *ags = _Py_FREELIST_POP(PyAsyncGenASend, async_gen_asends, 1);
     if (ags == NULL) {
         ags = PyObject_GC_New(PyAsyncGenASend, &_PyAsyncGenASend_Type);
         if (ags == NULL) {
@@ -2059,7 +2059,7 @@ _PyAsyncGenValueWrapperNew(PyThreadState *tstate, PyObject *val)
 {
     assert(val);
 
-    _PyAsyncGenWrappedValue *o = _Py_FREELIST_POP(_PyAsyncGenWrappedValue, async_gens);
+    _PyAsyncGenWrappedValue *o = _Py_FREELIST_POP(_PyAsyncGenWrappedValue, async_gens, 1);
     if (o == NULL) {
         o = PyObject_GC_New(_PyAsyncGenWrappedValue,
                             &_PyAsyncGenWrappedValue_Type);

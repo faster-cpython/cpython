@@ -3978,6 +3978,7 @@ get_memory_error(int allow_allocation, PyObject *args, PyObject *kwds)
         self->dict = NULL;
         self->args = (PyObject *)&_Py_SINGLETON(tuple_empty);
         _Py_NewReference((PyObject *)self);
+        ((PyObject *)self)->ob_flags = _Py_GC_OBJECT;
         _PyObject_GC_TRACK(self);
     }
     MEMERRORS_UNLOCK(state);

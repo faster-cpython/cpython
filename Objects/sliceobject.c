@@ -120,7 +120,7 @@ static PySliceObject *
 _PyBuildSlice_Consume2(PyObject *start, PyObject *stop, PyObject *step)
 {
     assert(start != NULL && stop != NULL && step != NULL);
-    PySliceObject *obj = _Py_FREELIST_POP(PySliceObject, slices);
+    PySliceObject *obj = _Py_FREELIST_POP(PySliceObject, slices, 1);
     if (obj == NULL) {
         obj = PyObject_GC_New(PySliceObject, &PySlice_Type);
         if (obj == NULL) {

@@ -2052,7 +2052,7 @@ future_new_iter(PyObject *fut)
     asyncio_state *state = get_asyncio_state_by_def((PyObject *)fut);
     ENSURE_FUTURE_ALIVE(state, fut)
 
-    it = _Py_FREELIST_POP(futureiterobject, futureiters);
+    it = _Py_FREELIST_POP(futureiterobject, futureiters, 1);
     if (it == NULL) {
         it = PyObject_GC_New(futureiterobject, state->FutureIterType);
         if (it == NULL) {

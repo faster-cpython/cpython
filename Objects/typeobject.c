@@ -2489,9 +2489,6 @@ _PyType_AllocNoTrack(PyTypeObject *type, Py_ssize_t nitems)
         ((PyObject **)alloc)[0] = NULL;
         ((PyObject **)alloc)[1] = NULL;
     }
-    if (PyType_IS_GC(type)) {
-        _PyObject_GC_Link(obj);
-    }
     // Zero out the object after the PyObject header. The header fields are
     // initialized by _PyObject_Init[Var]().
     memset((char *)obj + sizeof(PyObject), 0, size - sizeof(PyObject));
@@ -2501,6 +2498,9 @@ _PyType_AllocNoTrack(PyTypeObject *type, Py_ssize_t nitems)
     }
     else {
         _PyObject_InitVar((PyVarObject *)obj, type, nitems);
+    }
+    if (PyType_IS_GC(type)) {
+        _PyObject_GC_Link(obj);
     }
     if (type->tp_flags & Py_TPFLAGS_INLINE_VALUES) {
         _PyObject_InitInlineValues(obj, type);
