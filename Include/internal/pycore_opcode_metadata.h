@@ -482,6 +482,8 @@ int _PyOpcode_num_popped(int opcode, int oparg)  {
             return 3;
         case SWAP:
             return 2 + (oparg-2);
+        case THROW_CONTINUATION:
+            return 2;
         case TO_BOOL:
             return 1;
         case TO_BOOL_ALWAYS_TRUE:
@@ -973,6 +975,8 @@ int _PyOpcode_num_pushed(int opcode, int oparg)  {
             return 0;
         case SWAP:
             return 2 + (oparg-2);
+        case THROW_CONTINUATION:
+            return 0;
         case TO_BOOL:
             return 1;
         case TO_BOOL_ALWAYS_TRUE:
@@ -1298,6 +1302,7 @@ const struct opcode_metadata _PyOpcode_opcode_metadata[267] = {
     [STORE_SUBSCR_DICT] = { true, INSTR_FMT_IXC, HAS_EXIT_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [STORE_SUBSCR_LIST_INT] = { true, INSTR_FMT_IXC, HAS_DEOPT_FLAG | HAS_EXIT_FLAG | HAS_ESCAPES_FLAG },
     [SWAP] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_PURE_FLAG },
+    [THROW_CONTINUATION] = { true, INSTR_FMT_IX, HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG | HAS_ESCAPES_FLAG },
     [TO_BOOL] = { true, INSTR_FMT_IXC00, HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [TO_BOOL_ALWAYS_TRUE] = { true, INSTR_FMT_IXC00, HAS_EXIT_FLAG | HAS_ESCAPES_FLAG },
     [TO_BOOL_BOOL] = { true, INSTR_FMT_IXC00, HAS_EXIT_FLAG },
@@ -1751,6 +1756,7 @@ const char *_PyOpcode_OpName[267] = {
     [STORE_SUBSCR_DICT] = "STORE_SUBSCR_DICT",
     [STORE_SUBSCR_LIST_INT] = "STORE_SUBSCR_LIST_INT",
     [SWAP] = "SWAP",
+    [THROW_CONTINUATION] = "THROW_CONTINUATION",
     [TO_BOOL] = "TO_BOOL",
     [TO_BOOL_ALWAYS_TRUE] = "TO_BOOL_ALWAYS_TRUE",
     [TO_BOOL_BOOL] = "TO_BOOL_BOOL",
@@ -2011,6 +2017,7 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [STORE_SUBSCR_DICT] = STORE_SUBSCR,
     [STORE_SUBSCR_LIST_INT] = STORE_SUBSCR,
     [SWAP] = SWAP,
+    [THROW_CONTINUATION] = THROW_CONTINUATION,
     [TO_BOOL] = TO_BOOL,
     [TO_BOOL_ALWAYS_TRUE] = TO_BOOL,
     [TO_BOOL_BOOL] = TO_BOOL,
@@ -2033,7 +2040,6 @@ const uint8_t _PyOpcode_Deopt[256] = {
 #endif // NEED_OPCODE_METADATA
 
 #define EXTRA_CASES \
-    case 123: \
     case 124: \
     case 125: \
     case 126: \

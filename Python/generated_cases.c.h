@@ -11737,6 +11737,63 @@
             DISPATCH();
         }
 
+        TARGET(THROW_CONTINUATION) {
+            #if Py_TAIL_CALL_INTERP
+            int opcode = THROW_CONTINUATION;
+            (void)(opcode);
+            #endif
+            frame->instr_ptr = next_instr;
+            next_instr += 1;
+            INSTRUCTION_STATS(THROW_CONTINUATION);
+            _PyStackRef cont;
+            _PyStackRef val;
+            val = stack_pointer[-1];
+            cont = stack_pointer[-2];
+            _PyFrame_SetStackPointer(frame, stack_pointer);
+            assert(tstate->py_recursion_limit - tstate->py_recursion_remaining == get_recursion_depth(tstate->current_frame));
+            stack_pointer = _PyFrame_GetStackPointer(frame);
+            PyContinuationObject *prev = tstate->current_continuation;
+            if (prev == NULL) {
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                PyErr_SetString(PyExc_RuntimeError, "Cannot throw into a continuation from outside a continuation");
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                JUMP_TO_LABEL(error);
+            }
+            if (prev->root_frame->previous != &entry.frame) {
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                PyErr_SetString(PyExc_RuntimeError, "Cannot throw into continuation across builtin function call");
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                JUMP_TO_LABEL(error);
+            }
+            PyContinuationObject *continuation = (PyContinuationObject *)PyStackRef_AsPyObjectSteal(cont);
+            if (continuation->completed) {
+                stack_pointer += -2;
+                assert(WITHIN_STACK_BOUNDS());
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                PyStackRef_CLOSE( val);
+                Py_DECREF(continuation);
+                PyErr_SetString(PyExc_RuntimeError, "Cannot resume a completed continuation");
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                JUMP_TO_LABEL(error);
+            }
+            PyObject *exc = PyStackRef_AsPyObjectSteal(val);
+            stack_pointer += -2;
+            assert(WITHIN_STACK_BOUNDS());
+            _PyFrame_SetStackPointer(frame, stack_pointer);
+            frame->return_offset = 1 ;
+            _Py_Continuation_Detach(tstate);
+            _Py_Continuation_Attach(tstate, continuation);
+            frame = tstate->current_frame;
+            assert(tstate->py_recursion_limit - tstate->py_recursion_remaining == get_recursion_depth(frame));
+            stack_pointer = _PyFrame_GetStackPointer(frame);
+            LOAD_IP(frame->return_offset);
+            LLTRACE_RESUME_FRAME();
+            _PyFrame_SetStackPointer(frame, stack_pointer);
+            do_raise(tstate, exc, NULL);
+            stack_pointer = _PyFrame_GetStackPointer(frame);
+            JUMP_TO_LABEL(error);
+        }
+
         TARGET(TO_BOOL) {
             #if Py_TAIL_CALL_INTERP
             int opcode = TO_BOOL;

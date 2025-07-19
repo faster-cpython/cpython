@@ -5217,6 +5217,43 @@ dummy_func(
             LLTRACE_RESUME_FRAME();
         }
 
+        tier1 inst(THROW_CONTINUATION, (cont, val -- )) {
+            assert(tstate->py_recursion_limit - tstate->py_recursion_remaining == get_recursion_depth(tstate->current_frame));
+            PyContinuationObject *prev = tstate->current_continuation;
+            if (prev == NULL) {
+                PyErr_SetString(PyExc_RuntimeError, "Cannot throw into a continuation from outside a continuation");
+                ERROR_NO_POP();
+            }
+            if (prev->root_frame->previous != &entry.frame) {
+                PyErr_SetString(PyExc_RuntimeError, "Cannot throw into continuation across builtin function call");
+                ERROR_NO_POP();
+            }
+            PyContinuationObject *continuation = (PyContinuationObject *)PyStackRef_AsPyObjectSteal(cont);
+            // TO DO -- Check that continuation is actually a Continuation.
+            // if (Py_TYPE(continuation) != &PyContinuation_Type) {
+            //     PyErr_SetString(PyExc_TypeError, "Expected a continuation");
+            //     return -1;
+            // }
+            if (continuation->completed) {
+                PyStackRef_CLOSE( val);
+                Py_DECREF(continuation);
+                PyErr_SetString(PyExc_RuntimeError, "Cannot resume a completed continuation");
+                ERROR_IF(true);
+            }
+            PyObject *exc = PyStackRef_AsPyObjectSteal(val);
+            SAVE_STACK();
+            frame->return_offset = INSTRUCTION_SIZE;
+            _Py_Continuation_Detach(tstate);
+            _Py_Continuation_Attach(tstate, continuation);
+            frame = tstate->current_frame;
+            RELOAD_STACK();
+            assert(tstate->py_recursion_limit - tstate->py_recursion_remaining == get_recursion_depth(frame));
+            LOAD_IP(frame->return_offset);
+            LLTRACE_RESUME_FRAME();
+            do_raise(tstate, exc, NULL);
+            ERROR_IF(true);
+        }
+
         tier1 inst(PAUSE_CONTINUATION, (val -- )) {
             if (tstate->current_continuation == NULL) {
                 PyErr_SetString(PyExc_RuntimeError, "No continuation to pause");

@@ -19,6 +19,10 @@ class Continuation(_continuations._Continuation):
     def send(self, value):
         return self is value
 
+    @replace_opcode("IS_OP", "THROW_CONTINUATION")
+    def throw(self, value):
+        return self is value
+
     @replace_opcode("UNARY_NEGATIVE", "PAUSE_CONTINUATION")
     def _start(self, *args, **kwargs):
         -None
