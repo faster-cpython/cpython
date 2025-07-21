@@ -15,6 +15,8 @@ from analyzer import (
     StackItem,
     analysis_error,
     get_uop_cache_depths,
+    is_large,
+    MAX_CACHED_REGISTER,
 )
 from generators_common import (
     DEFAULT_INPUT,
@@ -208,6 +210,7 @@ def generate_tier2(
                 f"/* {uop.name} is not a viable micro-op for tier 2 because it {why_not_viable} */\n\n"
             )
             continue
+        zero_regs = is_large(uop) or uop.properties.escapes
         for inputs, outputs, exit_depth in get_uop_cache_depths(uop):
             emitter = Tier2Emitter(out, analysis.labels, exit_depth)
             out.emit(f"case {uop.name}_r{inputs}{outputs}: {{\n")
@@ -218,6 +221,13 @@ def generate_tier2(
             stack._print(out)
             stack = write_uop(uop, emitter, stack, outputs)
             out.start_line()
+            if zero_regs:
+                # TO DO -- For compilers that support it,
+                # replace this with a "clobber" to tell
+                # the compiler that these values are unused
+                # without having to emit any code.
+                for i in range(outputs, MAX_CACHED_REGISTER):
+                    out.emit(f"_tos_cache{i} = PyStackRef_ZERO_BITS;\n")
             out.emit(f"SET_CURRENT_CACHED_VALUES({outputs});\n")
             if not uop.properties.always_exits:
                 out.emit("break;\n")

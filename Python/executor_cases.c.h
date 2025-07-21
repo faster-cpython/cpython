@@ -57,6 +57,9 @@
                     JUMP_TO_ERROR();
                 }
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -77,6 +80,9 @@
                     }
                 }
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -272,6 +278,8 @@
             }
             value = PyStackRef_DUP(value_s);
             _tos_cache0 = value;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -1338,6 +1346,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_XCLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1354,6 +1365,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_XCLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1370,6 +1384,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_XCLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1386,6 +1403,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_XCLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1402,6 +1422,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_XCLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1418,6 +1441,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_XCLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1434,6 +1460,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_XCLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1450,6 +1479,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_XCLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1465,6 +1497,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_XCLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1477,6 +1512,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_XCLOSE(value);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1656,6 +1694,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(nos);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1701,6 +1742,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(value);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1717,6 +1761,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(iter);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -1740,6 +1787,8 @@
             _tos_cache0 = val;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -1763,6 +1812,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -1847,6 +1898,8 @@
             }
             res = err ? PyStackRef_True : PyStackRef_False;
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -1943,6 +1996,8 @@
                 res = PyStackRef_True;
             }
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -2173,6 +2228,8 @@
             _tos_cache0 = res;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -2410,6 +2467,8 @@
                 res = PyStackRef_True;
             }
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -2425,6 +2484,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             res = PyStackRef_True;
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -2448,6 +2509,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -2756,6 +2819,8 @@
             PyStackRef_CLOSE_SPECIALIZED(right, _PyLong_ExactDealloc);
             PyStackRef_CLOSE_SPECIALIZED(left, _PyLong_ExactDealloc);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -2784,6 +2849,8 @@
             PyStackRef_CLOSE_SPECIALIZED(right, _PyLong_ExactDealloc);
             PyStackRef_CLOSE_SPECIALIZED(left, _PyLong_ExactDealloc);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -2812,6 +2879,8 @@
             PyStackRef_CLOSE_SPECIALIZED(right, _PyLong_ExactDealloc);
             PyStackRef_CLOSE_SPECIALIZED(left, _PyLong_ExactDealloc);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -2975,6 +3044,8 @@
                 JUMP_TO_ERROR();
             }
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3002,6 +3073,8 @@
                 JUMP_TO_ERROR();
             }
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3029,6 +3102,8 @@
                 JUMP_TO_ERROR();
             }
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3056,6 +3131,8 @@
                 JUMP_TO_ERROR();
             }
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3083,6 +3160,8 @@
                 JUMP_TO_ERROR();
             }
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3110,6 +3189,8 @@
                 JUMP_TO_ERROR();
             }
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3137,6 +3218,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3187,6 +3270,9 @@
             assert(next_instr->op.code == STORE_FAST);
             SKIP_OVER(1);
             #endif
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -3211,6 +3297,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_JUMP_TARGET();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -3243,6 +3332,8 @@
             assert(WITHIN_STACK_BOUNDS());
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3284,6 +3375,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3331,6 +3424,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -3390,6 +3486,8 @@
             _tos_cache0 = res;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3427,6 +3525,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3481,6 +3581,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             res = PyStackRef_FromPyObjectBorrow(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3670,6 +3772,8 @@
             _tos_cache0 = res;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3848,6 +3952,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -3970,6 +4076,9 @@
             }
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4003,6 +4112,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4067,6 +4179,9 @@
             PyStackRef_CLOSE(list_st);
             Py_DECREF(old_value);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4096,6 +4211,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4124,6 +4242,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4149,6 +4270,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -4183,6 +4306,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -4207,6 +4332,8 @@
             res = temp;
             LLTRACE_RESUME_FRAME();
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -4264,6 +4391,8 @@
             }
             iter = PyStackRef_FromPyObjectSteal(iter_o);
             _tos_cache0 = iter;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -4282,6 +4411,8 @@
             }
             awaitable = PyStackRef_FromPyObjectSteal(awaitable_o);
             _tos_cache0 = awaitable;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -4306,6 +4437,8 @@
             }
             iter = PyStackRef_FromPyObjectSteal(iter_o);
             _tos_cache0 = iter;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -4353,6 +4486,7 @@
             gen_frame = PyStackRef_Wrap(pushed_frame);
             _tos_cache1 = gen_frame;
             _tos_cache0 = receiver;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(2);
             break;
         }
@@ -4392,6 +4526,8 @@
             value = PyStackRef_MakeHeapSafe(temp);
             LLTRACE_RESUME_FRAME();
             _tos_cache0 = value;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -4408,6 +4544,9 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4472,6 +4611,8 @@
             }
             bc = PyStackRef_FromPyObjectSteal(bc_o);
             _tos_cache0 = bc;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -4516,6 +4657,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4546,6 +4690,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4570,6 +4717,9 @@
             }
             stack_pointer += oparg;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4607,6 +4757,7 @@
             _tos_cache0 = val1;
             stack_pointer += -2;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(2);
             break;
         }
@@ -4639,6 +4790,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(seq);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4683,6 +4837,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(seq);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4707,6 +4864,9 @@
             }
             stack_pointer += 1 + (oparg & 0xFF) + (oparg >> 8);
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4737,6 +4897,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4759,6 +4922,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4781,6 +4947,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4804,6 +4973,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -4822,6 +4994,8 @@
             }
             locals = PyStackRef_FromPyObjectNew(l);
             _tos_cache0 = locals;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -4842,6 +5016,8 @@
             }
             v = PyStackRef_FromPyObjectSteal(v_o);
             _tos_cache0 = v;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -4861,6 +5037,9 @@
             }
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -5033,6 +5212,8 @@
             #endif
             STAT_INC(LOAD_GLOBAL, hit);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -5074,6 +5255,8 @@
             #endif
             STAT_INC(LOAD_GLOBAL, hit);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -5097,6 +5280,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_XCLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -5115,6 +5301,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_XCLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -5134,6 +5323,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             Py_DECREF(oldobj);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -5175,6 +5367,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             value = PyStackRef_FromPyObjectSteal(value_o);
             _tos_cache0 = value;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -5198,6 +5392,8 @@
                 JUMP_TO_ERROR();
             }
             _tos_cache0 = value;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -5213,6 +5409,9 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -5230,6 +5429,9 @@
                 PyObject *o = PyTuple_GET_ITEM(closure, i);
                 frame->localsplus[offset + i] = PyStackRef_FromPyObjectNew(o);
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -5273,6 +5475,8 @@
             }
             str = PyStackRef_FromPyObjectSteal(str_o);
             _tos_cache0 = str;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -5326,6 +5530,8 @@
             }
             interpolation = PyStackRef_FromPyObjectSteal(interpolation_o);
             _tos_cache0 = interpolation;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -5358,6 +5564,8 @@
             }
             template = PyStackRef_FromPyObjectSteal(template_o);
             _tos_cache0 = template;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -5398,6 +5606,8 @@
             _tos_cache0 = list;
             stack_pointer += -oparg;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -5442,6 +5652,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(iterable_st);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -5466,6 +5679,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -5521,6 +5737,8 @@
             _tos_cache0 = set;
             stack_pointer += -oparg;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -5569,6 +5787,8 @@
             }
             map = PyStackRef_FromPyObjectStealMortal(map_o);
             _tos_cache0 = map;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -5614,6 +5834,9 @@
                 Py_DECREF(ann_dict);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -5654,6 +5877,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(update);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -5690,6 +5916,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(update);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -5720,6 +5949,9 @@
             }
             stack_pointer += -2;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -5773,6 +6005,8 @@
             }
             attr_st = PyStackRef_FromPyObjectSteal(attr);
             _tos_cache0 = attr_st;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -5842,6 +6076,7 @@
             attr = PyStackRef_FromPyObjectSteal(attr_o);
             _tos_cache1 = self_or_null;
             _tos_cache0 = attr;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(2);
             break;
         }
@@ -5898,6 +6133,9 @@
             stack_pointer[-1] = attr;
             stack_pointer += (oparg&1);
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -6221,6 +6459,8 @@
             _tos_cache0 = attr;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -6290,6 +6530,8 @@
             _tos_cache0 = attr;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -6394,6 +6636,8 @@
             _tos_cache0 = attr;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -6442,6 +6686,8 @@
             _tos_cache0 = attr;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -6564,6 +6810,8 @@
             _tos_cache0 = attr;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -6617,6 +6865,8 @@
             pushed_frame->localsplus[0] = owner;
             new_frame = PyStackRef_Wrap(pushed_frame);
             _tos_cache0 = new_frame;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -6740,6 +6990,9 @@
             PyStackRef_CLOSE(owner);
             Py_XDECREF(old_value);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -6816,6 +7069,9 @@
             PyStackRef_CLOSE(owner);
             Py_XDECREF(old_value);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -6848,6 +7104,9 @@
             PyStackRef_CLOSE(owner);
             Py_XDECREF(old_value);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -6895,6 +7154,8 @@
                 res = PyStackRef_FromPyObjectSteal(res_o);
             }
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -6919,6 +7180,8 @@
             PyStackRef_CLOSE_SPECIALIZED(right, _PyFloat_ExactDealloc);
             res = (sign_ish & oparg) ? PyStackRef_True : PyStackRef_False;
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -6947,6 +7210,8 @@
             PyStackRef_CLOSE_SPECIALIZED(right, _PyLong_ExactDealloc);
             res =  (sign_ish & oparg) ? PyStackRef_True : PyStackRef_False;
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -6973,6 +7238,8 @@
             assert(COMPARISON_NOT_EQUALS + 1 == COMPARISON_EQUALS);
             res = ((COMPARISON_NOT_EQUALS + eq) & oparg) ? PyStackRef_True : PyStackRef_False;
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7001,6 +7268,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             b = res ? PyStackRef_True : PyStackRef_False;
             _tos_cache0 = b;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7034,6 +7303,8 @@
             }
             b = (res ^ oparg) ? PyStackRef_True : PyStackRef_False;
             _tos_cache0 = b;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7149,6 +7420,8 @@
             }
             b = (res ^ oparg) ? PyStackRef_True : PyStackRef_False;
             _tos_cache0 = b;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7184,6 +7457,8 @@
             }
             b = (res ^ oparg) ? PyStackRef_True : PyStackRef_False;
             _tos_cache0 = b;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7251,6 +7526,7 @@
             match = PyStackRef_FromPyObjectSteal(match_o);
             _tos_cache1 = match;
             _tos_cache0 = rest;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(2);
             break;
         }
@@ -7282,6 +7558,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             b = res ? PyStackRef_True : PyStackRef_False;
             _tos_cache0 = b;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7316,6 +7594,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7336,6 +7616,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7367,6 +7649,8 @@
                 stack_pointer += -1;
             }
             _tos_cache0 = b;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7390,6 +7674,8 @@
             }
             len = PyStackRef_FromPyObjectSteal(len_o);
             _tos_cache0 = len;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7437,6 +7723,8 @@
                 attrs = PyStackRef_None;
             }
             _tos_cache0 = attrs;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7542,6 +7830,8 @@
             }
             values_or_none = PyStackRef_FromPyObjectSteal(values_or_none_o);
             _tos_cache0 = values_or_none;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7584,6 +7874,7 @@
             _tos_cache0 = iter;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(2);
             break;
         }
@@ -7628,6 +7919,8 @@
             _tos_cache0 = iter;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7659,6 +7952,8 @@
             next = item;
             _tos_cache0 = next;
             stack_pointer[-1] = null_or_index;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -7893,6 +8188,8 @@
             null_or_index = PyStackRef_IncrementTaggedIntNoOverflow(null_or_index);
             _tos_cache0 = next;
             stack_pointer[-1] = null_or_index;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -8380,6 +8677,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -8419,6 +8719,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -8820,6 +9122,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             attr = PyStackRef_FromPyObjectNew(descr);
             _tos_cache0 = attr;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -8841,6 +9145,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             attr = PyStackRef_FromPyObjectNew(descr);
             _tos_cache0 = attr;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -9019,6 +9325,9 @@
             }
             stack_pointer[-2 - oparg] = callable;
             stack_pointer[-1 - oparg] = self_or_null;
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -9060,6 +9369,8 @@
             }
             new_frame = PyStackRef_Wrap(temp);
             _tos_cache0 = new_frame;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -9211,6 +9522,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(temp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -9310,6 +9624,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -9353,6 +9669,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(temp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -9553,6 +9872,8 @@
             _tos_cache0 = new_frame;
             stack_pointer += -2 - oparg;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -9580,6 +9901,8 @@
             _tos_cache0 = new_frame;
             stack_pointer += -2 - oparg;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -9607,6 +9930,8 @@
             _tos_cache0 = new_frame;
             stack_pointer += -2 - oparg;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -9634,6 +9959,8 @@
             _tos_cache0 = new_frame;
             stack_pointer += -2 - oparg;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -9661,6 +9988,8 @@
             _tos_cache0 = new_frame;
             stack_pointer += -2 - oparg;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -9687,6 +10016,8 @@
             _tos_cache0 = new_frame;
             stack_pointer += -2 - oparg;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -9706,6 +10037,9 @@
             LOAD_SP();
             LOAD_IP(0);
             LLTRACE_RESUME_FRAME();
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -9931,6 +10265,8 @@
             _tos_cache0 = res;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -9989,6 +10325,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -10047,6 +10385,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -10103,6 +10443,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(temp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -10141,6 +10484,8 @@
             tstate->py_recursion_remaining--;
             init_frame = PyStackRef_Wrap(temp);
             _tos_cache0 = init_frame;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -10160,6 +10505,9 @@
             }
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -10244,6 +10592,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -10306,6 +10656,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -10394,6 +10746,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -10482,6 +10836,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -10549,6 +10905,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -10619,6 +10977,8 @@
             res = retval ? PyStackRef_True : PyStackRef_False;
             assert((!PyStackRef_IsNull(res)) ^ (_PyErr_Occurred(tstate) != NULL));
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -10706,6 +11066,9 @@
             assert(next_instr->op.code == POP_TOP);
             SKIP_OVER(1);
             #endif
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -10790,6 +11153,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -10892,6 +11257,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -10963,6 +11330,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -11063,6 +11432,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -11091,6 +11462,9 @@
             }
             stack_pointer[-3 - oparg] = callable;
             stack_pointer[-2 - oparg] = self_or_null;
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -11140,6 +11514,8 @@
             }
             new_frame = PyStackRef_Wrap(temp);
             _tos_cache0 = new_frame;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -11223,6 +11599,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(callable_s);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -11336,6 +11715,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -11370,6 +11751,9 @@
                 stack_pointer = _PyFrame_GetStackPointer(frame);
             }
             stack_pointer[-2] = callargs;
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -11399,6 +11783,8 @@
                                    func_obj, ((PyCodeObject *)codeobj)->co_version);
             func = PyStackRef_FromPyObjectSteal((PyObject *)func_obj);
             _tos_cache0 = func;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -11423,6 +11809,8 @@
             assert(*ptr == NULL);
             *ptr = attr;
             _tos_cache0 = func_out;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -11456,6 +11844,8 @@
             res = PyStackRef_FromPyObjectStealMortal((PyObject *)gen);
             LLTRACE_RESUME_FRAME();
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -11486,6 +11876,8 @@
             }
             slice = PyStackRef_FromPyObjectStealMortal(slice_o);
             _tos_cache0 = slice;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -11513,6 +11905,8 @@
             }
             result = PyStackRef_FromPyObjectSteal(result_o);
             _tos_cache0 = result;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -11543,6 +11937,8 @@
                 stack_pointer += -1;
             }
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -11573,6 +11969,8 @@
             }
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache0 = res;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -11696,6 +12094,8 @@
             _tos_cache0 = res;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -11867,6 +12267,9 @@
                     JUMP_TO_JUMP_TARGET();
                 }
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -11885,6 +12288,9 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_JUMP_TARGET();
             }
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -12162,6 +12568,9 @@
                 exit->executor = executor;
             }
             GOTO_TIER_TWO(exit->executor);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -12235,6 +12644,9 @@
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
             GOTO_TIER_TWO(exit->executor);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -12314,6 +12726,9 @@
             stack_pointer += 2;
             assert(WITHIN_STACK_BOUNDS());
             GOTO_TIER_TWO(exit->executor);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -12399,6 +12814,9 @@
             stack_pointer += 3;
             assert(WITHIN_STACK_BOUNDS());
             GOTO_TIER_TWO(exit->executor);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -12519,6 +12937,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             value = PyStackRef_FromPyObjectNew(ptr);
             _tos_cache0 = value;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -12571,6 +12991,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(callable);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -12599,6 +13022,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(callable);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -12634,6 +13060,9 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyStackRef_CLOSE(callable);
             stack_pointer = _PyFrame_GetStackPointer(frame);
+            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
             break;
         }
@@ -12650,6 +13079,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             value = PyStackRef_FromPyObjectBorrow(ptr);
             _tos_cache0 = value;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -12677,6 +13108,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             value = PyStackRef_FromPyObjectBorrow(ptr);
             _tos_cache0 = value;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -12697,6 +13130,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             value = PyStackRef_FromPyObjectBorrow(ptr);
             _tos_cache0 = value;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -12729,6 +13164,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             value = PyStackRef_FromPyObjectBorrow(ptr);
             _tos_cache0 = value;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
@@ -12768,6 +13205,8 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             value = PyStackRef_FromPyObjectBorrow(ptr);
             _tos_cache0 = value;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(1);
             break;
         }
