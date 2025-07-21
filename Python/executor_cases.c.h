@@ -6084,20 +6084,20 @@
         case _LOAD_ATTR_r00: {
             CHECK_CURRENT_CACHED_VALUES(0);
             _PyStackRef owner;
-            _PyStackRef attr;
+            _PyStackRef *attr;
             _PyStackRef *self_or_null;
             oparg = CURRENT_OPARG();
             owner = stack_pointer[-1];
+            attr = &stack_pointer[-1];
             self_or_null = &stack_pointer[0];
             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg >> 1);
-            PyObject *attr_o;
             if (oparg & 1) {
-                attr_o = NULL;
+                *attr = PyStackRef_NULL;
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                int is_meth = _PyObject_GetMethod(PyStackRef_AsPyObjectBorrow(owner), name, &attr_o);
+                int is_meth = _PyObject_GetMethodStackRef(tstate, PyStackRef_AsPyObjectBorrow(owner), name, attr);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
                 if (is_meth) {
-                    assert(attr_o != NULL);
+                    assert(!PyStackRef_IsNull(*attr));
                     self_or_null[0] = owner;
                 }
                 else {
@@ -6106,7 +6106,7 @@
                     _PyFrame_SetStackPointer(frame, stack_pointer);
                     PyStackRef_CLOSE(owner);
                     stack_pointer = _PyFrame_GetStackPointer(frame);
-                    if (attr_o == NULL) {
+                    if (PyStackRef_IsNull(*attr)) {
                         SET_CURRENT_CACHED_VALUES(0);
                         JUMP_TO_ERROR();
                     }
@@ -6116,7 +6116,7 @@
             }
             else {
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                attr_o = PyObject_GetAttr(PyStackRef_AsPyObjectBorrow(owner), name);
+                PyObject *attr_o = PyObject_GetAttr(PyStackRef_AsPyObjectBorrow(owner), name);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
                 stack_pointer += -1;
                 assert(WITHIN_STACK_BOUNDS());
@@ -6127,10 +6127,9 @@
                     SET_CURRENT_CACHED_VALUES(0);
                     JUMP_TO_ERROR();
                 }
+                *attr = PyStackRef_FromPyObjectSteal(attr_o);
                 stack_pointer += 1;
             }
-            attr = PyStackRef_FromPyObjectSteal(attr_o);
-            stack_pointer[-1] = attr;
             stack_pointer += (oparg&1);
             assert(WITHIN_STACK_BOUNDS());
             _tos_cache0 = PyStackRef_ZERO_BITS;
@@ -7018,16 +7017,6 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_JUMP_TARGET();
             }
-            #ifdef Py_GIL_DISABLED
-            if (dict != _PyObject_GetManagedDict(owner_o)) {
-                UNLOCK_OBJECT(dict);
-                if (true) {
-                    UOP_STAT_INC(uopcode, miss);
-                    SET_CURRENT_CACHED_VALUES(0);
-                    JUMP_TO_JUMP_TARGET();
-                }
-            }
-            #endif
             assert(PyDict_CheckExact((PyObject *)dict));
             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg);
             if (hint >= (size_t)dict->ma_keys->dk_nentries ||

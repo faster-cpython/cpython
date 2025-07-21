@@ -12,6 +12,6 @@ _JIT_ENTRY(
     _PyStackRef _tos_cache0, _PyStackRef _tos_cache1, _PyStackRef _tos_cache2
 ) {
     // Note that this is *not* a tail call:
-    PATCH_VALUE(jit_func_preserve_none, call, _JIT_CONTINUE);
-    return call(frame, stack_pointer, tstate, _tos_cache0, _tos_cache1, _tos_cache2);
+    DECLARE_TARGET(_JIT_CONTINUE);
+    return _JIT_CONTINUE(frame, stack_pointer, tstate, _tos_cache0, _tos_cache1, _tos_cache2);
 }
