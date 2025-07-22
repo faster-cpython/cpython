@@ -1229,11 +1229,11 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int, int]]:
                 if inputs != outputs:
                     yield inputs, outputs, inputs
         return
-    if uop.name == "_EXIT_TRACE":
+    if uop.name in ("_DEOPT", "_EXIT_TRACE"):
         for i in range(MAX_CACHED_REGISTER+1):
             yield i, 0, i
         return
-    if uop.name in ("_START_EXECUTOR", "_JUMP_TO_TOP", "_DEOPT", "_ERROR_POP_N"):
+    if uop.name in ("_START_EXECUTOR", "_JUMP_TO_TOP", "_ERROR_POP_N"):
         yield 0, 0, 0
         return
     non_decref_escape = False

@@ -1017,9 +1017,6 @@ get_cached_entries_for_side_exit(_PyUOpInstruction *inst)
     // TO DO -- Add another generated table for this?
     int base_opcode = _PyUop_Uncached[inst->opcode];
     assert(base_opcode != 0);
-    if (_PyUop_Flags[base_opcode] & HAS_DEOPT_FLAG) {
-        return 0;
-    }
     int input = -1;
     /* Find number of cached entries at input. */
     for (int i = 0; i <= MAX_CACHED_REGISTER; i++) {
