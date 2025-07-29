@@ -368,12 +368,20 @@ class Condition:
                     gotit = waiter.acquire(False)
             return gotit
         finally:
-            self._acquire_restore(saved_state)
+            e = None
+            try:
+                # If a keybord interrupt is pending it will trigger here
+                self._acquire_restore(saved_state)
+            except KeyboardInterrupt as ex:
+                self._acquire_restore(saved_state)
+                e = ex
             if not gotit:
                 try:
                     self._waiters.remove(waiter)
                 except ValueError:
                     pass
+            if e is not None:
+                raise e from None
 
     def wait_for(self, predicate, timeout=None):
         """Wait until a condition evaluates to True.

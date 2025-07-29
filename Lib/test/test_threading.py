@@ -2366,6 +2366,10 @@ class MiscTestCase(unittest.TestCase):
         self.assertEqual(name2, "new name")
 
 
+def nop():
+    pass
+
+
 class InterruptMainTests(unittest.TestCase):
     def check_interrupt_main_with_signal_handler(self, signum):
         def handler(signum, frame):
@@ -2376,6 +2380,9 @@ class InterruptMainTests(unittest.TestCase):
 
         with self.assertRaises(ZeroDivisionError):
             _thread.interrupt_main()
+            # Force VM to check for interrupts
+            nop()
+
 
     def check_interrupt_main_noerror(self, signum):
         handler = signal.getsignal(signum)
@@ -2400,6 +2407,8 @@ class InterruptMainTests(unittest.TestCase):
         with self.assertRaises(KeyboardInterrupt):
             t.start()
             t.join()
+            # Force VM to check for interrupts
+            nop()
         t.join()
 
     def test_interrupt_main_mainthread(self):
@@ -2407,6 +2416,8 @@ class InterruptMainTests(unittest.TestCase):
         # KeyboardInterrupt is raised instantly.
         with self.assertRaises(KeyboardInterrupt):
             _thread.interrupt_main()
+            # Force VM to check for interrupts
+            nop()
 
     def test_interrupt_main_with_signal_handler(self):
         self.check_interrupt_main_with_signal_handler(signal.SIGINT)

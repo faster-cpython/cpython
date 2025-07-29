@@ -1439,10 +1439,13 @@ class RaiseSignalTest(unittest.TestCase):
     def test__thread_interrupt_main(self):
         # See https://github.com/python/cpython/issues/102397
         code = """if 1:
+        def nop():
+            pass
         import _thread
         class Foo():
             def __del__(self):
                 _thread.interrupt_main()
+                nop()
 
         x = Foo()
         """
@@ -1450,6 +1453,9 @@ class RaiseSignalTest(unittest.TestCase):
         rc, out, err = assert_python_ok('-c', code)
         self.assertIn(b'OSError: Signal 2 ignored due to race condition', err)
 
+
+def nop():
+    pass
 
 
 class PidfdSignalTest(unittest.TestCase):
@@ -1472,6 +1478,8 @@ class PidfdSignalTest(unittest.TestCase):
             signal.pidfd_send_signal(my_pidfd, signal.SIGINT, object(), 0)
         with self.assertRaises(KeyboardInterrupt):
             signal.pidfd_send_signal(my_pidfd, signal.SIGINT)
+            # Force VM to check for signal
+            nop()
 
 def tearDownModule():
     support.reap_children()

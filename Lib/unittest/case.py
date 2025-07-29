@@ -206,6 +206,9 @@ class _BaseTestCaseContext:
         msg = self.test_case._formatMessage(self.msg, standardMsg)
         raise self.test_case.failureException(msg)
 
+def nop():
+    pass
+
 class _AssertRaisesBaseContext(_BaseTestCaseContext):
 
     def __init__(self, expected, test_case, expected_regex=None):
@@ -243,6 +246,8 @@ class _AssertRaisesBaseContext(_BaseTestCaseContext):
                 self.obj_name = str(callable_obj)
             with self:
                 callable_obj(*args, **kwargs)
+                # Force asynchronous exceptions
+                nop()
         finally:
             # bpo-23890: manually break a reference cycle
             self = None

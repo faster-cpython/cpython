@@ -4737,6 +4737,8 @@ class PyMiscIOTest(MiscIOTest):
     extra_exported = "BlockingIOError", "open_code",
     not_exported = "valid_seek_flags",
 
+def nop():
+    pass
 
 @unittest.skipIf(os.name == 'nt', 'POSIX signals required for this test.')
 class SignalsTest(unittest.TestCase):
@@ -4806,6 +4808,8 @@ class SignalsTest(unittest.TestCase):
             # The buffered IO layer must check for pending signal
             # handlers, which in this case will invoke alarm_interrupt().
             signal.alarm(1)
+            # Force VM to check for signals
+            nop()
             try:
                 self.assertRaises(ZeroDivisionError, wio.write, large_data)
             finally:
