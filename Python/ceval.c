@@ -465,7 +465,11 @@ _Py_InitializeRecursionLimits(PyThreadState *tstate)
     _tstate->c_stack_soft_limit = _tstate->c_stack_hard_limit + _PyOS_STACK_MARGIN_BYTES;
 #else
     uintptr_t here_addr = _Py_get_machine_stack_pointer();
-#  if defined(HAVE_PTHREAD_GETATTR_NP) && !defined(_AIX) && !defined(__NetBSD__)
+/// XXX musl supports HAVE_PTHRED_GETATTR_NP, but the resulting stack size
+/// (on alpine at least) is much smaller than expected and imposes undue limits
+/// compared to the old stack size estimation.  (We assume musl is not glibc.)
+#  if defined(HAVE_PTHREAD_GETATTR_NP) && !defined(_AIX) && \
+        !defined(__NetBSD__) && (defined(__GLIBC__) || !defined(__linux__))
     size_t stack_size, guard_size;
     void *stack_addr;
     pthread_attr_t attr;
@@ -1174,7 +1178,7 @@ enter_tier_two:
     _PyStackRef _tos_cache1 = PyStackRef_NULL;
     _PyStackRef _tos_cache2 = PyStackRef_NULL;
 
-    assert(next_uop->opcode == _START_EXECUTOR_r00);
+    assert(next_uop->opcode == _START_EXECUTOR_r00 || next_uop->opcode == _COLD_EXIT_r00);
 tier2_dispatch:
     for (;;) {
         uopcode = next_uop->opcode;
@@ -1227,6 +1231,7 @@ jump_to_error_target:
         printf(" @ %d -> %s]\n",
                (int)(next_uop - current_executor->trace - 1),
                _PyOpcode_OpName[frame->instr_ptr->op.code]);
+        fflush(stdout);
     }
 #endif
     assert(next_uop[-1].format == UOP_FORMAT_JUMP);

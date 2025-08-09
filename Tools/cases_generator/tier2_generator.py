@@ -98,7 +98,7 @@ class Tier2Emitter(Emitter):
         self.emit("}\n")
         return not always_true(first_tkn)
 
-    deopt_if = exit_if
+    periodic_if = deopt_if = exit_if
 
     def oparg(
         self,

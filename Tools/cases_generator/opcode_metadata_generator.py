@@ -53,10 +53,10 @@ FLAGS = [
     "ESCAPES",
     "EXIT",
     "PURE",
-    "PASSTHROUGH",
     "SYNC_SP",
     "ERROR_NO_POP",
     "NO_SAVE_IP",
+    "PERIODIC",
 ]
 
 
