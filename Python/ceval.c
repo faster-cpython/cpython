@@ -215,7 +215,7 @@ dump_stack(_PyInterpreterFrame *frame, _PyStackRef *stack_pointer)
     _PyFrame_GetStackPointer(frame);
 }
 
-#ifndef _Py_JIT
+#if defined(_Py_TIER2) && !defined(_Py_JIT)
 static void
 dump_cache_item(_PyStackRef cache, int position, int depth)
 {
