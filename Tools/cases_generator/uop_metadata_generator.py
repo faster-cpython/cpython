@@ -43,6 +43,7 @@ def uop_cache_info(uop: Uop) -> str | None:
 
 
 def generate_names_and_flags(analysis: Analysis, out: CWriter) -> None:
+    out.emit(f"#define MAX_CACHED_REGISTER {MAX_CACHED_REGISTER}\n")
     out.emit("extern const uint16_t _PyUop_Flags[MAX_UOP_ID+1];\n")
     out.emit("typedef struct _rep_range { uint8_t start; uint8_t stop; } ReplicationRange;\n")
     out.emit("extern const ReplicationRange _PyUop_Replication[MAX_UOP_ID+1];\n")

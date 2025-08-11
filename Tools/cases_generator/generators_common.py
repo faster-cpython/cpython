@@ -206,8 +206,6 @@ class Emitter:
         inst: Instruction | None,
     ) -> bool:
         storage.clear_inputs("in AT_END_EXIT_IF")
-        storage.flush(self.out)
-        storage.stack.clear(self.out)
         return self.exit_if(tkn, tkn_iter, uop, storage, inst)
 
     def goto_error(self, offset: int, storage: Storage) -> str:
@@ -736,7 +734,7 @@ def cflags(p: Properties) -> str:
         flags.append("HAS_DEOPT_FLAG")
     if p.deopts_periodic:
         flags.append("HAS_PERIODIC_FLAG")
-    if p.side_exit:
+    if p.side_exit or p.side_exit_at_end:
         flags.append("HAS_EXIT_FLAG")
     if not p.infallible:
         flags.append("HAS_ERROR_FLAG")

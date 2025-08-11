@@ -11,6 +11,7 @@ extern "C" {
 
 #include <stdint.h>
 #include "pycore_uop_ids.h"
+#define MAX_CACHED_REGISTER 3
 extern const uint16_t _PyUop_Flags[MAX_UOP_ID+1];
 typedef struct _rep_range { uint8_t start; uint8_t stop; } ReplicationRange;
 extern const ReplicationRange _PyUop_Replication[MAX_UOP_ID+1];
@@ -335,7 +336,7 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_LOAD_CONST_UNDER_INLINE] = 0,
     [_LOAD_CONST_UNDER_INLINE_BORROW] = 0,
     [_CHECK_FUNCTION] = HAS_DEOPT_FLAG,
-    [_START_EXECUTOR] = HAS_DEOPT_FLAG,
+    [_START_EXECUTOR] = HAS_ARG_FLAG | HAS_DEOPT_FLAG,
     [_MAKE_WARM] = 0,
     [_FATAL_ERROR] = 0,
     [_DEOPT] = HAS_SYNC_SP_FLAG,
@@ -639,10 +640,10 @@ const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1] = {
     [_SWAP_2] = { 0, 3, 0, 1, { _SWAP_2_r00, _SWAP_2_r11, _SWAP_2_r22, _SWAP_2_r33 } },
     [_SWAP_3] = { 3, 3, 0, 1, { 0, 0, 0, _SWAP_3_r33 } },
     [_SWAP] = { 1, 1, 0, 1, { 0, _SWAP_r11, 0, 0 } },
-    [_GUARD_IS_TRUE_POP] = { 1, 3, -1, 0, { 0, _GUARD_IS_TRUE_POP_r10, _GUARD_IS_TRUE_POP_r21, _GUARD_IS_TRUE_POP_r32 } },
-    [_GUARD_IS_FALSE_POP] = { 1, 3, -1, 0, { 0, _GUARD_IS_FALSE_POP_r10, _GUARD_IS_FALSE_POP_r21, _GUARD_IS_FALSE_POP_r32 } },
-    [_GUARD_IS_NONE_POP] = { 1, 3, -1, 0, { 0, _GUARD_IS_NONE_POP_r10, _GUARD_IS_NONE_POP_r21, _GUARD_IS_NONE_POP_r32 } },
-    [_GUARD_IS_NOT_NONE_POP] = { 1, 1, -1, 0, { 0, _GUARD_IS_NOT_NONE_POP_r10, 0, 0 } },
+    [_GUARD_IS_TRUE_POP] = { 1, 3, -1, 1, { 0, _GUARD_IS_TRUE_POP_r10, _GUARD_IS_TRUE_POP_r21, _GUARD_IS_TRUE_POP_r32 } },
+    [_GUARD_IS_FALSE_POP] = { 1, 3, -1, 1, { 0, _GUARD_IS_FALSE_POP_r10, _GUARD_IS_FALSE_POP_r21, _GUARD_IS_FALSE_POP_r32 } },
+    [_GUARD_IS_NONE_POP] = { 1, 3, -1, 1, { 0, _GUARD_IS_NONE_POP_r10, _GUARD_IS_NONE_POP_r21, _GUARD_IS_NONE_POP_r32 } },
+    [_GUARD_IS_NOT_NONE_POP] = { 1, 1, -1, 1, { 0, _GUARD_IS_NOT_NONE_POP_r10, 0, 0 } },
     [_JUMP_TO_TOP] = { 0, 0, 0, 1, { _JUMP_TO_TOP_r00, 0, 0, 0 } },
     [_SET_IP] = { 0, 3, 0, 1, { _SET_IP_r00, _SET_IP_r11, _SET_IP_r22, _SET_IP_r33 } },
     [_CHECK_STACK_SPACE_OPERAND] = { 0, 3, 0, 1, { _CHECK_STACK_SPACE_OPERAND_r00, _CHECK_STACK_SPACE_OPERAND_r11, _CHECK_STACK_SPACE_OPERAND_r22, _CHECK_STACK_SPACE_OPERAND_r33 } },

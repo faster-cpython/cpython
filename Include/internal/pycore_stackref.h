@@ -311,6 +311,16 @@ PyStackRef_IsValid(_PyStackRef ref)
 }
 
 static inline bool
+PyStackRef_IsWrapped(_PyStackRef ref)
+{
+#ifdef Py_DEBUG
+    return (ref.bits & Py_TAG_INVALID) != 0 && !PyStackRef_IsError(ref);
+#else
+    Py_FatalError("Cannot determine if value is wrapped if Py_DEBUG is not set");
+#endif
+}
+
+static inline bool
 PyStackRef_IsTaggedInt(_PyStackRef i)
 {
     return (i.bits & Py_TAG_BITS) == Py_INT_TAG;

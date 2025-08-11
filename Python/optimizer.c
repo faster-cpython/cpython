@@ -551,7 +551,9 @@ translate_bytecode_to_trace(
     _Py_CODEUNIT *instr,
     _PyUOpInstruction *trace,
     int buffer_size,
-    _PyBloomFilter *dependencies, bool progress_needed)
+    _PyBloomFilter *dependencies,
+    bool progress_needed,
+    int curr_stackentries)
 {
     bool first = true;
     PyCodeObject *code = _PyFrame_GetCode(frame);
@@ -586,7 +588,7 @@ translate_bytecode_to_trace(
             PyUnicode_AsUTF8(code->co_filename),
             code->co_firstlineno,
             2 * INSTR_IP(initial_instr, code));
-    ADD_TO_TRACE(_START_EXECUTOR, 0, (uintptr_t)instr, INSTR_IP(instr, code));
+    ADD_TO_TRACE(_START_EXECUTOR, curr_stackentries, (uintptr_t)instr, INSTR_IP(instr, code));
     ADD_TO_TRACE(_MAKE_WARM, 0, 0, 0);
     uint32_t target = 0;
 
@@ -1009,8 +1011,6 @@ count_exits(_PyUOpInstruction *buffer, int length)
     return exit_count;
 }
 
-#define MAX_CACHED_REGISTER 3
-
 /* The number of cached registers at any exit (`EXIT_IF` or `DEOPT_IF`)
  * This is the number of cached at entries at start, unless the uop is
  * marked as `exit_depth_is_output` in which case it is the number of
@@ -1314,10 +1314,10 @@ static int
 stack_allocate(_PyUOpInstruction *buffer, int length)
 {
     for (int i = length-1; i >= 0; i--) {
+        buffer[i*2+1] = buffer[i];
         buffer[i*2].format = UOP_FORMAT_TARGET;
         buffer[i*2].oparg = 0;
         buffer[i*2].target = 0;
-        buffer[i*2+1] = buffer[i];
     }
     int depth = 0;
     for (int i = 0; i < length; i++) {
@@ -1364,7 +1364,7 @@ uop_optimize(
     _Py_BloomFilter_Init(&dependencies);
     _PyUOpInstruction buffer[UOP_MAX_TRACE_LENGTH];
     OPT_STAT_INC(attempts);
-    int length = translate_bytecode_to_trace(frame, instr, buffer, UOP_MAX_TRACE_LENGTH/2, &dependencies, progress_needed);
+    int length = translate_bytecode_to_trace(frame, instr, buffer, UOP_MAX_TRACE_LENGTH/2, &dependencies, progress_needed, curr_stackentries);
     if (length <= 0) {
         // Error or nothing translated
         return length;

@@ -34,6 +34,7 @@ class Properties:
     uses_locals: bool
     has_free: bool
     side_exit: bool
+    side_exit_at_end: bool
     pure: bool
     uses_opcode: bool
     tier: int | None = None
@@ -74,6 +75,7 @@ class Properties:
             uses_opcode=any(p.uses_opcode for p in properties),
             has_free=any(p.has_free for p in properties),
             side_exit=any(p.side_exit for p in properties),
+            side_exit_at_end=any(p.side_exit_at_end for p in properties),
             pure=all(p.pure for p in properties),
             needs_prev=any(p.needs_prev for p in properties),
             no_save_ip=all(p.no_save_ip for p in properties),
@@ -102,6 +104,7 @@ SKIP_PROPERTIES = Properties(
     uses_opcode=False,
     has_free=False,
     side_exit=False,
+    side_exit_at_end=False,
     pure=True,
     no_save_ip=False,
 )
@@ -894,7 +897,8 @@ def compute_properties(op: parser.CodeDef) -> Properties:
         or variable_used(op, "PyCell_SwapTakeRef")
     )
     deopts_if = variable_used(op, "DEOPT_IF")
-    exits_if = variable_used(op, "EXIT_IF") or variable_used(op, "AT_END_EXIT_IF")
+    exits_if = variable_used(op, "EXIT_IF")
+    exit_if_at_end = variable_used(op, "AT_END_EXIT_IF")
     deopts_periodic = variable_used(op, "HANDLE_PENDING_AND_DEOPT_IF")
     exits_and_deopts = sum((deopts_if, exits_if, deopts_periodic))
     if exits_and_deopts > 1:
@@ -919,6 +923,7 @@ def compute_properties(op: parser.CodeDef) -> Properties:
         deopts=deopts_if,
         deopts_periodic=deopts_periodic,
         side_exit=exits_if,
+        side_exit_at_end=exit_if_at_end,
         oparg=oparg_used(op),
         jumps=variable_used(op, "JUMPBY"),
         eval_breaker="CHECK_PERIODIC" in op.name,
@@ -1305,7 +1310,7 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int, int]]:
         if "DECREF" in call.call.text or "CLOSE" in call.call.text:
             continue
         non_decref_escape = True
-    has_exit = uop.properties.deopts or uop.properties.side_exit
+    has_exit = uop.properties.deopts or uop.properties.side_exit or uop.properties.side_exit_at_end
     ideal_inputs = 0
     has_array = False
     for item in reversed(uop.stack.inputs):
@@ -1330,7 +1335,8 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int, int]]:
     if non_decref_escape:
         yield 0, ideal_outputs, 0
         return
-    exit_depth = ideal_outputs if uop.properties.sync_sp else ideal_inputs
+    at_end = uop.properties.sync_sp or uop.properties.side_exit_at_end
+    exit_depth = ideal_outputs if at_end else ideal_inputs
     yield ideal_inputs, ideal_outputs, exit_depth
     if uop.properties.escapes or uop.properties.sync_sp or has_array or is_large(uop):
         return
@@ -1343,7 +1349,7 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int, int]]:
         inputs, outputs = inputs-outputs, 0
     while inputs <= MAX_CACHED_REGISTER and outputs <= MAX_CACHED_REGISTER:
         if inputs != ideal_inputs:
-            yield inputs, outputs, inputs
+            yield inputs, outputs, outputs if at_end else inputs
         inputs += 1
         outputs += 1
 
