@@ -14022,9 +14022,9 @@
             PyObject *executor = (PyObject *)CURRENT_OPERAND0();
             #ifndef _Py_JIT
             current_executor = (_PyExecutorObject*)executor;
-            #endif
             #ifdef Py_DEBUG
             assert(STACK_LEVEL() + current_cached_values == oparg);
+            #endif
             #endif
             assert(tstate->jit_exit == NULL || tstate->jit_exit->executor == current_executor);
             tstate->current_executor = (PyObject *)executor;
