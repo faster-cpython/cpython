@@ -212,8 +212,12 @@ GETITEM(PyObject *v, Py_ssize_t i) {
 #define WITHIN_STACK_BOUNDS() \
    (frame->owner == FRAME_OWNED_BY_INTERPRETER || (STACK_LEVEL() >= 0 && STACK_LEVEL() <= STACK_SIZE()))
 
+#ifdef Py_DEBUG
 #define WITHIN_STACK_BOUNDS_WITH_CACHE() \
    (frame->owner == FRAME_OWNED_BY_INTERPRETER || (STACK_LEVEL() >= 0 && (STACK_LEVEL() + current_cached_values) <= STACK_SIZE()))
+#else
+#define WITHIN_STACK_BOUNDS_WITH_CACHE WITHIN_STACK_BOUNDS
+#endif
 
 /* Data access macros */
 #define FRAME_CO_CONSTS (_PyFrame_GetCode(frame)->co_consts)
