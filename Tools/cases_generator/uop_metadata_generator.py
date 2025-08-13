@@ -24,7 +24,7 @@ from typing import TextIO
 
 DEFAULT_OUTPUT = ROOT / "Include/internal/pycore_uop_metadata.h"
 
-def uop_cache_info(uop: Uop) -> str | None:
+def uop_cache_info(uop: Uop) -> list[str] | None:
     if uop.name == "_SPILL_OR_RELOAD":
         return None
     default = "{ -1, -1, -1 },\n"
@@ -41,7 +41,7 @@ def uop_cache_info(uop: Uop) -> str | None:
             high = inputs
     best = [ str(low if i < low else (high if high < i else i)) for i in range(MAX_CACHED_REGISTER+1) ]
 
-    return [ f".best = {{ {", ".join(best)} }},\n", ".entries = {\n",  ] + entries + [ "},\n" ]
+    return [ f".best = {{ {', '.join(best)} }},\n", ".entries = {\n",  ] + entries + [ "},\n" ]
 
 CACHING_INFO_DECL = """
 typedef struct _pyuop_tos_cache_entry {
