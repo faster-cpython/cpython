@@ -7838,7 +7838,7 @@
                         stack_pointer += (oparg&1);
                         assert(WITHIN_STACK_BOUNDS());
                         _PyFrame_SetStackPointer(frame, stack_pointer);
-                        _PyThreadState_PopCStackRef(tstate, &method_ref);
+                        _PyThreadState_PopCStackRef(tstate, &method);
                         stack_pointer = _PyFrame_GetStackPointer(frame);
                         stack_pointer += -(oparg&1);
                         #endif
@@ -7857,7 +7857,7 @@
                         stack_pointer += 1 + (oparg&1);
                         assert(WITHIN_STACK_BOUNDS());
                         _PyFrame_SetStackPointer(frame, stack_pointer);
-                        _PyThreadState_PopCStackRef(tstate, &method_ref);
+                        _PyThreadState_PopCStackRef(tstate, &method);
                         stack_pointer = _PyFrame_GetStackPointer(frame);
                         stack_pointer += -1 - (oparg&1);
                         #endif

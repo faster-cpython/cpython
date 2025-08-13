@@ -2342,7 +2342,7 @@ dummy_func(
                     attr = method.ref;
             #ifdef Py_GIL_DISABLED
                     method_ref.ref = PyStackRef_NULL;
-                    _PyThreadState_PopCStackRef(tstate, &method_ref);
+                    _PyThreadState_PopCStackRef(tstate, &method);
             #endif
                 }
                 else {
@@ -2357,7 +2357,7 @@ dummy_func(
                     attr = method.ref;
             #ifdef Py_GIL_DISABLED
                     method_ref.ref = PyStackRef_NULL;
-                    _PyThreadState_PopCStackRef(tstate, &method_ref);
+                    _PyThreadState_PopCStackRef(tstate, &method);
             #endif
                     ERROR_IF(PyStackRef_IsNull(attr));
                 }
