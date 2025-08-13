@@ -7833,7 +7833,7 @@
                         self_or_null[0] = owner;
                         attr = method.ref;
                         #ifdef Py_GIL_DISABLED
-                        method_ref.ref = PyStackRef_NULL;
+                        method.ref = PyStackRef_NULL;
                         stack_pointer[-1] = attr;
                         stack_pointer += (oparg&1);
                         assert(WITHIN_STACK_BOUNDS());
@@ -7852,7 +7852,7 @@
                         self_or_null[0] = PyStackRef_NULL;
                         attr = method.ref;
                         #ifdef Py_GIL_DISABLED
-                        method_ref.ref = PyStackRef_NULL;
+                        method.ref = PyStackRef_NULL;
                         stack_pointer[0] = attr;
                         stack_pointer += 1 + (oparg&1);
                         assert(WITHIN_STACK_BOUNDS());
