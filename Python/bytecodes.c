@@ -2339,11 +2339,7 @@ dummy_func(
                     assert(!PyStackRef_IsNull(method.ref));  // No errors on this branch
                     self_or_null[0] = owner;  // Transfer ownership
                     DEAD(owner);
-                    attr = method.ref;
-            #ifdef Py_GIL_DISABLED
-                    method.ref = PyStackRef_NULL;
-                    _PyThreadState_PopCStackRef(tstate, &method);
-            #endif
+                    attr = _PyThreadState_PopCStackRefSteal(tstate, &method);
                 }
                 else {
                     /* meth is not an unbound method (but a regular attr, or
@@ -2354,11 +2350,7 @@ dummy_func(
                     */
                     PyStackRef_CLOSE(owner);
                     self_or_null[0] = PyStackRef_NULL;
-                    attr = method.ref;
-            #ifdef Py_GIL_DISABLED
-                    method.ref = PyStackRef_NULL;
-                    _PyThreadState_PopCStackRef(tstate, &method);
-            #endif
+                    attr = _PyThreadState_PopCStackRefSteal(tstate, &method);
                     ERROR_IF(PyStackRef_IsNull(attr));
                 }
             }

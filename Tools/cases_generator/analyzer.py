@@ -697,6 +697,7 @@ NON_ESCAPING_FUNCTIONS = (
     "PyStackRef_Wrap",
     "PyStackRef_Unwrap",
     "_PyLong_CheckExactAndCompact",
+    "_PyThreadState_PopCStackRefSteal",
 )
 
 

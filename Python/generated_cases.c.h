@@ -7831,17 +7831,7 @@
                     if (is_meth) {
                         assert(!PyStackRef_IsNull(method.ref));
                         self_or_null[0] = owner;
-                        attr = method.ref;
-                        #ifdef Py_GIL_DISABLED
-                        method.ref = PyStackRef_NULL;
-                        stack_pointer[-1] = attr;
-                        stack_pointer += (oparg&1);
-                        assert(WITHIN_STACK_BOUNDS());
-                        _PyFrame_SetStackPointer(frame, stack_pointer);
-                        _PyThreadState_PopCStackRef(tstate, &method);
-                        stack_pointer = _PyFrame_GetStackPointer(frame);
-                        stack_pointer += -(oparg&1);
-                        #endif
+                        attr = _PyThreadState_PopCStackRefSteal(tstate, &method);
                     }
                     else {
                         stack_pointer += -1;
@@ -7850,21 +7840,8 @@
                         PyStackRef_CLOSE(owner);
                         stack_pointer = _PyFrame_GetStackPointer(frame);
                         self_or_null[0] = PyStackRef_NULL;
-                        attr = method.ref;
-                        #ifdef Py_GIL_DISABLED
-                        method.ref = PyStackRef_NULL;
-                        stack_pointer[0] = attr;
-                        stack_pointer += 1 + (oparg&1);
-                        assert(WITHIN_STACK_BOUNDS());
-                        _PyFrame_SetStackPointer(frame, stack_pointer);
-                        _PyThreadState_PopCStackRef(tstate, &method);
-                        stack_pointer = _PyFrame_GetStackPointer(frame);
-                        stack_pointer += -1 - (oparg&1);
-                        #endif
+                        attr = _PyThreadState_PopCStackRefSteal(tstate, &method);
                         if (PyStackRef_IsNull(attr)) {
-                            stack_pointer[0] = attr;
-                            stack_pointer += 1 + (oparg&1);
-                            assert(WITHIN_STACK_BOUNDS());
                             JUMP_TO_LABEL(error);
                         }
                         stack_pointer += 1;

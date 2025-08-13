@@ -827,6 +827,17 @@ _PyThreadState_PopCStackRef(PyThreadState *tstate, _PyCStackRef *ref)
     PyStackRef_XCLOSE(ref->ref);
 }
 
+static inline _PyStackRef
+_PyThreadState_PopCStackRefSteal(PyThreadState *tstate, _PyCStackRef *ref)
+{
+#ifdef Py_GIL_DISABLED
+    _PyThreadStateImpl *tstate_impl = (_PyThreadStateImpl *)tstate;
+    assert(tstate_impl->c_stack_refs == ref);
+    tstate_impl->c_stack_refs = ref->next;
+#endif
+    return ref->ref;
+}
+
 #ifdef Py_GIL_DISABLED
 
 static inline int
