@@ -25,21 +25,39 @@ from typing import TextIO
 DEFAULT_OUTPUT = ROOT / "Include/internal/pycore_uop_metadata.h"
 
 def uop_cache_info(uop: Uop) -> str | None:
-    table_size = MAX_CACHED_REGISTER + 1
     if uop.name == "_SPILL_OR_RELOAD":
         return None
-    min_inputs = 4
-    uops = [ "0" ] * table_size
+    default = "{ -1, -1, -1 },\n"
+    table_size = MAX_CACHED_REGISTER + 1
+    entries = [ default ] * table_size
+    low = MAX_CACHED_REGISTER+1
+    high = -1
+    defined = [ False ] * 4
     for inputs, outputs, exit_depth in get_uop_cache_depths(uop):
-        delta = outputs - inputs
-        uops[inputs] = f"{uop.name}_r{inputs}{outputs}"
-    for i in range(table_size):
-        if uops[i] != "0":
-            max_inputs = i
-            if i < min_inputs:
-                min_inputs = i
-    max_inputs, delta  # type: ignore[possibly-undefined]
-    return f"{{ {min_inputs}, {max_inputs}, {delta}, {int(exit_depth == outputs)}, {{ {', '.join(uops)} }} }}"
+        entries[inputs] = f"{{ {outputs}, {exit_depth}, {uop.name}_r{inputs}{outputs} }},\n"
+        if inputs < low:
+            low = inputs
+        if inputs > high:
+            high = inputs
+    best = [ str(low if i < low else (high if high < i else i)) for i in range(MAX_CACHED_REGISTER+1) ]
+
+    return [ f".best = {{ {", ".join(best)} }},\n", ".entries = {\n",  ] + entries + [ "},\n" ]
+
+CACHING_INFO_DECL = """
+typedef struct _pyuop_tos_cache_entry {
+    /* input depth is implicit in position */
+    int8_t output;
+    int8_t exit;
+    uint16_t opcode;
+} _PyUopTOSentry;
+
+typedef struct _PyUopCachingInfo {
+    uint8_t best[MAX_CACHED_REGISTER + 1];
+    _PyUopTOSentry entries[MAX_CACHED_REGISTER + 1];
+} _PyUopCachingInfo;
+
+extern const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1];
+"""
 
 
 def generate_names_and_flags(analysis: Analysis, out: CWriter) -> None:
@@ -48,12 +66,8 @@ def generate_names_and_flags(analysis: Analysis, out: CWriter) -> None:
     out.emit("typedef struct _rep_range { uint8_t start; uint8_t stop; } ReplicationRange;\n")
     out.emit("extern const ReplicationRange _PyUop_Replication[MAX_UOP_ID+1];\n")
     out.emit("extern const char * const _PyOpcode_uop_name[MAX_UOP_REGS_ID+1];\n\n")
-    out.emit("extern int _PyUop_num_popped(int opcode, int oparg);\n\n")
-    out.emit("typedef struct _pyuop_info {\n")
-    out.emit("int8_t min_input; int8_t max_input; int8_t delta;\n")
-    out.emit(f"int8_t exit_depth_is_output; uint16_t opcodes[{MAX_CACHED_REGISTER+1}];\n")
-    out.emit("} _PyUopCachingInfo;\n")
-    out.emit("extern const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1];\n\n")
+    out.emit("extern int _PyUop_num_popped(int opcode, int oparg);\n")
+    out.emit(CACHING_INFO_DECL)
     out.emit(f"extern const uint16_t _PyUop_SpillsAndReloads[{MAX_CACHED_REGISTER+1}][{MAX_CACHED_REGISTER+1}];\n")
     out.emit("extern const uint16_t _PyUop_Uncached[MAX_UOP_REGS_ID+1];\n\n")
     out.emit("#ifdef NEED_OPCODE_METADATA\n")
@@ -75,7 +89,10 @@ def generate_names_and_flags(analysis: Analysis, out: CWriter) -> None:
         if uop.is_viable() and uop.properties.tier != 1 and not uop.is_super():
             info = uop_cache_info(uop)
             if info is not None:
-                out.emit(f"[{uop.name}] = {info},\n")
+                out.emit(f"[{uop.name}] = {{\n")
+                for line in info:
+                    out.emit(line)
+                out.emit("},\n")
     out.emit("};\n\n")
     out.emit("const uint16_t _PyUop_Uncached[MAX_UOP_REGS_ID+1] = {\n");
     for uop in analysis.uops.values():

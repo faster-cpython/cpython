@@ -19,12 +19,19 @@ extern const char * const _PyOpcode_uop_name[MAX_UOP_REGS_ID+1];
 
 extern int _PyUop_num_popped(int opcode, int oparg);
 
-typedef struct _pyuop_info {
-    int8_t min_input; int8_t max_input; int8_t delta;
-    int8_t exit_depth_is_output; uint16_t opcodes[4];
-} _PyUopCachingInfo;
-extern const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1];
+typedef struct _pyuop_tos_cache_entry {
+    /* input depth is implicit in position */
+    int8_t output;
+    int8_t exit;
+    uint16_t opcode;
+} _PyUopTOSentry;
 
+typedef struct _PyUopCachingInfo {
+    uint8_t best[MAX_CACHED_REGISTER + 1];
+    _PyUopTOSentry entries[MAX_CACHED_REGISTER + 1];
+} _PyUopCachingInfo;
+
+extern const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1];
 extern const uint16_t _PyUop_SpillsAndReloads[4][4];
 extern const uint16_t _PyUop_Uncached[MAX_UOP_REGS_ID+1];
 
@@ -358,320 +365,2832 @@ const ReplicationRange _PyUop_Replication[MAX_UOP_ID+1] = {
 };
 
 const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1] = {
-    [_NOP] = { 0, 3, 0, 1, { _NOP_r00, _NOP_r11, _NOP_r22, _NOP_r33 } },
-    [_CHECK_PERIODIC] = { 0, 0, 0, 1, { _CHECK_PERIODIC_r00, 0, 0, 0 } },
-    [_CHECK_PERIODIC_IF_NOT_YIELD_FROM] = { 0, 0, 0, 1, { _CHECK_PERIODIC_IF_NOT_YIELD_FROM_r00, 0, 0, 0 } },
-    [_RESUME_CHECK] = { 0, 3, 0, 1, { _RESUME_CHECK_r00, _RESUME_CHECK_r11, _RESUME_CHECK_r22, _RESUME_CHECK_r33 } },
-    [_LOAD_FAST_CHECK] = { 0, 0, 1, 0, { _LOAD_FAST_CHECK_r01, 0, 0, 0 } },
-    [_LOAD_FAST_0] = { 0, 2, 1, 0, { _LOAD_FAST_0_r01, _LOAD_FAST_0_r12, _LOAD_FAST_0_r23, 0 } },
-    [_LOAD_FAST_1] = { 0, 2, 1, 0, { _LOAD_FAST_1_r01, _LOAD_FAST_1_r12, _LOAD_FAST_1_r23, 0 } },
-    [_LOAD_FAST_2] = { 0, 2, 1, 0, { _LOAD_FAST_2_r01, _LOAD_FAST_2_r12, _LOAD_FAST_2_r23, 0 } },
-    [_LOAD_FAST_3] = { 0, 2, 1, 0, { _LOAD_FAST_3_r01, _LOAD_FAST_3_r12, _LOAD_FAST_3_r23, 0 } },
-    [_LOAD_FAST_4] = { 0, 2, 1, 0, { _LOAD_FAST_4_r01, _LOAD_FAST_4_r12, _LOAD_FAST_4_r23, 0 } },
-    [_LOAD_FAST_5] = { 0, 2, 1, 0, { _LOAD_FAST_5_r01, _LOAD_FAST_5_r12, _LOAD_FAST_5_r23, 0 } },
-    [_LOAD_FAST_6] = { 0, 2, 1, 0, { _LOAD_FAST_6_r01, _LOAD_FAST_6_r12, _LOAD_FAST_6_r23, 0 } },
-    [_LOAD_FAST_7] = { 0, 2, 1, 0, { _LOAD_FAST_7_r01, _LOAD_FAST_7_r12, _LOAD_FAST_7_r23, 0 } },
-    [_LOAD_FAST] = { 0, 2, 1, 0, { _LOAD_FAST_r01, _LOAD_FAST_r12, _LOAD_FAST_r23, 0 } },
-    [_LOAD_FAST_BORROW_0] = { 0, 2, 1, 0, { _LOAD_FAST_BORROW_0_r01, _LOAD_FAST_BORROW_0_r12, _LOAD_FAST_BORROW_0_r23, 0 } },
-    [_LOAD_FAST_BORROW_1] = { 0, 2, 1, 0, { _LOAD_FAST_BORROW_1_r01, _LOAD_FAST_BORROW_1_r12, _LOAD_FAST_BORROW_1_r23, 0 } },
-    [_LOAD_FAST_BORROW_2] = { 0, 2, 1, 0, { _LOAD_FAST_BORROW_2_r01, _LOAD_FAST_BORROW_2_r12, _LOAD_FAST_BORROW_2_r23, 0 } },
-    [_LOAD_FAST_BORROW_3] = { 0, 2, 1, 0, { _LOAD_FAST_BORROW_3_r01, _LOAD_FAST_BORROW_3_r12, _LOAD_FAST_BORROW_3_r23, 0 } },
-    [_LOAD_FAST_BORROW_4] = { 0, 2, 1, 0, { _LOAD_FAST_BORROW_4_r01, _LOAD_FAST_BORROW_4_r12, _LOAD_FAST_BORROW_4_r23, 0 } },
-    [_LOAD_FAST_BORROW_5] = { 0, 2, 1, 0, { _LOAD_FAST_BORROW_5_r01, _LOAD_FAST_BORROW_5_r12, _LOAD_FAST_BORROW_5_r23, 0 } },
-    [_LOAD_FAST_BORROW_6] = { 0, 2, 1, 0, { _LOAD_FAST_BORROW_6_r01, _LOAD_FAST_BORROW_6_r12, _LOAD_FAST_BORROW_6_r23, 0 } },
-    [_LOAD_FAST_BORROW_7] = { 0, 2, 1, 0, { _LOAD_FAST_BORROW_7_r01, _LOAD_FAST_BORROW_7_r12, _LOAD_FAST_BORROW_7_r23, 0 } },
-    [_LOAD_FAST_BORROW] = { 0, 2, 1, 0, { _LOAD_FAST_BORROW_r01, _LOAD_FAST_BORROW_r12, _LOAD_FAST_BORROW_r23, 0 } },
-    [_LOAD_FAST_AND_CLEAR] = { 0, 2, 1, 0, { _LOAD_FAST_AND_CLEAR_r01, _LOAD_FAST_AND_CLEAR_r12, _LOAD_FAST_AND_CLEAR_r23, 0 } },
-    [_LOAD_CONST] = { 0, 2, 1, 0, { _LOAD_CONST_r01, _LOAD_CONST_r12, _LOAD_CONST_r23, 0 } },
-    [_LOAD_SMALL_INT_0] = { 0, 2, 1, 0, { _LOAD_SMALL_INT_0_r01, _LOAD_SMALL_INT_0_r12, _LOAD_SMALL_INT_0_r23, 0 } },
-    [_LOAD_SMALL_INT_1] = { 0, 2, 1, 0, { _LOAD_SMALL_INT_1_r01, _LOAD_SMALL_INT_1_r12, _LOAD_SMALL_INT_1_r23, 0 } },
-    [_LOAD_SMALL_INT_2] = { 0, 2, 1, 0, { _LOAD_SMALL_INT_2_r01, _LOAD_SMALL_INT_2_r12, _LOAD_SMALL_INT_2_r23, 0 } },
-    [_LOAD_SMALL_INT_3] = { 0, 2, 1, 0, { _LOAD_SMALL_INT_3_r01, _LOAD_SMALL_INT_3_r12, _LOAD_SMALL_INT_3_r23, 0 } },
-    [_LOAD_SMALL_INT] = { 0, 2, 1, 0, { _LOAD_SMALL_INT_r01, _LOAD_SMALL_INT_r12, _LOAD_SMALL_INT_r23, 0 } },
-    [_STORE_FAST_0] = { 1, 1, -1, 0, { 0, _STORE_FAST_0_r10, 0, 0 } },
-    [_STORE_FAST_1] = { 1, 1, -1, 0, { 0, _STORE_FAST_1_r10, 0, 0 } },
-    [_STORE_FAST_2] = { 1, 1, -1, 0, { 0, _STORE_FAST_2_r10, 0, 0 } },
-    [_STORE_FAST_3] = { 1, 1, -1, 0, { 0, _STORE_FAST_3_r10, 0, 0 } },
-    [_STORE_FAST_4] = { 1, 1, -1, 0, { 0, _STORE_FAST_4_r10, 0, 0 } },
-    [_STORE_FAST_5] = { 1, 1, -1, 0, { 0, _STORE_FAST_5_r10, 0, 0 } },
-    [_STORE_FAST_6] = { 1, 1, -1, 0, { 0, _STORE_FAST_6_r10, 0, 0 } },
-    [_STORE_FAST_7] = { 1, 1, -1, 0, { 0, _STORE_FAST_7_r10, 0, 0 } },
-    [_STORE_FAST] = { 1, 1, -1, 0, { 0, _STORE_FAST_r10, 0, 0 } },
-    [_POP_TOP] = { 1, 1, -1, 0, { 0, _POP_TOP_r10, 0, 0 } },
-    [_POP_TOP_NOP] = { 1, 3, -1, 0, { 0, _POP_TOP_NOP_r10, _POP_TOP_NOP_r21, _POP_TOP_NOP_r32 } },
-    [_POP_TOP_INT] = { 1, 3, -1, 0, { 0, _POP_TOP_INT_r10, _POP_TOP_INT_r21, _POP_TOP_INT_r32 } },
-    [_POP_TOP_FLOAT] = { 1, 3, -1, 0, { 0, _POP_TOP_FLOAT_r10, _POP_TOP_FLOAT_r21, _POP_TOP_FLOAT_r32 } },
-    [_POP_TOP_UNICODE] = { 1, 3, -1, 0, { 0, _POP_TOP_UNICODE_r10, _POP_TOP_UNICODE_r21, _POP_TOP_UNICODE_r32 } },
-    [_POP_TWO] = { 2, 2, -2, 0, { 0, 0, _POP_TWO_r20, 0 } },
-    [_PUSH_NULL] = { 0, 2, 1, 0, { _PUSH_NULL_r01, _PUSH_NULL_r12, _PUSH_NULL_r23, 0 } },
-    [_END_FOR] = { 1, 1, -1, 0, { 0, _END_FOR_r10, 0, 0 } },
-    [_POP_ITER] = { 2, 2, -2, 0, { 0, 0, _POP_ITER_r20, 0 } },
-    [_END_SEND] = { 2, 2, -1, 0, { 0, 0, _END_SEND_r21, 0 } },
-    [_UNARY_NEGATIVE] = { 0, 0, 1, 0, { _UNARY_NEGATIVE_r01, 0, 0, 0 } },
-    [_UNARY_NOT] = { 0, 3, 0, 1, { _UNARY_NOT_r00, _UNARY_NOT_r11, _UNARY_NOT_r22, _UNARY_NOT_r33 } },
-    [_TO_BOOL] = { 0, 0, 1, 0, { _TO_BOOL_r01, 0, 0, 0 } },
-    [_TO_BOOL_BOOL] = { 0, 3, 0, 1, { _TO_BOOL_BOOL_r00, _TO_BOOL_BOOL_r11, _TO_BOOL_BOOL_r22, _TO_BOOL_BOOL_r33 } },
-    [_TO_BOOL_INT] = { 1, 1, 0, 1, { 0, _TO_BOOL_INT_r11, 0, 0 } },
-    [_GUARD_NOS_LIST] = { 0, 3, 0, 1, { _GUARD_NOS_LIST_r00, _GUARD_NOS_LIST_r11, _GUARD_NOS_LIST_r22, _GUARD_NOS_LIST_r33 } },
-    [_GUARD_TOS_LIST] = { 0, 3, 0, 1, { _GUARD_TOS_LIST_r00, _GUARD_TOS_LIST_r11, _GUARD_TOS_LIST_r22, _GUARD_TOS_LIST_r33 } },
-    [_GUARD_TOS_SLICE] = { 0, 3, 0, 1, { _GUARD_TOS_SLICE_r00, _GUARD_TOS_SLICE_r11, _GUARD_TOS_SLICE_r22, _GUARD_TOS_SLICE_r33 } },
-    [_TO_BOOL_LIST] = { 1, 1, 0, 1, { 0, _TO_BOOL_LIST_r11, 0, 0 } },
-    [_TO_BOOL_NONE] = { 0, 3, 0, 1, { _TO_BOOL_NONE_r00, _TO_BOOL_NONE_r11, _TO_BOOL_NONE_r22, _TO_BOOL_NONE_r33 } },
-    [_GUARD_NOS_UNICODE] = { 0, 3, 0, 1, { _GUARD_NOS_UNICODE_r00, _GUARD_NOS_UNICODE_r11, _GUARD_NOS_UNICODE_r22, _GUARD_NOS_UNICODE_r33 } },
-    [_GUARD_TOS_UNICODE] = { 0, 3, 0, 1, { _GUARD_TOS_UNICODE_r00, _GUARD_TOS_UNICODE_r11, _GUARD_TOS_UNICODE_r22, _GUARD_TOS_UNICODE_r33 } },
-    [_TO_BOOL_STR] = { 1, 1, 0, 1, { 0, _TO_BOOL_STR_r11, 0, 0 } },
-    [_REPLACE_WITH_TRUE] = { 1, 1, 0, 1, { 0, _REPLACE_WITH_TRUE_r11, 0, 0 } },
-    [_UNARY_INVERT] = { 0, 0, 1, 0, { _UNARY_INVERT_r01, 0, 0, 0 } },
-    [_GUARD_NOS_INT] = { 0, 3, 0, 1, { _GUARD_NOS_INT_r00, _GUARD_NOS_INT_r11, _GUARD_NOS_INT_r22, _GUARD_NOS_INT_r33 } },
-    [_GUARD_TOS_INT] = { 0, 3, 0, 1, { _GUARD_TOS_INT_r00, _GUARD_TOS_INT_r11, _GUARD_TOS_INT_r22, _GUARD_TOS_INT_r33 } },
-    [_GUARD_NOS_OVERFLOWED] = { 0, 3, 0, 1, { _GUARD_NOS_OVERFLOWED_r00, _GUARD_NOS_OVERFLOWED_r11, _GUARD_NOS_OVERFLOWED_r22, _GUARD_NOS_OVERFLOWED_r33 } },
-    [_GUARD_TOS_OVERFLOWED] = { 0, 3, 0, 1, { _GUARD_TOS_OVERFLOWED_r00, _GUARD_TOS_OVERFLOWED_r11, _GUARD_TOS_OVERFLOWED_r22, _GUARD_TOS_OVERFLOWED_r33 } },
-    [_BINARY_OP_MULTIPLY_INT] = { 2, 2, -1, 0, { 0, 0, _BINARY_OP_MULTIPLY_INT_r21, 0 } },
-    [_BINARY_OP_ADD_INT] = { 2, 2, -1, 0, { 0, 0, _BINARY_OP_ADD_INT_r21, 0 } },
-    [_BINARY_OP_SUBTRACT_INT] = { 2, 2, -1, 0, { 0, 0, _BINARY_OP_SUBTRACT_INT_r21, 0 } },
-    [_GUARD_NOS_FLOAT] = { 0, 3, 0, 1, { _GUARD_NOS_FLOAT_r00, _GUARD_NOS_FLOAT_r11, _GUARD_NOS_FLOAT_r22, _GUARD_NOS_FLOAT_r33 } },
-    [_GUARD_TOS_FLOAT] = { 0, 3, 0, 1, { _GUARD_TOS_FLOAT_r00, _GUARD_TOS_FLOAT_r11, _GUARD_TOS_FLOAT_r22, _GUARD_TOS_FLOAT_r33 } },
-    [_BINARY_OP_MULTIPLY_FLOAT] = { 2, 2, -1, 0, { 0, 0, _BINARY_OP_MULTIPLY_FLOAT_r21, 0 } },
-    [_BINARY_OP_ADD_FLOAT] = { 2, 2, -1, 0, { 0, 0, _BINARY_OP_ADD_FLOAT_r21, 0 } },
-    [_BINARY_OP_SUBTRACT_FLOAT] = { 2, 2, -1, 0, { 0, 0, _BINARY_OP_SUBTRACT_FLOAT_r21, 0 } },
-    [_BINARY_OP_MULTIPLY_FLOAT__NO_DECREF_INPUTS] = { 2, 2, -1, 0, { 0, 0, _BINARY_OP_MULTIPLY_FLOAT__NO_DECREF_INPUTS_r21, 0 } },
-    [_BINARY_OP_ADD_FLOAT__NO_DECREF_INPUTS] = { 2, 2, -1, 0, { 0, 0, _BINARY_OP_ADD_FLOAT__NO_DECREF_INPUTS_r21, 0 } },
-    [_BINARY_OP_SUBTRACT_FLOAT__NO_DECREF_INPUTS] = { 2, 2, -1, 0, { 0, 0, _BINARY_OP_SUBTRACT_FLOAT__NO_DECREF_INPUTS_r21, 0 } },
-    [_BINARY_OP_ADD_UNICODE] = { 2, 2, -1, 0, { 0, 0, _BINARY_OP_ADD_UNICODE_r21, 0 } },
-    [_BINARY_OP_INPLACE_ADD_UNICODE] = { 0, 0, 0, 1, { _BINARY_OP_INPLACE_ADD_UNICODE_r00, 0, 0, 0 } },
-    [_GUARD_BINARY_OP_EXTEND] = { 0, 0, 0, 1, { _GUARD_BINARY_OP_EXTEND_r00, 0, 0, 0 } },
-    [_BINARY_OP_EXTEND] = { 0, 0, 1, 0, { _BINARY_OP_EXTEND_r01, 0, 0, 0 } },
-    [_BINARY_SLICE] = { 0, 0, 1, 0, { _BINARY_SLICE_r01, 0, 0, 0 } },
-    [_STORE_SLICE] = { 0, 0, 0, 1, { _STORE_SLICE_r00, 0, 0, 0 } },
-    [_BINARY_OP_SUBSCR_LIST_INT] = { 0, 0, 1, 0, { _BINARY_OP_SUBSCR_LIST_INT_r01, 0, 0, 0 } },
-    [_BINARY_OP_SUBSCR_LIST_SLICE] = { 0, 0, 1, 0, { _BINARY_OP_SUBSCR_LIST_SLICE_r01, 0, 0, 0 } },
-    [_BINARY_OP_SUBSCR_STR_INT] = { 2, 2, -1, 0, { 0, 0, _BINARY_OP_SUBSCR_STR_INT_r21, 0 } },
-    [_GUARD_NOS_TUPLE] = { 0, 3, 0, 1, { _GUARD_NOS_TUPLE_r00, _GUARD_NOS_TUPLE_r11, _GUARD_NOS_TUPLE_r22, _GUARD_NOS_TUPLE_r33 } },
-    [_GUARD_TOS_TUPLE] = { 0, 3, 0, 1, { _GUARD_TOS_TUPLE_r00, _GUARD_TOS_TUPLE_r11, _GUARD_TOS_TUPLE_r22, _GUARD_TOS_TUPLE_r33 } },
-    [_BINARY_OP_SUBSCR_TUPLE_INT] = { 2, 2, -1, 0, { 0, 0, _BINARY_OP_SUBSCR_TUPLE_INT_r21, 0 } },
-    [_GUARD_NOS_DICT] = { 0, 3, 0, 1, { _GUARD_NOS_DICT_r00, _GUARD_NOS_DICT_r11, _GUARD_NOS_DICT_r22, _GUARD_NOS_DICT_r33 } },
-    [_GUARD_TOS_DICT] = { 0, 3, 0, 1, { _GUARD_TOS_DICT_r00, _GUARD_TOS_DICT_r11, _GUARD_TOS_DICT_r22, _GUARD_TOS_DICT_r33 } },
-    [_BINARY_OP_SUBSCR_DICT] = { 0, 0, 1, 0, { _BINARY_OP_SUBSCR_DICT_r01, 0, 0, 0 } },
-    [_BINARY_OP_SUBSCR_CHECK_FUNC] = { 2, 2, 1, 0, { 0, 0, _BINARY_OP_SUBSCR_CHECK_FUNC_r23, 0 } },
-    [_BINARY_OP_SUBSCR_INIT_CALL] = { 3, 3, -2, 0, { 0, 0, 0, _BINARY_OP_SUBSCR_INIT_CALL_r31 } },
-    [_LIST_APPEND] = { 1, 1, -1, 0, { 0, _LIST_APPEND_r10, 0, 0 } },
-    [_SET_ADD] = { 0, 0, 0, 1, { _SET_ADD_r00, 0, 0, 0 } },
-    [_STORE_SUBSCR] = { 0, 0, 0, 1, { _STORE_SUBSCR_r00, 0, 0, 0 } },
-    [_STORE_SUBSCR_LIST_INT] = { 3, 3, -3, 0, { 0, 0, 0, _STORE_SUBSCR_LIST_INT_r30 } },
-    [_STORE_SUBSCR_DICT] = { 0, 0, 0, 1, { _STORE_SUBSCR_DICT_r00, 0, 0, 0 } },
-    [_DELETE_SUBSCR] = { 0, 0, 0, 1, { _DELETE_SUBSCR_r00, 0, 0, 0 } },
-    [_CALL_INTRINSIC_1] = { 0, 0, 1, 0, { _CALL_INTRINSIC_1_r01, 0, 0, 0 } },
-    [_CALL_INTRINSIC_2] = { 0, 0, 1, 0, { _CALL_INTRINSIC_2_r01, 0, 0, 0 } },
-    [_RETURN_VALUE] = { 0, 0, 1, 0, { _RETURN_VALUE_r01, 0, 0, 0 } },
-    [_GET_AITER] = { 0, 0, 1, 0, { _GET_AITER_r01, 0, 0, 0 } },
-    [_GET_ANEXT] = { 0, 0, 1, 0, { _GET_ANEXT_r01, 0, 0, 0 } },
-    [_GET_AWAITABLE] = { 0, 0, 1, 0, { _GET_AWAITABLE_r01, 0, 0, 0 } },
-    [_SEND_GEN_FRAME] = { 2, 2, 0, 1, { 0, 0, _SEND_GEN_FRAME_r22, 0 } },
-    [_YIELD_VALUE] = { 1, 1, 0, 1, { 0, _YIELD_VALUE_r11, 0, 0 } },
-    [_POP_EXCEPT] = { 0, 0, 0, 1, { _POP_EXCEPT_r00, 0, 0, 0 } },
-    [_LOAD_COMMON_CONSTANT] = { 0, 2, 1, 0, { _LOAD_COMMON_CONSTANT_r01, _LOAD_COMMON_CONSTANT_r12, _LOAD_COMMON_CONSTANT_r23, 0 } },
-    [_LOAD_BUILD_CLASS] = { 0, 0, 1, 0, { _LOAD_BUILD_CLASS_r01, 0, 0, 0 } },
-    [_STORE_NAME] = { 0, 0, 0, 1, { _STORE_NAME_r00, 0, 0, 0 } },
-    [_DELETE_NAME] = { 0, 0, 0, 1, { _DELETE_NAME_r00, 0, 0, 0 } },
-    [_UNPACK_SEQUENCE] = { 0, 0, 0, 1, { _UNPACK_SEQUENCE_r00, 0, 0, 0 } },
-    [_UNPACK_SEQUENCE_TWO_TUPLE] = { 1, 1, 1, 0, { 0, _UNPACK_SEQUENCE_TWO_TUPLE_r12, 0, 0 } },
-    [_UNPACK_SEQUENCE_TUPLE] = { 1, 1, -1, 0, { 0, _UNPACK_SEQUENCE_TUPLE_r10, 0, 0 } },
-    [_UNPACK_SEQUENCE_LIST] = { 1, 1, -1, 0, { 0, _UNPACK_SEQUENCE_LIST_r10, 0, 0 } },
-    [_UNPACK_EX] = { 0, 0, 0, 1, { _UNPACK_EX_r00, 0, 0, 0 } },
-    [_STORE_ATTR] = { 0, 0, 0, 1, { _STORE_ATTR_r00, 0, 0, 0 } },
-    [_DELETE_ATTR] = { 0, 0, 0, 1, { _DELETE_ATTR_r00, 0, 0, 0 } },
-    [_STORE_GLOBAL] = { 0, 0, 0, 1, { _STORE_GLOBAL_r00, 0, 0, 0 } },
-    [_DELETE_GLOBAL] = { 0, 0, 0, 1, { _DELETE_GLOBAL_r00, 0, 0, 0 } },
-    [_LOAD_LOCALS] = { 0, 0, 1, 0, { _LOAD_LOCALS_r01, 0, 0, 0 } },
-    [_LOAD_NAME] = { 0, 0, 1, 0, { _LOAD_NAME_r01, 0, 0, 0 } },
-    [_LOAD_GLOBAL] = { 0, 0, 0, 1, { _LOAD_GLOBAL_r00, 0, 0, 0 } },
-    [_PUSH_NULL_CONDITIONAL] = { 0, 0, 0, 1, { _PUSH_NULL_CONDITIONAL_r00, 0, 0, 0 } },
-    [_GUARD_GLOBALS_VERSION] = { 0, 3, 0, 1, { _GUARD_GLOBALS_VERSION_r00, _GUARD_GLOBALS_VERSION_r11, _GUARD_GLOBALS_VERSION_r22, _GUARD_GLOBALS_VERSION_r33 } },
-    [_LOAD_GLOBAL_MODULE] = { 0, 0, 1, 0, { _LOAD_GLOBAL_MODULE_r01, 0, 0, 0 } },
-    [_LOAD_GLOBAL_BUILTINS] = { 0, 0, 1, 0, { _LOAD_GLOBAL_BUILTINS_r01, 0, 0, 0 } },
-    [_DELETE_FAST] = { 0, 0, 0, 1, { _DELETE_FAST_r00, 0, 0, 0 } },
-    [_MAKE_CELL] = { 0, 0, 0, 1, { _MAKE_CELL_r00, 0, 0, 0 } },
-    [_DELETE_DEREF] = { 0, 0, 0, 1, { _DELETE_DEREF_r00, 0, 0, 0 } },
-    [_LOAD_FROM_DICT_OR_DEREF] = { 0, 0, 1, 0, { _LOAD_FROM_DICT_OR_DEREF_r01, 0, 0, 0 } },
-    [_LOAD_DEREF] = { 0, 0, 1, 0, { _LOAD_DEREF_r01, 0, 0, 0 } },
-    [_STORE_DEREF] = { 0, 0, 0, 1, { _STORE_DEREF_r00, 0, 0, 0 } },
-    [_COPY_FREE_VARS] = { 0, 0, 0, 1, { _COPY_FREE_VARS_r00, 0, 0, 0 } },
-    [_BUILD_STRING] = { 0, 0, 1, 0, { _BUILD_STRING_r01, 0, 0, 0 } },
-    [_BUILD_INTERPOLATION] = { 0, 0, 1, 0, { _BUILD_INTERPOLATION_r01, 0, 0, 0 } },
-    [_BUILD_TEMPLATE] = { 0, 0, 1, 0, { _BUILD_TEMPLATE_r01, 0, 0, 0 } },
-    [_BUILD_TUPLE] = { 0, 0, 1, 0, { _BUILD_TUPLE_r01, 0, 0, 0 } },
-    [_BUILD_LIST] = { 0, 0, 1, 0, { _BUILD_LIST_r01, 0, 0, 0 } },
-    [_LIST_EXTEND] = { 0, 0, 0, 1, { _LIST_EXTEND_r00, 0, 0, 0 } },
-    [_SET_UPDATE] = { 0, 0, 0, 1, { _SET_UPDATE_r00, 0, 0, 0 } },
-    [_BUILD_SET] = { 0, 0, 1, 0, { _BUILD_SET_r01, 0, 0, 0 } },
-    [_BUILD_MAP] = { 0, 0, 1, 0, { _BUILD_MAP_r01, 0, 0, 0 } },
-    [_SETUP_ANNOTATIONS] = { 0, 0, 0, 1, { _SETUP_ANNOTATIONS_r00, 0, 0, 0 } },
-    [_DICT_UPDATE] = { 0, 0, 0, 1, { _DICT_UPDATE_r00, 0, 0, 0 } },
-    [_DICT_MERGE] = { 0, 0, 0, 1, { _DICT_MERGE_r00, 0, 0, 0 } },
-    [_MAP_ADD] = { 0, 0, 0, 1, { _MAP_ADD_r00, 0, 0, 0 } },
-    [_LOAD_SUPER_ATTR_ATTR] = { 0, 0, 1, 0, { _LOAD_SUPER_ATTR_ATTR_r01, 0, 0, 0 } },
-    [_LOAD_SUPER_ATTR_METHOD] = { 0, 0, 2, 0, { _LOAD_SUPER_ATTR_METHOD_r02, 0, 0, 0 } },
-    [_LOAD_ATTR] = { 0, 0, 0, 1, { _LOAD_ATTR_r00, 0, 0, 0 } },
-    [_GUARD_TYPE_VERSION] = { 0, 3, 0, 1, { _GUARD_TYPE_VERSION_r00, _GUARD_TYPE_VERSION_r11, _GUARD_TYPE_VERSION_r22, _GUARD_TYPE_VERSION_r33 } },
-    [_GUARD_TYPE_VERSION_AND_LOCK] = { 0, 3, 0, 1, { _GUARD_TYPE_VERSION_AND_LOCK_r00, _GUARD_TYPE_VERSION_AND_LOCK_r11, _GUARD_TYPE_VERSION_AND_LOCK_r22, _GUARD_TYPE_VERSION_AND_LOCK_r33 } },
-    [_CHECK_MANAGED_OBJECT_HAS_VALUES] = { 0, 3, 0, 1, { _CHECK_MANAGED_OBJECT_HAS_VALUES_r00, _CHECK_MANAGED_OBJECT_HAS_VALUES_r11, _CHECK_MANAGED_OBJECT_HAS_VALUES_r22, _CHECK_MANAGED_OBJECT_HAS_VALUES_r33 } },
-    [_LOAD_ATTR_INSTANCE_VALUE] = { 1, 1, 0, 1, { 0, _LOAD_ATTR_INSTANCE_VALUE_r11, 0, 0 } },
-    [_LOAD_ATTR_MODULE] = { 1, 1, 0, 1, { 0, _LOAD_ATTR_MODULE_r11, 0, 0 } },
-    [_LOAD_ATTR_WITH_HINT] = { 1, 1, 0, 1, { 0, _LOAD_ATTR_WITH_HINT_r11, 0, 0 } },
-    [_LOAD_ATTR_SLOT] = { 1, 1, 0, 1, { 0, _LOAD_ATTR_SLOT_r11, 0, 0 } },
-    [_CHECK_ATTR_CLASS] = { 0, 3, 0, 1, { _CHECK_ATTR_CLASS_r00, _CHECK_ATTR_CLASS_r11, _CHECK_ATTR_CLASS_r22, _CHECK_ATTR_CLASS_r33 } },
-    [_LOAD_ATTR_CLASS] = { 1, 1, 0, 1, { 0, _LOAD_ATTR_CLASS_r11, 0, 0 } },
-    [_LOAD_ATTR_PROPERTY_FRAME] = { 1, 1, 0, 1, { 0, _LOAD_ATTR_PROPERTY_FRAME_r11, 0, 0 } },
-    [_GUARD_DORV_NO_DICT] = { 0, 3, 0, 1, { _GUARD_DORV_NO_DICT_r00, _GUARD_DORV_NO_DICT_r11, _GUARD_DORV_NO_DICT_r22, _GUARD_DORV_NO_DICT_r33 } },
-    [_STORE_ATTR_INSTANCE_VALUE] = { 2, 2, -2, 0, { 0, 0, _STORE_ATTR_INSTANCE_VALUE_r20, 0 } },
-    [_STORE_ATTR_WITH_HINT] = { 0, 0, 0, 1, { _STORE_ATTR_WITH_HINT_r00, 0, 0, 0 } },
-    [_STORE_ATTR_SLOT] = { 2, 2, -2, 0, { 0, 0, _STORE_ATTR_SLOT_r20, 0 } },
-    [_COMPARE_OP] = { 0, 0, 1, 0, { _COMPARE_OP_r01, 0, 0, 0 } },
-    [_COMPARE_OP_FLOAT] = { 2, 2, -1, 0, { 0, 0, _COMPARE_OP_FLOAT_r21, 0 } },
-    [_COMPARE_OP_INT] = { 2, 2, -1, 0, { 0, 0, _COMPARE_OP_INT_r21, 0 } },
-    [_COMPARE_OP_STR] = { 2, 2, -1, 0, { 0, 0, _COMPARE_OP_STR_r21, 0 } },
-    [_IS_OP] = { 2, 2, -1, 0, { 0, 0, _IS_OP_r21, 0 } },
-    [_CONTAINS_OP] = { 0, 0, 1, 0, { _CONTAINS_OP_r01, 0, 0, 0 } },
-    [_GUARD_TOS_ANY_SET] = { 0, 3, 0, 1, { _GUARD_TOS_ANY_SET_r00, _GUARD_TOS_ANY_SET_r11, _GUARD_TOS_ANY_SET_r22, _GUARD_TOS_ANY_SET_r33 } },
-    [_CONTAINS_OP_SET] = { 0, 0, 1, 0, { _CONTAINS_OP_SET_r01, 0, 0, 0 } },
-    [_CONTAINS_OP_DICT] = { 0, 0, 1, 0, { _CONTAINS_OP_DICT_r01, 0, 0, 0 } },
-    [_CHECK_EG_MATCH] = { 0, 0, 2, 0, { _CHECK_EG_MATCH_r02, 0, 0, 0 } },
-    [_CHECK_EXC_MATCH] = { 0, 0, 1, 0, { _CHECK_EXC_MATCH_r01, 0, 0, 0 } },
-    [_IMPORT_NAME] = { 0, 0, 1, 0, { _IMPORT_NAME_r01, 0, 0, 0 } },
-    [_IMPORT_FROM] = { 0, 0, 1, 0, { _IMPORT_FROM_r01, 0, 0, 0 } },
-    [_IS_NONE] = { 1, 1, 0, 1, { 0, _IS_NONE_r11, 0, 0 } },
-    [_GET_LEN] = { 0, 0, 1, 0, { _GET_LEN_r01, 0, 0, 0 } },
-    [_MATCH_CLASS] = { 0, 0, 1, 0, { _MATCH_CLASS_r01, 0, 0, 0 } },
-    [_MATCH_MAPPING] = { 0, 2, 1, 0, { _MATCH_MAPPING_r01, _MATCH_MAPPING_r12, _MATCH_MAPPING_r23, 0 } },
-    [_MATCH_SEQUENCE] = { 0, 2, 1, 0, { _MATCH_SEQUENCE_r01, _MATCH_SEQUENCE_r12, _MATCH_SEQUENCE_r23, 0 } },
-    [_MATCH_KEYS] = { 0, 0, 1, 0, { _MATCH_KEYS_r01, 0, 0, 0 } },
-    [_GET_ITER] = { 0, 0, 2, 0, { _GET_ITER_r02, 0, 0, 0 } },
-    [_GET_YIELD_FROM_ITER] = { 0, 0, 1, 0, { _GET_YIELD_FROM_ITER_r01, 0, 0, 0 } },
-    [_FOR_ITER_TIER_TWO] = { 0, 0, 1, 0, { _FOR_ITER_TIER_TWO_r01, 0, 0, 0 } },
-    [_ITER_CHECK_LIST] = { 0, 3, 0, 1, { _ITER_CHECK_LIST_r00, _ITER_CHECK_LIST_r11, _ITER_CHECK_LIST_r22, _ITER_CHECK_LIST_r33 } },
-    [_GUARD_NOT_EXHAUSTED_LIST] = { 0, 3, 0, 1, { _GUARD_NOT_EXHAUSTED_LIST_r00, _GUARD_NOT_EXHAUSTED_LIST_r11, _GUARD_NOT_EXHAUSTED_LIST_r22, _GUARD_NOT_EXHAUSTED_LIST_r33 } },
-    [_ITER_NEXT_LIST_TIER_TWO] = { 0, 0, 1, 0, { _ITER_NEXT_LIST_TIER_TWO_r01, 0, 0, 0 } },
-    [_ITER_CHECK_TUPLE] = { 0, 3, 0, 1, { _ITER_CHECK_TUPLE_r00, _ITER_CHECK_TUPLE_r11, _ITER_CHECK_TUPLE_r22, _ITER_CHECK_TUPLE_r33 } },
-    [_GUARD_NOT_EXHAUSTED_TUPLE] = { 0, 3, 0, 1, { _GUARD_NOT_EXHAUSTED_TUPLE_r00, _GUARD_NOT_EXHAUSTED_TUPLE_r11, _GUARD_NOT_EXHAUSTED_TUPLE_r22, _GUARD_NOT_EXHAUSTED_TUPLE_r33 } },
-    [_ITER_NEXT_TUPLE] = { 2, 2, 1, 0, { 0, 0, _ITER_NEXT_TUPLE_r23, 0 } },
-    [_ITER_CHECK_RANGE] = { 0, 3, 0, 1, { _ITER_CHECK_RANGE_r00, _ITER_CHECK_RANGE_r11, _ITER_CHECK_RANGE_r22, _ITER_CHECK_RANGE_r33 } },
-    [_GUARD_NOT_EXHAUSTED_RANGE] = { 0, 3, 0, 1, { _GUARD_NOT_EXHAUSTED_RANGE_r00, _GUARD_NOT_EXHAUSTED_RANGE_r11, _GUARD_NOT_EXHAUSTED_RANGE_r22, _GUARD_NOT_EXHAUSTED_RANGE_r33 } },
-    [_ITER_NEXT_RANGE] = { 2, 2, 1, 0, { 0, 0, _ITER_NEXT_RANGE_r23, 0 } },
-    [_FOR_ITER_GEN_FRAME] = { 2, 2, 1, 0, { 0, 0, _FOR_ITER_GEN_FRAME_r23, 0 } },
-    [_INSERT_NULL] = { 1, 1, -1, 0, { 0, _INSERT_NULL_r10, 0, 0 } },
-    [_LOAD_SPECIAL] = { 0, 0, 0, 1, { _LOAD_SPECIAL_r00, 0, 0, 0 } },
-    [_WITH_EXCEPT_START] = { 0, 0, 1, 0, { _WITH_EXCEPT_START_r01, 0, 0, 0 } },
-    [_PUSH_EXC_INFO] = { 0, 2, 1, 0, { _PUSH_EXC_INFO_r01, _PUSH_EXC_INFO_r12, _PUSH_EXC_INFO_r23, 0 } },
-    [_GUARD_DORV_VALUES_INST_ATTR_FROM_DICT] = { 0, 3, 0, 1, { _GUARD_DORV_VALUES_INST_ATTR_FROM_DICT_r00, _GUARD_DORV_VALUES_INST_ATTR_FROM_DICT_r11, _GUARD_DORV_VALUES_INST_ATTR_FROM_DICT_r22, _GUARD_DORV_VALUES_INST_ATTR_FROM_DICT_r33 } },
-    [_GUARD_KEYS_VERSION] = { 0, 3, 0, 1, { _GUARD_KEYS_VERSION_r00, _GUARD_KEYS_VERSION_r11, _GUARD_KEYS_VERSION_r22, _GUARD_KEYS_VERSION_r33 } },
-    [_LOAD_ATTR_METHOD_WITH_VALUES] = { 0, 2, 1, 0, { _LOAD_ATTR_METHOD_WITH_VALUES_r01, _LOAD_ATTR_METHOD_WITH_VALUES_r12, _LOAD_ATTR_METHOD_WITH_VALUES_r23, 0 } },
-    [_LOAD_ATTR_METHOD_NO_DICT] = { 0, 2, 1, 0, { _LOAD_ATTR_METHOD_NO_DICT_r01, _LOAD_ATTR_METHOD_NO_DICT_r12, _LOAD_ATTR_METHOD_NO_DICT_r23, 0 } },
-    [_LOAD_ATTR_NONDESCRIPTOR_WITH_VALUES] = { 1, 1, 0, 1, { 0, _LOAD_ATTR_NONDESCRIPTOR_WITH_VALUES_r11, 0, 0 } },
-    [_LOAD_ATTR_NONDESCRIPTOR_NO_DICT] = { 1, 1, 0, 1, { 0, _LOAD_ATTR_NONDESCRIPTOR_NO_DICT_r11, 0, 0 } },
-    [_CHECK_ATTR_METHOD_LAZY_DICT] = { 0, 3, 0, 1, { _CHECK_ATTR_METHOD_LAZY_DICT_r00, _CHECK_ATTR_METHOD_LAZY_DICT_r11, _CHECK_ATTR_METHOD_LAZY_DICT_r22, _CHECK_ATTR_METHOD_LAZY_DICT_r33 } },
-    [_LOAD_ATTR_METHOD_LAZY_DICT] = { 0, 2, 1, 0, { _LOAD_ATTR_METHOD_LAZY_DICT_r01, _LOAD_ATTR_METHOD_LAZY_DICT_r12, _LOAD_ATTR_METHOD_LAZY_DICT_r23, 0 } },
-    [_MAYBE_EXPAND_METHOD] = { 0, 0, 0, 1, { _MAYBE_EXPAND_METHOD_r00, 0, 0, 0 } },
-    [_PY_FRAME_GENERAL] = { 0, 0, 1, 0, { _PY_FRAME_GENERAL_r01, 0, 0, 0 } },
-    [_CHECK_FUNCTION_VERSION] = { 0, 0, 0, 1, { _CHECK_FUNCTION_VERSION_r00, 0, 0, 0 } },
-    [_CHECK_FUNCTION_VERSION_INLINE] = { 0, 3, 0, 1, { _CHECK_FUNCTION_VERSION_INLINE_r00, _CHECK_FUNCTION_VERSION_INLINE_r11, _CHECK_FUNCTION_VERSION_INLINE_r22, _CHECK_FUNCTION_VERSION_INLINE_r33 } },
-    [_CHECK_METHOD_VERSION] = { 0, 0, 0, 1, { _CHECK_METHOD_VERSION_r00, 0, 0, 0 } },
-    [_EXPAND_METHOD] = { 0, 0, 0, 1, { _EXPAND_METHOD_r00, 0, 0, 0 } },
-    [_CHECK_IS_NOT_PY_CALLABLE] = { 0, 0, 0, 1, { _CHECK_IS_NOT_PY_CALLABLE_r00, 0, 0, 0 } },
-    [_CALL_NON_PY_GENERAL] = { 0, 0, 1, 0, { _CALL_NON_PY_GENERAL_r01, 0, 0, 0 } },
-    [_CHECK_CALL_BOUND_METHOD_EXACT_ARGS] = { 0, 0, 0, 1, { _CHECK_CALL_BOUND_METHOD_EXACT_ARGS_r00, 0, 0, 0 } },
-    [_INIT_CALL_BOUND_METHOD_EXACT_ARGS] = { 0, 0, 0, 1, { _INIT_CALL_BOUND_METHOD_EXACT_ARGS_r00, 0, 0, 0 } },
-    [_CHECK_PEP_523] = { 0, 3, 0, 1, { _CHECK_PEP_523_r00, _CHECK_PEP_523_r11, _CHECK_PEP_523_r22, _CHECK_PEP_523_r33 } },
-    [_CHECK_FUNCTION_EXACT_ARGS] = { 0, 0, 0, 1, { _CHECK_FUNCTION_EXACT_ARGS_r00, 0, 0, 0 } },
-    [_CHECK_STACK_SPACE] = { 0, 0, 0, 1, { _CHECK_STACK_SPACE_r00, 0, 0, 0 } },
-    [_CHECK_RECURSION_REMAINING] = { 0, 3, 0, 1, { _CHECK_RECURSION_REMAINING_r00, _CHECK_RECURSION_REMAINING_r11, _CHECK_RECURSION_REMAINING_r22, _CHECK_RECURSION_REMAINING_r33 } },
-    [_INIT_CALL_PY_EXACT_ARGS_0] = { 0, 0, 1, 0, { _INIT_CALL_PY_EXACT_ARGS_0_r01, 0, 0, 0 } },
-    [_INIT_CALL_PY_EXACT_ARGS_1] = { 0, 0, 1, 0, { _INIT_CALL_PY_EXACT_ARGS_1_r01, 0, 0, 0 } },
-    [_INIT_CALL_PY_EXACT_ARGS_2] = { 0, 0, 1, 0, { _INIT_CALL_PY_EXACT_ARGS_2_r01, 0, 0, 0 } },
-    [_INIT_CALL_PY_EXACT_ARGS_3] = { 0, 0, 1, 0, { _INIT_CALL_PY_EXACT_ARGS_3_r01, 0, 0, 0 } },
-    [_INIT_CALL_PY_EXACT_ARGS_4] = { 0, 0, 1, 0, { _INIT_CALL_PY_EXACT_ARGS_4_r01, 0, 0, 0 } },
-    [_INIT_CALL_PY_EXACT_ARGS] = { 0, 0, 1, 0, { _INIT_CALL_PY_EXACT_ARGS_r01, 0, 0, 0 } },
-    [_PUSH_FRAME] = { 1, 1, -1, 1, { 0, _PUSH_FRAME_r10, 0, 0 } },
-    [_GUARD_NOS_NULL] = { 0, 3, 0, 1, { _GUARD_NOS_NULL_r00, _GUARD_NOS_NULL_r11, _GUARD_NOS_NULL_r22, _GUARD_NOS_NULL_r33 } },
-    [_GUARD_NOS_NOT_NULL] = { 0, 3, 0, 1, { _GUARD_NOS_NOT_NULL_r00, _GUARD_NOS_NOT_NULL_r11, _GUARD_NOS_NOT_NULL_r22, _GUARD_NOS_NOT_NULL_r33 } },
-    [_GUARD_THIRD_NULL] = { 3, 3, 0, 1, { 0, 0, 0, _GUARD_THIRD_NULL_r33 } },
-    [_GUARD_CALLABLE_TYPE_1] = { 3, 3, 0, 1, { 0, 0, 0, _GUARD_CALLABLE_TYPE_1_r33 } },
-    [_CALL_TYPE_1] = { 3, 3, -2, 0, { 0, 0, 0, _CALL_TYPE_1_r31 } },
-    [_GUARD_CALLABLE_STR_1] = { 3, 3, 0, 1, { 0, 0, 0, _GUARD_CALLABLE_STR_1_r33 } },
-    [_CALL_STR_1] = { 0, 0, 1, 0, { _CALL_STR_1_r01, 0, 0, 0 } },
-    [_GUARD_CALLABLE_TUPLE_1] = { 3, 3, 0, 1, { 0, 0, 0, _GUARD_CALLABLE_TUPLE_1_r33 } },
-    [_CALL_TUPLE_1] = { 0, 0, 1, 0, { _CALL_TUPLE_1_r01, 0, 0, 0 } },
-    [_CHECK_AND_ALLOCATE_OBJECT] = { 0, 0, 0, 1, { _CHECK_AND_ALLOCATE_OBJECT_r00, 0, 0, 0 } },
-    [_CREATE_INIT_FRAME] = { 0, 0, 1, 0, { _CREATE_INIT_FRAME_r01, 0, 0, 0 } },
-    [_EXIT_INIT_CHECK] = { 0, 0, 0, 1, { _EXIT_INIT_CHECK_r00, 0, 0, 0 } },
-    [_CALL_BUILTIN_CLASS] = { 0, 0, 1, 0, { _CALL_BUILTIN_CLASS_r01, 0, 0, 0 } },
-    [_CALL_BUILTIN_O] = { 0, 0, 1, 0, { _CALL_BUILTIN_O_r01, 0, 0, 0 } },
-    [_CALL_BUILTIN_FAST] = { 0, 0, 1, 0, { _CALL_BUILTIN_FAST_r01, 0, 0, 0 } },
-    [_CALL_BUILTIN_FAST_WITH_KEYWORDS] = { 0, 0, 1, 0, { _CALL_BUILTIN_FAST_WITH_KEYWORDS_r01, 0, 0, 0 } },
-    [_GUARD_CALLABLE_LEN] = { 3, 3, 0, 1, { 0, 0, 0, _GUARD_CALLABLE_LEN_r33 } },
-    [_CALL_LEN] = { 0, 0, 1, 0, { _CALL_LEN_r01, 0, 0, 0 } },
-    [_GUARD_CALLABLE_ISINSTANCE] = { 3, 3, 0, 1, { 0, 0, 0, _GUARD_CALLABLE_ISINSTANCE_r33 } },
-    [_CALL_ISINSTANCE] = { 0, 0, 1, 0, { _CALL_ISINSTANCE_r01, 0, 0, 0 } },
-    [_GUARD_CALLABLE_LIST_APPEND] = { 3, 3, 0, 1, { 0, 0, 0, _GUARD_CALLABLE_LIST_APPEND_r33 } },
-    [_CALL_LIST_APPEND] = { 3, 3, -3, 0, { 0, 0, 0, _CALL_LIST_APPEND_r30 } },
-    [_CALL_METHOD_DESCRIPTOR_O] = { 0, 0, 1, 0, { _CALL_METHOD_DESCRIPTOR_O_r01, 0, 0, 0 } },
-    [_CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS] = { 0, 0, 1, 0, { _CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS_r01, 0, 0, 0 } },
-    [_CALL_METHOD_DESCRIPTOR_NOARGS] = { 0, 0, 1, 0, { _CALL_METHOD_DESCRIPTOR_NOARGS_r01, 0, 0, 0 } },
-    [_CALL_METHOD_DESCRIPTOR_FAST] = { 0, 0, 1, 0, { _CALL_METHOD_DESCRIPTOR_FAST_r01, 0, 0, 0 } },
-    [_MAYBE_EXPAND_METHOD_KW] = { 0, 0, 0, 1, { _MAYBE_EXPAND_METHOD_KW_r00, 0, 0, 0 } },
-    [_PY_FRAME_KW] = { 0, 0, 1, 0, { _PY_FRAME_KW_r01, 0, 0, 0 } },
-    [_CHECK_FUNCTION_VERSION_KW] = { 1, 1, 0, 1, { 0, _CHECK_FUNCTION_VERSION_KW_r11, 0, 0 } },
-    [_CHECK_METHOD_VERSION_KW] = { 1, 1, 0, 1, { 0, _CHECK_METHOD_VERSION_KW_r11, 0, 0 } },
-    [_EXPAND_METHOD_KW] = { 0, 0, 0, 1, { _EXPAND_METHOD_KW_r00, 0, 0, 0 } },
-    [_CHECK_IS_NOT_PY_CALLABLE_KW] = { 1, 1, 0, 1, { 0, _CHECK_IS_NOT_PY_CALLABLE_KW_r11, 0, 0 } },
-    [_CALL_KW_NON_PY] = { 0, 0, 1, 0, { _CALL_KW_NON_PY_r01, 0, 0, 0 } },
-    [_MAKE_CALLARGS_A_TUPLE] = { 0, 0, 0, 1, { _MAKE_CALLARGS_A_TUPLE_r00, 0, 0, 0 } },
-    [_MAKE_FUNCTION] = { 0, 0, 1, 0, { _MAKE_FUNCTION_r01, 0, 0, 0 } },
-    [_SET_FUNCTION_ATTRIBUTE] = { 2, 2, -1, 0, { 0, 0, _SET_FUNCTION_ATTRIBUTE_r21, 0 } },
-    [_RETURN_GENERATOR] = { 0, 0, 1, 0, { _RETURN_GENERATOR_r01, 0, 0, 0 } },
-    [_BUILD_SLICE] = { 0, 0, 1, 0, { _BUILD_SLICE_r01, 0, 0, 0 } },
-    [_CONVERT_VALUE] = { 0, 0, 1, 0, { _CONVERT_VALUE_r01, 0, 0, 0 } },
-    [_FORMAT_SIMPLE] = { 0, 0, 1, 0, { _FORMAT_SIMPLE_r01, 0, 0, 0 } },
-    [_FORMAT_WITH_SPEC] = { 0, 0, 1, 0, { _FORMAT_WITH_SPEC_r01, 0, 0, 0 } },
-    [_COPY_1] = { 0, 2, 1, 0, { _COPY_1_r01, _COPY_1_r12, _COPY_1_r23, 0 } },
-    [_COPY_2] = { 2, 2, 1, 0, { 0, 0, _COPY_2_r23, 0 } },
-    [_COPY_3] = { 3, 3, 0, 1, { 0, 0, 0, _COPY_3_r33 } },
-    [_COPY] = { 0, 0, 1, 0, { _COPY_r01, 0, 0, 0 } },
-    [_BINARY_OP] = { 0, 0, 1, 0, { _BINARY_OP_r01, 0, 0, 0 } },
-    [_SWAP_2] = { 0, 3, 0, 1, { _SWAP_2_r00, _SWAP_2_r11, _SWAP_2_r22, _SWAP_2_r33 } },
-    [_SWAP_3] = { 3, 3, 0, 1, { 0, 0, 0, _SWAP_3_r33 } },
-    [_SWAP] = { 1, 1, 0, 1, { 0, _SWAP_r11, 0, 0 } },
-    [_GUARD_IS_TRUE_POP] = { 1, 3, -1, 1, { 0, _GUARD_IS_TRUE_POP_r10, _GUARD_IS_TRUE_POP_r21, _GUARD_IS_TRUE_POP_r32 } },
-    [_GUARD_IS_FALSE_POP] = { 1, 3, -1, 1, { 0, _GUARD_IS_FALSE_POP_r10, _GUARD_IS_FALSE_POP_r21, _GUARD_IS_FALSE_POP_r32 } },
-    [_GUARD_IS_NONE_POP] = { 1, 3, -1, 1, { 0, _GUARD_IS_NONE_POP_r10, _GUARD_IS_NONE_POP_r21, _GUARD_IS_NONE_POP_r32 } },
-    [_GUARD_IS_NOT_NONE_POP] = { 1, 1, -1, 1, { 0, _GUARD_IS_NOT_NONE_POP_r10, 0, 0 } },
-    [_JUMP_TO_TOP] = { 0, 0, 0, 1, { _JUMP_TO_TOP_r00, 0, 0, 0 } },
-    [_SET_IP] = { 0, 3, 0, 1, { _SET_IP_r00, _SET_IP_r11, _SET_IP_r22, _SET_IP_r33 } },
-    [_CHECK_STACK_SPACE_OPERAND] = { 0, 3, 0, 1, { _CHECK_STACK_SPACE_OPERAND_r00, _CHECK_STACK_SPACE_OPERAND_r11, _CHECK_STACK_SPACE_OPERAND_r22, _CHECK_STACK_SPACE_OPERAND_r33 } },
-    [_SAVE_RETURN_OFFSET] = { 0, 3, 0, 1, { _SAVE_RETURN_OFFSET_r00, _SAVE_RETURN_OFFSET_r11, _SAVE_RETURN_OFFSET_r22, _SAVE_RETURN_OFFSET_r33 } },
-    [_EXIT_TRACE] = { 0, 3, -3, 0, { _EXIT_TRACE_r00, _EXIT_TRACE_r10, _EXIT_TRACE_r20, _EXIT_TRACE_r30 } },
-    [_CHECK_VALIDITY] = { 0, 3, 0, 1, { _CHECK_VALIDITY_r00, _CHECK_VALIDITY_r11, _CHECK_VALIDITY_r22, _CHECK_VALIDITY_r33 } },
-    [_LOAD_CONST_INLINE] = { 0, 2, 1, 0, { _LOAD_CONST_INLINE_r01, _LOAD_CONST_INLINE_r12, _LOAD_CONST_INLINE_r23, 0 } },
-    [_POP_TOP_LOAD_CONST_INLINE] = { 1, 1, 0, 1, { 0, _POP_TOP_LOAD_CONST_INLINE_r11, 0, 0 } },
-    [_LOAD_CONST_INLINE_BORROW] = { 0, 2, 1, 0, { _LOAD_CONST_INLINE_BORROW_r01, _LOAD_CONST_INLINE_BORROW_r12, _LOAD_CONST_INLINE_BORROW_r23, 0 } },
-    [_POP_CALL] = { 2, 2, -2, 0, { 0, 0, _POP_CALL_r20, 0 } },
-    [_POP_CALL_ONE] = { 3, 3, -3, 0, { 0, 0, 0, _POP_CALL_ONE_r30 } },
-    [_POP_CALL_TWO] = { 3, 3, -3, 0, { 0, 0, 0, _POP_CALL_TWO_r30 } },
-    [_POP_TOP_LOAD_CONST_INLINE_BORROW] = { 1, 1, 0, 1, { 0, _POP_TOP_LOAD_CONST_INLINE_BORROW_r11, 0, 0 } },
-    [_POP_TWO_LOAD_CONST_INLINE_BORROW] = { 2, 2, -1, 0, { 0, 0, _POP_TWO_LOAD_CONST_INLINE_BORROW_r21, 0 } },
-    [_POP_CALL_LOAD_CONST_INLINE_BORROW] = { 2, 2, -1, 0, { 0, 0, _POP_CALL_LOAD_CONST_INLINE_BORROW_r21, 0 } },
-    [_POP_CALL_ONE_LOAD_CONST_INLINE_BORROW] = { 3, 3, -2, 0, { 0, 0, 0, _POP_CALL_ONE_LOAD_CONST_INLINE_BORROW_r31 } },
-    [_POP_CALL_TWO_LOAD_CONST_INLINE_BORROW] = { 3, 3, -2, 0, { 0, 0, 0, _POP_CALL_TWO_LOAD_CONST_INLINE_BORROW_r31 } },
-    [_LOAD_CONST_UNDER_INLINE] = { 0, 2, 1, 0, { _LOAD_CONST_UNDER_INLINE_r01, _LOAD_CONST_UNDER_INLINE_r12, _LOAD_CONST_UNDER_INLINE_r23, 0 } },
-    [_LOAD_CONST_UNDER_INLINE_BORROW] = { 0, 2, 1, 0, { _LOAD_CONST_UNDER_INLINE_BORROW_r01, _LOAD_CONST_UNDER_INLINE_BORROW_r12, _LOAD_CONST_UNDER_INLINE_BORROW_r23, 0 } },
-    [_CHECK_FUNCTION] = { 0, 3, 0, 1, { _CHECK_FUNCTION_r00, _CHECK_FUNCTION_r11, _CHECK_FUNCTION_r22, _CHECK_FUNCTION_r33 } },
-    [_START_EXECUTOR] = { 0, 0, 0, 1, { _START_EXECUTOR_r00, 0, 0, 0 } },
-    [_MAKE_WARM] = { 0, 3, 0, 1, { _MAKE_WARM_r00, _MAKE_WARM_r11, _MAKE_WARM_r22, _MAKE_WARM_r33 } },
-    [_FATAL_ERROR] = { 0, 3, 0, 1, { _FATAL_ERROR_r00, _FATAL_ERROR_r11, _FATAL_ERROR_r22, _FATAL_ERROR_r33 } },
-    [_DEOPT] = { 0, 3, -3, 0, { _DEOPT_r00, _DEOPT_r10, _DEOPT_r20, _DEOPT_r30 } },
-    [_HANDLE_PENDING_AND_DEOPT] = { 0, 3, -3, 0, { _HANDLE_PENDING_AND_DEOPT_r00, _HANDLE_PENDING_AND_DEOPT_r10, _HANDLE_PENDING_AND_DEOPT_r20, _HANDLE_PENDING_AND_DEOPT_r30 } },
-    [_ERROR_POP_N] = { 0, 0, 0, 1, { _ERROR_POP_N_r00, 0, 0, 0 } },
-    [_TIER2_RESUME_CHECK] = { 0, 3, 0, 1, { _TIER2_RESUME_CHECK_r00, _TIER2_RESUME_CHECK_r11, _TIER2_RESUME_CHECK_r22, _TIER2_RESUME_CHECK_r33 } },
-    [_COLD_EXIT] = { 0, 0, 0, 1, { _COLD_EXIT_r00, 0, 0, 0 } },
+    [_NOP] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _NOP_r00 },
+            { 1, 1, _NOP_r11 },
+            { 2, 2, _NOP_r22 },
+            { 3, 3, _NOP_r33 },
+        },
+    },
+    [_CHECK_PERIODIC] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _CHECK_PERIODIC_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_PERIODIC_IF_NOT_YIELD_FROM] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _CHECK_PERIODIC_IF_NOT_YIELD_FROM_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_RESUME_CHECK] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _RESUME_CHECK_r00 },
+            { 1, 1, _RESUME_CHECK_r11 },
+            { 2, 2, _RESUME_CHECK_r22 },
+            { 3, 3, _RESUME_CHECK_r33 },
+        },
+    },
+    [_LOAD_FAST_CHECK] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_CHECK_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_0] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_0_r01 },
+            { 2, 1, _LOAD_FAST_0_r12 },
+            { 3, 2, _LOAD_FAST_0_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_1] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_1_r01 },
+            { 2, 1, _LOAD_FAST_1_r12 },
+            { 3, 2, _LOAD_FAST_1_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_2] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_2_r01 },
+            { 2, 1, _LOAD_FAST_2_r12 },
+            { 3, 2, _LOAD_FAST_2_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_3] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_3_r01 },
+            { 2, 1, _LOAD_FAST_3_r12 },
+            { 3, 2, _LOAD_FAST_3_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_4] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_4_r01 },
+            { 2, 1, _LOAD_FAST_4_r12 },
+            { 3, 2, _LOAD_FAST_4_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_5] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_5_r01 },
+            { 2, 1, _LOAD_FAST_5_r12 },
+            { 3, 2, _LOAD_FAST_5_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_6] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_6_r01 },
+            { 2, 1, _LOAD_FAST_6_r12 },
+            { 3, 2, _LOAD_FAST_6_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_7] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_7_r01 },
+            { 2, 1, _LOAD_FAST_7_r12 },
+            { 3, 2, _LOAD_FAST_7_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_r01 },
+            { 2, 1, _LOAD_FAST_r12 },
+            { 3, 2, _LOAD_FAST_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_BORROW_0] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_BORROW_0_r01 },
+            { 2, 1, _LOAD_FAST_BORROW_0_r12 },
+            { 3, 2, _LOAD_FAST_BORROW_0_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_BORROW_1] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_BORROW_1_r01 },
+            { 2, 1, _LOAD_FAST_BORROW_1_r12 },
+            { 3, 2, _LOAD_FAST_BORROW_1_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_BORROW_2] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_BORROW_2_r01 },
+            { 2, 1, _LOAD_FAST_BORROW_2_r12 },
+            { 3, 2, _LOAD_FAST_BORROW_2_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_BORROW_3] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_BORROW_3_r01 },
+            { 2, 1, _LOAD_FAST_BORROW_3_r12 },
+            { 3, 2, _LOAD_FAST_BORROW_3_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_BORROW_4] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_BORROW_4_r01 },
+            { 2, 1, _LOAD_FAST_BORROW_4_r12 },
+            { 3, 2, _LOAD_FAST_BORROW_4_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_BORROW_5] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_BORROW_5_r01 },
+            { 2, 1, _LOAD_FAST_BORROW_5_r12 },
+            { 3, 2, _LOAD_FAST_BORROW_5_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_BORROW_6] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_BORROW_6_r01 },
+            { 2, 1, _LOAD_FAST_BORROW_6_r12 },
+            { 3, 2, _LOAD_FAST_BORROW_6_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_BORROW_7] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_BORROW_7_r01 },
+            { 2, 1, _LOAD_FAST_BORROW_7_r12 },
+            { 3, 2, _LOAD_FAST_BORROW_7_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_BORROW] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_BORROW_r01 },
+            { 2, 1, _LOAD_FAST_BORROW_r12 },
+            { 3, 2, _LOAD_FAST_BORROW_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FAST_AND_CLEAR] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_FAST_AND_CLEAR_r01 },
+            { 2, 1, _LOAD_FAST_AND_CLEAR_r12 },
+            { 3, 2, _LOAD_FAST_AND_CLEAR_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_CONST] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_CONST_r01 },
+            { 2, 1, _LOAD_CONST_r12 },
+            { 3, 2, _LOAD_CONST_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_SMALL_INT_0] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_SMALL_INT_0_r01 },
+            { 2, 1, _LOAD_SMALL_INT_0_r12 },
+            { 3, 2, _LOAD_SMALL_INT_0_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_SMALL_INT_1] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_SMALL_INT_1_r01 },
+            { 2, 1, _LOAD_SMALL_INT_1_r12 },
+            { 3, 2, _LOAD_SMALL_INT_1_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_SMALL_INT_2] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_SMALL_INT_2_r01 },
+            { 2, 1, _LOAD_SMALL_INT_2_r12 },
+            { 3, 2, _LOAD_SMALL_INT_2_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_SMALL_INT_3] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_SMALL_INT_3_r01 },
+            { 2, 1, _LOAD_SMALL_INT_3_r12 },
+            { 3, 2, _LOAD_SMALL_INT_3_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_SMALL_INT] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_SMALL_INT_r01 },
+            { 2, 1, _LOAD_SMALL_INT_r12 },
+            { 3, 2, _LOAD_SMALL_INT_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_FAST_0] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _STORE_FAST_0_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_FAST_1] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _STORE_FAST_1_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_FAST_2] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _STORE_FAST_2_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_FAST_3] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _STORE_FAST_3_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_FAST_4] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _STORE_FAST_4_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_FAST_5] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _STORE_FAST_5_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_FAST_6] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _STORE_FAST_6_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_FAST_7] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _STORE_FAST_7_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_FAST] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _STORE_FAST_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_POP_TOP] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _POP_TOP_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_POP_TOP_NOP] = {
+        .best = { 1, 1, 2, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _POP_TOP_NOP_r10 },
+            { 1, 2, _POP_TOP_NOP_r21 },
+            { 2, 3, _POP_TOP_NOP_r32 },
+        },
+    },
+    [_POP_TOP_INT] = {
+        .best = { 1, 1, 2, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _POP_TOP_INT_r10 },
+            { 1, 2, _POP_TOP_INT_r21 },
+            { 2, 3, _POP_TOP_INT_r32 },
+        },
+    },
+    [_POP_TOP_FLOAT] = {
+        .best = { 1, 1, 2, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _POP_TOP_FLOAT_r10 },
+            { 1, 2, _POP_TOP_FLOAT_r21 },
+            { 2, 3, _POP_TOP_FLOAT_r32 },
+        },
+    },
+    [_POP_TOP_UNICODE] = {
+        .best = { 1, 1, 2, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _POP_TOP_UNICODE_r10 },
+            { 1, 2, _POP_TOP_UNICODE_r21 },
+            { 2, 3, _POP_TOP_UNICODE_r32 },
+        },
+    },
+    [_POP_TWO] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 0, 2, _POP_TWO_r20 },
+            { -1, -1, -1 },
+        },
+    },
+    [_PUSH_NULL] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _PUSH_NULL_r01 },
+            { 2, 1, _PUSH_NULL_r12 },
+            { 3, 2, _PUSH_NULL_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_END_FOR] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _END_FOR_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_POP_ITER] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 0, 2, _POP_ITER_r20 },
+            { -1, -1, -1 },
+        },
+    },
+    [_END_SEND] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _END_SEND_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_UNARY_NEGATIVE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _UNARY_NEGATIVE_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_UNARY_NOT] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _UNARY_NOT_r00 },
+            { 1, 1, _UNARY_NOT_r11 },
+            { 2, 2, _UNARY_NOT_r22 },
+            { 3, 3, _UNARY_NOT_r33 },
+        },
+    },
+    [_TO_BOOL] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _TO_BOOL_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_TO_BOOL_BOOL] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _TO_BOOL_BOOL_r00 },
+            { 1, 1, _TO_BOOL_BOOL_r11 },
+            { 2, 2, _TO_BOOL_BOOL_r22 },
+            { 3, 3, _TO_BOOL_BOOL_r33 },
+        },
+    },
+    [_TO_BOOL_INT] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _TO_BOOL_INT_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_NOS_LIST] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_NOS_LIST_r00 },
+            { 1, 1, _GUARD_NOS_LIST_r11 },
+            { 2, 2, _GUARD_NOS_LIST_r22 },
+            { 3, 3, _GUARD_NOS_LIST_r33 },
+        },
+    },
+    [_GUARD_TOS_LIST] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_TOS_LIST_r00 },
+            { 1, 1, _GUARD_TOS_LIST_r11 },
+            { 2, 2, _GUARD_TOS_LIST_r22 },
+            { 3, 3, _GUARD_TOS_LIST_r33 },
+        },
+    },
+    [_GUARD_TOS_SLICE] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_TOS_SLICE_r00 },
+            { 1, 1, _GUARD_TOS_SLICE_r11 },
+            { 2, 2, _GUARD_TOS_SLICE_r22 },
+            { 3, 3, _GUARD_TOS_SLICE_r33 },
+        },
+    },
+    [_TO_BOOL_LIST] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _TO_BOOL_LIST_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_TO_BOOL_NONE] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _TO_BOOL_NONE_r00 },
+            { 1, 1, _TO_BOOL_NONE_r11 },
+            { 2, 2, _TO_BOOL_NONE_r22 },
+            { 3, 3, _TO_BOOL_NONE_r33 },
+        },
+    },
+    [_GUARD_NOS_UNICODE] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_NOS_UNICODE_r00 },
+            { 1, 1, _GUARD_NOS_UNICODE_r11 },
+            { 2, 2, _GUARD_NOS_UNICODE_r22 },
+            { 3, 3, _GUARD_NOS_UNICODE_r33 },
+        },
+    },
+    [_GUARD_TOS_UNICODE] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_TOS_UNICODE_r00 },
+            { 1, 1, _GUARD_TOS_UNICODE_r11 },
+            { 2, 2, _GUARD_TOS_UNICODE_r22 },
+            { 3, 3, _GUARD_TOS_UNICODE_r33 },
+        },
+    },
+    [_TO_BOOL_STR] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _TO_BOOL_STR_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_REPLACE_WITH_TRUE] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _REPLACE_WITH_TRUE_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_UNARY_INVERT] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _UNARY_INVERT_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_NOS_INT] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_NOS_INT_r00 },
+            { 1, 1, _GUARD_NOS_INT_r11 },
+            { 2, 2, _GUARD_NOS_INT_r22 },
+            { 3, 3, _GUARD_NOS_INT_r33 },
+        },
+    },
+    [_GUARD_TOS_INT] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_TOS_INT_r00 },
+            { 1, 1, _GUARD_TOS_INT_r11 },
+            { 2, 2, _GUARD_TOS_INT_r22 },
+            { 3, 3, _GUARD_TOS_INT_r33 },
+        },
+    },
+    [_GUARD_NOS_OVERFLOWED] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_NOS_OVERFLOWED_r00 },
+            { 1, 1, _GUARD_NOS_OVERFLOWED_r11 },
+            { 2, 2, _GUARD_NOS_OVERFLOWED_r22 },
+            { 3, 3, _GUARD_NOS_OVERFLOWED_r33 },
+        },
+    },
+    [_GUARD_TOS_OVERFLOWED] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_TOS_OVERFLOWED_r00 },
+            { 1, 1, _GUARD_TOS_OVERFLOWED_r11 },
+            { 2, 2, _GUARD_TOS_OVERFLOWED_r22 },
+            { 3, 3, _GUARD_TOS_OVERFLOWED_r33 },
+        },
+    },
+    [_BINARY_OP_MULTIPLY_INT] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _BINARY_OP_MULTIPLY_INT_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_ADD_INT] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _BINARY_OP_ADD_INT_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_SUBTRACT_INT] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _BINARY_OP_SUBTRACT_INT_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_NOS_FLOAT] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_NOS_FLOAT_r00 },
+            { 1, 1, _GUARD_NOS_FLOAT_r11 },
+            { 2, 2, _GUARD_NOS_FLOAT_r22 },
+            { 3, 3, _GUARD_NOS_FLOAT_r33 },
+        },
+    },
+    [_GUARD_TOS_FLOAT] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_TOS_FLOAT_r00 },
+            { 1, 1, _GUARD_TOS_FLOAT_r11 },
+            { 2, 2, _GUARD_TOS_FLOAT_r22 },
+            { 3, 3, _GUARD_TOS_FLOAT_r33 },
+        },
+    },
+    [_BINARY_OP_MULTIPLY_FLOAT] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _BINARY_OP_MULTIPLY_FLOAT_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_ADD_FLOAT] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _BINARY_OP_ADD_FLOAT_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_SUBTRACT_FLOAT] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _BINARY_OP_SUBTRACT_FLOAT_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_MULTIPLY_FLOAT__NO_DECREF_INPUTS] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _BINARY_OP_MULTIPLY_FLOAT__NO_DECREF_INPUTS_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_ADD_FLOAT__NO_DECREF_INPUTS] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _BINARY_OP_ADD_FLOAT__NO_DECREF_INPUTS_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_SUBTRACT_FLOAT__NO_DECREF_INPUTS] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _BINARY_OP_SUBTRACT_FLOAT__NO_DECREF_INPUTS_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_ADD_UNICODE] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _BINARY_OP_ADD_UNICODE_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_INPLACE_ADD_UNICODE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _BINARY_OP_INPLACE_ADD_UNICODE_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_BINARY_OP_EXTEND] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _GUARD_BINARY_OP_EXTEND_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_EXTEND] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BINARY_OP_EXTEND_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_SLICE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BINARY_SLICE_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_SLICE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _STORE_SLICE_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_SUBSCR_LIST_INT] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BINARY_OP_SUBSCR_LIST_INT_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_SUBSCR_LIST_SLICE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BINARY_OP_SUBSCR_LIST_SLICE_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_SUBSCR_STR_INT] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _BINARY_OP_SUBSCR_STR_INT_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_NOS_TUPLE] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_NOS_TUPLE_r00 },
+            { 1, 1, _GUARD_NOS_TUPLE_r11 },
+            { 2, 2, _GUARD_NOS_TUPLE_r22 },
+            { 3, 3, _GUARD_NOS_TUPLE_r33 },
+        },
+    },
+    [_GUARD_TOS_TUPLE] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_TOS_TUPLE_r00 },
+            { 1, 1, _GUARD_TOS_TUPLE_r11 },
+            { 2, 2, _GUARD_TOS_TUPLE_r22 },
+            { 3, 3, _GUARD_TOS_TUPLE_r33 },
+        },
+    },
+    [_BINARY_OP_SUBSCR_TUPLE_INT] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _BINARY_OP_SUBSCR_TUPLE_INT_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_NOS_DICT] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_NOS_DICT_r00 },
+            { 1, 1, _GUARD_NOS_DICT_r11 },
+            { 2, 2, _GUARD_NOS_DICT_r22 },
+            { 3, 3, _GUARD_NOS_DICT_r33 },
+        },
+    },
+    [_GUARD_TOS_DICT] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_TOS_DICT_r00 },
+            { 1, 1, _GUARD_TOS_DICT_r11 },
+            { 2, 2, _GUARD_TOS_DICT_r22 },
+            { 3, 3, _GUARD_TOS_DICT_r33 },
+        },
+    },
+    [_BINARY_OP_SUBSCR_DICT] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BINARY_OP_SUBSCR_DICT_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_SUBSCR_CHECK_FUNC] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 2, _BINARY_OP_SUBSCR_CHECK_FUNC_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP_SUBSCR_INIT_CALL] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 3, _BINARY_OP_SUBSCR_INIT_CALL_r31 },
+        },
+    },
+    [_LIST_APPEND] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _LIST_APPEND_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_SET_ADD] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _SET_ADD_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_SUBSCR] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _STORE_SUBSCR_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_SUBSCR_LIST_INT] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 0, 3, _STORE_SUBSCR_LIST_INT_r30 },
+        },
+    },
+    [_STORE_SUBSCR_DICT] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _STORE_SUBSCR_DICT_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_DELETE_SUBSCR] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _DELETE_SUBSCR_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CALL_INTRINSIC_1] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_INTRINSIC_1_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CALL_INTRINSIC_2] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_INTRINSIC_2_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_RETURN_VALUE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _RETURN_VALUE_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GET_AITER] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _GET_AITER_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GET_ANEXT] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _GET_ANEXT_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GET_AWAITABLE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _GET_AWAITABLE_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_SEND_GEN_FRAME] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 2, 2, _SEND_GEN_FRAME_r22 },
+            { -1, -1, -1 },
+        },
+    },
+    [_YIELD_VALUE] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _YIELD_VALUE_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_POP_EXCEPT] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _POP_EXCEPT_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_COMMON_CONSTANT] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_COMMON_CONSTANT_r01 },
+            { 2, 1, _LOAD_COMMON_CONSTANT_r12 },
+            { 3, 2, _LOAD_COMMON_CONSTANT_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_BUILD_CLASS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _LOAD_BUILD_CLASS_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_NAME] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _STORE_NAME_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_DELETE_NAME] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _DELETE_NAME_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_UNPACK_SEQUENCE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _UNPACK_SEQUENCE_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_UNPACK_SEQUENCE_TWO_TUPLE] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 2, 1, _UNPACK_SEQUENCE_TWO_TUPLE_r12 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_UNPACK_SEQUENCE_TUPLE] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _UNPACK_SEQUENCE_TUPLE_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_UNPACK_SEQUENCE_LIST] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _UNPACK_SEQUENCE_LIST_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_UNPACK_EX] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _UNPACK_EX_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_ATTR] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _STORE_ATTR_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_DELETE_ATTR] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _DELETE_ATTR_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_GLOBAL] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _STORE_GLOBAL_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_DELETE_GLOBAL] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _DELETE_GLOBAL_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_LOCALS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _LOAD_LOCALS_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_NAME] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _LOAD_NAME_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_GLOBAL] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _LOAD_GLOBAL_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_PUSH_NULL_CONDITIONAL] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _PUSH_NULL_CONDITIONAL_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_GLOBALS_VERSION] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_GLOBALS_VERSION_r00 },
+            { 1, 1, _GUARD_GLOBALS_VERSION_r11 },
+            { 2, 2, _GUARD_GLOBALS_VERSION_r22 },
+            { 3, 3, _GUARD_GLOBALS_VERSION_r33 },
+        },
+    },
+    [_LOAD_GLOBAL_MODULE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _LOAD_GLOBAL_MODULE_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_GLOBAL_BUILTINS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _LOAD_GLOBAL_BUILTINS_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_DELETE_FAST] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _DELETE_FAST_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_MAKE_CELL] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _MAKE_CELL_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_DELETE_DEREF] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _DELETE_DEREF_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_FROM_DICT_OR_DEREF] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _LOAD_FROM_DICT_OR_DEREF_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_DEREF] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _LOAD_DEREF_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_DEREF] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _STORE_DEREF_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_COPY_FREE_VARS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _COPY_FREE_VARS_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BUILD_STRING] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BUILD_STRING_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BUILD_INTERPOLATION] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BUILD_INTERPOLATION_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BUILD_TEMPLATE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BUILD_TEMPLATE_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BUILD_TUPLE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BUILD_TUPLE_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BUILD_LIST] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BUILD_LIST_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LIST_EXTEND] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _LIST_EXTEND_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_SET_UPDATE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _SET_UPDATE_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BUILD_SET] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BUILD_SET_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BUILD_MAP] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BUILD_MAP_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_SETUP_ANNOTATIONS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _SETUP_ANNOTATIONS_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_DICT_UPDATE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _DICT_UPDATE_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_DICT_MERGE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _DICT_MERGE_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_MAP_ADD] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _MAP_ADD_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_SUPER_ATTR_ATTR] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _LOAD_SUPER_ATTR_ATTR_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_SUPER_ATTR_METHOD] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 2, 0, _LOAD_SUPER_ATTR_METHOD_r02 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_ATTR] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _LOAD_ATTR_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_TYPE_VERSION] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_TYPE_VERSION_r00 },
+            { 1, 1, _GUARD_TYPE_VERSION_r11 },
+            { 2, 2, _GUARD_TYPE_VERSION_r22 },
+            { 3, 3, _GUARD_TYPE_VERSION_r33 },
+        },
+    },
+    [_GUARD_TYPE_VERSION_AND_LOCK] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_TYPE_VERSION_AND_LOCK_r00 },
+            { 1, 1, _GUARD_TYPE_VERSION_AND_LOCK_r11 },
+            { 2, 2, _GUARD_TYPE_VERSION_AND_LOCK_r22 },
+            { 3, 3, _GUARD_TYPE_VERSION_AND_LOCK_r33 },
+        },
+    },
+    [_CHECK_MANAGED_OBJECT_HAS_VALUES] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _CHECK_MANAGED_OBJECT_HAS_VALUES_r00 },
+            { 1, 1, _CHECK_MANAGED_OBJECT_HAS_VALUES_r11 },
+            { 2, 2, _CHECK_MANAGED_OBJECT_HAS_VALUES_r22 },
+            { 3, 3, _CHECK_MANAGED_OBJECT_HAS_VALUES_r33 },
+        },
+    },
+    [_LOAD_ATTR_INSTANCE_VALUE] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _LOAD_ATTR_INSTANCE_VALUE_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_ATTR_MODULE] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _LOAD_ATTR_MODULE_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_ATTR_WITH_HINT] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _LOAD_ATTR_WITH_HINT_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_ATTR_SLOT] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _LOAD_ATTR_SLOT_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_ATTR_CLASS] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _CHECK_ATTR_CLASS_r00 },
+            { 1, 1, _CHECK_ATTR_CLASS_r11 },
+            { 2, 2, _CHECK_ATTR_CLASS_r22 },
+            { 3, 3, _CHECK_ATTR_CLASS_r33 },
+        },
+    },
+    [_LOAD_ATTR_CLASS] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _LOAD_ATTR_CLASS_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_ATTR_PROPERTY_FRAME] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _LOAD_ATTR_PROPERTY_FRAME_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_DORV_NO_DICT] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_DORV_NO_DICT_r00 },
+            { 1, 1, _GUARD_DORV_NO_DICT_r11 },
+            { 2, 2, _GUARD_DORV_NO_DICT_r22 },
+            { 3, 3, _GUARD_DORV_NO_DICT_r33 },
+        },
+    },
+    [_STORE_ATTR_INSTANCE_VALUE] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 0, 2, _STORE_ATTR_INSTANCE_VALUE_r20 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_ATTR_WITH_HINT] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _STORE_ATTR_WITH_HINT_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_STORE_ATTR_SLOT] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 0, 2, _STORE_ATTR_SLOT_r20 },
+            { -1, -1, -1 },
+        },
+    },
+    [_COMPARE_OP] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _COMPARE_OP_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_COMPARE_OP_FLOAT] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _COMPARE_OP_FLOAT_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_COMPARE_OP_INT] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _COMPARE_OP_INT_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_COMPARE_OP_STR] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _COMPARE_OP_STR_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_IS_OP] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _IS_OP_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CONTAINS_OP] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CONTAINS_OP_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_TOS_ANY_SET] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_TOS_ANY_SET_r00 },
+            { 1, 1, _GUARD_TOS_ANY_SET_r11 },
+            { 2, 2, _GUARD_TOS_ANY_SET_r22 },
+            { 3, 3, _GUARD_TOS_ANY_SET_r33 },
+        },
+    },
+    [_CONTAINS_OP_SET] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CONTAINS_OP_SET_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CONTAINS_OP_DICT] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CONTAINS_OP_DICT_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_EG_MATCH] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 2, 0, _CHECK_EG_MATCH_r02 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_EXC_MATCH] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CHECK_EXC_MATCH_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_IMPORT_NAME] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _IMPORT_NAME_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_IMPORT_FROM] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _IMPORT_FROM_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_IS_NONE] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _IS_NONE_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GET_LEN] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _GET_LEN_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_MATCH_CLASS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _MATCH_CLASS_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_MATCH_MAPPING] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _MATCH_MAPPING_r01 },
+            { 2, 1, _MATCH_MAPPING_r12 },
+            { 3, 2, _MATCH_MAPPING_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_MATCH_SEQUENCE] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _MATCH_SEQUENCE_r01 },
+            { 2, 1, _MATCH_SEQUENCE_r12 },
+            { 3, 2, _MATCH_SEQUENCE_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_MATCH_KEYS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _MATCH_KEYS_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GET_ITER] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 2, 0, _GET_ITER_r02 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GET_YIELD_FROM_ITER] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _GET_YIELD_FROM_ITER_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_FOR_ITER_TIER_TWO] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _FOR_ITER_TIER_TWO_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_ITER_CHECK_LIST] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _ITER_CHECK_LIST_r00 },
+            { 1, 1, _ITER_CHECK_LIST_r11 },
+            { 2, 2, _ITER_CHECK_LIST_r22 },
+            { 3, 3, _ITER_CHECK_LIST_r33 },
+        },
+    },
+    [_GUARD_NOT_EXHAUSTED_LIST] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_NOT_EXHAUSTED_LIST_r00 },
+            { 1, 1, _GUARD_NOT_EXHAUSTED_LIST_r11 },
+            { 2, 2, _GUARD_NOT_EXHAUSTED_LIST_r22 },
+            { 3, 3, _GUARD_NOT_EXHAUSTED_LIST_r33 },
+        },
+    },
+    [_ITER_NEXT_LIST_TIER_TWO] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _ITER_NEXT_LIST_TIER_TWO_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_ITER_CHECK_TUPLE] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _ITER_CHECK_TUPLE_r00 },
+            { 1, 1, _ITER_CHECK_TUPLE_r11 },
+            { 2, 2, _ITER_CHECK_TUPLE_r22 },
+            { 3, 3, _ITER_CHECK_TUPLE_r33 },
+        },
+    },
+    [_GUARD_NOT_EXHAUSTED_TUPLE] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_NOT_EXHAUSTED_TUPLE_r00 },
+            { 1, 1, _GUARD_NOT_EXHAUSTED_TUPLE_r11 },
+            { 2, 2, _GUARD_NOT_EXHAUSTED_TUPLE_r22 },
+            { 3, 3, _GUARD_NOT_EXHAUSTED_TUPLE_r33 },
+        },
+    },
+    [_ITER_NEXT_TUPLE] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 2, _ITER_NEXT_TUPLE_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_ITER_CHECK_RANGE] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _ITER_CHECK_RANGE_r00 },
+            { 1, 1, _ITER_CHECK_RANGE_r11 },
+            { 2, 2, _ITER_CHECK_RANGE_r22 },
+            { 3, 3, _ITER_CHECK_RANGE_r33 },
+        },
+    },
+    [_GUARD_NOT_EXHAUSTED_RANGE] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_NOT_EXHAUSTED_RANGE_r00 },
+            { 1, 1, _GUARD_NOT_EXHAUSTED_RANGE_r11 },
+            { 2, 2, _GUARD_NOT_EXHAUSTED_RANGE_r22 },
+            { 3, 3, _GUARD_NOT_EXHAUSTED_RANGE_r33 },
+        },
+    },
+    [_ITER_NEXT_RANGE] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 2, _ITER_NEXT_RANGE_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_FOR_ITER_GEN_FRAME] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 2, _FOR_ITER_GEN_FRAME_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_INSERT_NULL] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 1, _INSERT_NULL_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_SPECIAL] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _LOAD_SPECIAL_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_WITH_EXCEPT_START] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _WITH_EXCEPT_START_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_PUSH_EXC_INFO] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _PUSH_EXC_INFO_r01 },
+            { 2, 1, _PUSH_EXC_INFO_r12 },
+            { 3, 2, _PUSH_EXC_INFO_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_DORV_VALUES_INST_ATTR_FROM_DICT] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_DORV_VALUES_INST_ATTR_FROM_DICT_r00 },
+            { 1, 1, _GUARD_DORV_VALUES_INST_ATTR_FROM_DICT_r11 },
+            { 2, 2, _GUARD_DORV_VALUES_INST_ATTR_FROM_DICT_r22 },
+            { 3, 3, _GUARD_DORV_VALUES_INST_ATTR_FROM_DICT_r33 },
+        },
+    },
+    [_GUARD_KEYS_VERSION] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_KEYS_VERSION_r00 },
+            { 1, 1, _GUARD_KEYS_VERSION_r11 },
+            { 2, 2, _GUARD_KEYS_VERSION_r22 },
+            { 3, 3, _GUARD_KEYS_VERSION_r33 },
+        },
+    },
+    [_LOAD_ATTR_METHOD_WITH_VALUES] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_ATTR_METHOD_WITH_VALUES_r01 },
+            { 2, 1, _LOAD_ATTR_METHOD_WITH_VALUES_r12 },
+            { 3, 2, _LOAD_ATTR_METHOD_WITH_VALUES_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_ATTR_METHOD_NO_DICT] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_ATTR_METHOD_NO_DICT_r01 },
+            { 2, 1, _LOAD_ATTR_METHOD_NO_DICT_r12 },
+            { 3, 2, _LOAD_ATTR_METHOD_NO_DICT_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_ATTR_NONDESCRIPTOR_WITH_VALUES] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _LOAD_ATTR_NONDESCRIPTOR_WITH_VALUES_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_ATTR_NONDESCRIPTOR_NO_DICT] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _LOAD_ATTR_NONDESCRIPTOR_NO_DICT_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_ATTR_METHOD_LAZY_DICT] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _CHECK_ATTR_METHOD_LAZY_DICT_r00 },
+            { 1, 1, _CHECK_ATTR_METHOD_LAZY_DICT_r11 },
+            { 2, 2, _CHECK_ATTR_METHOD_LAZY_DICT_r22 },
+            { 3, 3, _CHECK_ATTR_METHOD_LAZY_DICT_r33 },
+        },
+    },
+    [_LOAD_ATTR_METHOD_LAZY_DICT] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_ATTR_METHOD_LAZY_DICT_r01 },
+            { 2, 1, _LOAD_ATTR_METHOD_LAZY_DICT_r12 },
+            { 3, 2, _LOAD_ATTR_METHOD_LAZY_DICT_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_MAYBE_EXPAND_METHOD] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _MAYBE_EXPAND_METHOD_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_PY_FRAME_GENERAL] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _PY_FRAME_GENERAL_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_FUNCTION_VERSION] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _CHECK_FUNCTION_VERSION_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_FUNCTION_VERSION_INLINE] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _CHECK_FUNCTION_VERSION_INLINE_r00 },
+            { 1, 1, _CHECK_FUNCTION_VERSION_INLINE_r11 },
+            { 2, 2, _CHECK_FUNCTION_VERSION_INLINE_r22 },
+            { 3, 3, _CHECK_FUNCTION_VERSION_INLINE_r33 },
+        },
+    },
+    [_CHECK_METHOD_VERSION] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _CHECK_METHOD_VERSION_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_EXPAND_METHOD] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _EXPAND_METHOD_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_IS_NOT_PY_CALLABLE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _CHECK_IS_NOT_PY_CALLABLE_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CALL_NON_PY_GENERAL] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_NON_PY_GENERAL_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_CALL_BOUND_METHOD_EXACT_ARGS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _CHECK_CALL_BOUND_METHOD_EXACT_ARGS_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_INIT_CALL_BOUND_METHOD_EXACT_ARGS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _INIT_CALL_BOUND_METHOD_EXACT_ARGS_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_PEP_523] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _CHECK_PEP_523_r00 },
+            { 1, 1, _CHECK_PEP_523_r11 },
+            { 2, 2, _CHECK_PEP_523_r22 },
+            { 3, 3, _CHECK_PEP_523_r33 },
+        },
+    },
+    [_CHECK_FUNCTION_EXACT_ARGS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _CHECK_FUNCTION_EXACT_ARGS_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_STACK_SPACE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _CHECK_STACK_SPACE_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_RECURSION_REMAINING] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _CHECK_RECURSION_REMAINING_r00 },
+            { 1, 1, _CHECK_RECURSION_REMAINING_r11 },
+            { 2, 2, _CHECK_RECURSION_REMAINING_r22 },
+            { 3, 3, _CHECK_RECURSION_REMAINING_r33 },
+        },
+    },
+    [_INIT_CALL_PY_EXACT_ARGS_0] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _INIT_CALL_PY_EXACT_ARGS_0_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_INIT_CALL_PY_EXACT_ARGS_1] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _INIT_CALL_PY_EXACT_ARGS_1_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_INIT_CALL_PY_EXACT_ARGS_2] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _INIT_CALL_PY_EXACT_ARGS_2_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_INIT_CALL_PY_EXACT_ARGS_3] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _INIT_CALL_PY_EXACT_ARGS_3_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_INIT_CALL_PY_EXACT_ARGS_4] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _INIT_CALL_PY_EXACT_ARGS_4_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_INIT_CALL_PY_EXACT_ARGS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _INIT_CALL_PY_EXACT_ARGS_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_PUSH_FRAME] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 0, _PUSH_FRAME_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_NOS_NULL] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_NOS_NULL_r00 },
+            { 1, 1, _GUARD_NOS_NULL_r11 },
+            { 2, 2, _GUARD_NOS_NULL_r22 },
+            { 3, 3, _GUARD_NOS_NULL_r33 },
+        },
+    },
+    [_GUARD_NOS_NOT_NULL] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _GUARD_NOS_NOT_NULL_r00 },
+            { 1, 1, _GUARD_NOS_NOT_NULL_r11 },
+            { 2, 2, _GUARD_NOS_NOT_NULL_r22 },
+            { 3, 3, _GUARD_NOS_NOT_NULL_r33 },
+        },
+    },
+    [_GUARD_THIRD_NULL] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 3, _GUARD_THIRD_NULL_r33 },
+        },
+    },
+    [_GUARD_CALLABLE_TYPE_1] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 3, _GUARD_CALLABLE_TYPE_1_r33 },
+        },
+    },
+    [_CALL_TYPE_1] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 3, _CALL_TYPE_1_r31 },
+        },
+    },
+    [_GUARD_CALLABLE_STR_1] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 3, _GUARD_CALLABLE_STR_1_r33 },
+        },
+    },
+    [_CALL_STR_1] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_STR_1_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_CALLABLE_TUPLE_1] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 3, _GUARD_CALLABLE_TUPLE_1_r33 },
+        },
+    },
+    [_CALL_TUPLE_1] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_TUPLE_1_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_AND_ALLOCATE_OBJECT] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _CHECK_AND_ALLOCATE_OBJECT_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CREATE_INIT_FRAME] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CREATE_INIT_FRAME_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_EXIT_INIT_CHECK] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _EXIT_INIT_CHECK_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CALL_BUILTIN_CLASS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_BUILTIN_CLASS_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CALL_BUILTIN_O] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_BUILTIN_O_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CALL_BUILTIN_FAST] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_BUILTIN_FAST_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CALL_BUILTIN_FAST_WITH_KEYWORDS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_BUILTIN_FAST_WITH_KEYWORDS_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_CALLABLE_LEN] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 3, _GUARD_CALLABLE_LEN_r33 },
+        },
+    },
+    [_CALL_LEN] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_LEN_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_CALLABLE_ISINSTANCE] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 3, _GUARD_CALLABLE_ISINSTANCE_r33 },
+        },
+    },
+    [_CALL_ISINSTANCE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_ISINSTANCE_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_CALLABLE_LIST_APPEND] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 3, _GUARD_CALLABLE_LIST_APPEND_r33 },
+        },
+    },
+    [_CALL_LIST_APPEND] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 0, 3, _CALL_LIST_APPEND_r30 },
+        },
+    },
+    [_CALL_METHOD_DESCRIPTOR_O] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_METHOD_DESCRIPTOR_O_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CALL_METHOD_DESCRIPTOR_NOARGS] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_METHOD_DESCRIPTOR_NOARGS_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CALL_METHOD_DESCRIPTOR_FAST] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_METHOD_DESCRIPTOR_FAST_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_MAYBE_EXPAND_METHOD_KW] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _MAYBE_EXPAND_METHOD_KW_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_PY_FRAME_KW] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _PY_FRAME_KW_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_FUNCTION_VERSION_KW] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _CHECK_FUNCTION_VERSION_KW_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_METHOD_VERSION_KW] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _CHECK_METHOD_VERSION_KW_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_EXPAND_METHOD_KW] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _EXPAND_METHOD_KW_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_IS_NOT_PY_CALLABLE_KW] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _CHECK_IS_NOT_PY_CALLABLE_KW_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CALL_KW_NON_PY] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CALL_KW_NON_PY_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_MAKE_CALLARGS_A_TUPLE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _MAKE_CALLARGS_A_TUPLE_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_MAKE_FUNCTION] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _MAKE_FUNCTION_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_SET_FUNCTION_ATTRIBUTE] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _SET_FUNCTION_ATTRIBUTE_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_RETURN_GENERATOR] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _RETURN_GENERATOR_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BUILD_SLICE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BUILD_SLICE_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CONVERT_VALUE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _CONVERT_VALUE_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_FORMAT_SIMPLE] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _FORMAT_SIMPLE_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_FORMAT_WITH_SPEC] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _FORMAT_WITH_SPEC_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_COPY_1] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _COPY_1_r01 },
+            { 2, 1, _COPY_1_r12 },
+            { 3, 2, _COPY_1_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_COPY_2] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 2, _COPY_2_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_COPY_3] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 3, _COPY_3_r33 },
+        },
+    },
+    [_COPY] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _COPY_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_BINARY_OP] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 1, 0, _BINARY_OP_r01 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_SWAP_2] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _SWAP_2_r00 },
+            { 1, 1, _SWAP_2_r11 },
+            { 2, 2, _SWAP_2_r22 },
+            { 3, 3, _SWAP_2_r33 },
+        },
+    },
+    [_SWAP_3] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 3, 3, _SWAP_3_r33 },
+        },
+    },
+    [_SWAP] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _SWAP_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_GUARD_IS_TRUE_POP] = {
+        .best = { 1, 1, 2, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 0, _GUARD_IS_TRUE_POP_r10 },
+            { 1, 1, _GUARD_IS_TRUE_POP_r21 },
+            { 2, 2, _GUARD_IS_TRUE_POP_r32 },
+        },
+    },
+    [_GUARD_IS_FALSE_POP] = {
+        .best = { 1, 1, 2, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 0, _GUARD_IS_FALSE_POP_r10 },
+            { 1, 1, _GUARD_IS_FALSE_POP_r21 },
+            { 2, 2, _GUARD_IS_FALSE_POP_r32 },
+        },
+    },
+    [_GUARD_IS_NONE_POP] = {
+        .best = { 1, 1, 2, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 0, _GUARD_IS_NONE_POP_r10 },
+            { 1, 1, _GUARD_IS_NONE_POP_r21 },
+            { 2, 2, _GUARD_IS_NONE_POP_r32 },
+        },
+    },
+    [_GUARD_IS_NOT_NONE_POP] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 0, 0, _GUARD_IS_NOT_NONE_POP_r10 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_JUMP_TO_TOP] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _JUMP_TO_TOP_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_SET_IP] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _SET_IP_r00 },
+            { 1, 1, _SET_IP_r11 },
+            { 2, 2, _SET_IP_r22 },
+            { 3, 3, _SET_IP_r33 },
+        },
+    },
+    [_CHECK_STACK_SPACE_OPERAND] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _CHECK_STACK_SPACE_OPERAND_r00 },
+            { 1, 1, _CHECK_STACK_SPACE_OPERAND_r11 },
+            { 2, 2, _CHECK_STACK_SPACE_OPERAND_r22 },
+            { 3, 3, _CHECK_STACK_SPACE_OPERAND_r33 },
+        },
+    },
+    [_SAVE_RETURN_OFFSET] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _SAVE_RETURN_OFFSET_r00 },
+            { 1, 1, _SAVE_RETURN_OFFSET_r11 },
+            { 2, 2, _SAVE_RETURN_OFFSET_r22 },
+            { 3, 3, _SAVE_RETURN_OFFSET_r33 },
+        },
+    },
+    [_EXIT_TRACE] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _EXIT_TRACE_r00 },
+            { 0, 1, _EXIT_TRACE_r10 },
+            { 0, 2, _EXIT_TRACE_r20 },
+            { 0, 3, _EXIT_TRACE_r30 },
+        },
+    },
+    [_CHECK_VALIDITY] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _CHECK_VALIDITY_r00 },
+            { 1, 1, _CHECK_VALIDITY_r11 },
+            { 2, 2, _CHECK_VALIDITY_r22 },
+            { 3, 3, _CHECK_VALIDITY_r33 },
+        },
+    },
+    [_LOAD_CONST_INLINE] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_CONST_INLINE_r01 },
+            { 2, 1, _LOAD_CONST_INLINE_r12 },
+            { 3, 2, _LOAD_CONST_INLINE_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_POP_TOP_LOAD_CONST_INLINE] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _POP_TOP_LOAD_CONST_INLINE_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_CONST_INLINE_BORROW] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_CONST_INLINE_BORROW_r01 },
+            { 2, 1, _LOAD_CONST_INLINE_BORROW_r12 },
+            { 3, 2, _LOAD_CONST_INLINE_BORROW_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_POP_CALL] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 0, 2, _POP_CALL_r20 },
+            { -1, -1, -1 },
+        },
+    },
+    [_POP_CALL_ONE] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 0, 3, _POP_CALL_ONE_r30 },
+        },
+    },
+    [_POP_CALL_TWO] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 0, 3, _POP_CALL_TWO_r30 },
+        },
+    },
+    [_POP_TOP_LOAD_CONST_INLINE_BORROW] = {
+        .best = { 1, 1, 1, 1 },
+        .entries = {
+            { -1, -1, -1 },
+            { 1, 1, _POP_TOP_LOAD_CONST_INLINE_BORROW_r11 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_POP_TWO_LOAD_CONST_INLINE_BORROW] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _POP_TWO_LOAD_CONST_INLINE_BORROW_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_POP_CALL_LOAD_CONST_INLINE_BORROW] = {
+        .best = { 2, 2, 2, 2 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 2, _POP_CALL_LOAD_CONST_INLINE_BORROW_r21 },
+            { -1, -1, -1 },
+        },
+    },
+    [_POP_CALL_ONE_LOAD_CONST_INLINE_BORROW] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 3, _POP_CALL_ONE_LOAD_CONST_INLINE_BORROW_r31 },
+        },
+    },
+    [_POP_CALL_TWO_LOAD_CONST_INLINE_BORROW] = {
+        .best = { 3, 3, 3, 3 },
+        .entries = {
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { 1, 3, _POP_CALL_TWO_LOAD_CONST_INLINE_BORROW_r31 },
+        },
+    },
+    [_LOAD_CONST_UNDER_INLINE] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_CONST_UNDER_INLINE_r01 },
+            { 2, 1, _LOAD_CONST_UNDER_INLINE_r12 },
+            { 3, 2, _LOAD_CONST_UNDER_INLINE_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_LOAD_CONST_UNDER_INLINE_BORROW] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 1, 0, _LOAD_CONST_UNDER_INLINE_BORROW_r01 },
+            { 2, 1, _LOAD_CONST_UNDER_INLINE_BORROW_r12 },
+            { 3, 2, _LOAD_CONST_UNDER_INLINE_BORROW_r23 },
+            { -1, -1, -1 },
+        },
+    },
+    [_CHECK_FUNCTION] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _CHECK_FUNCTION_r00 },
+            { 1, 1, _CHECK_FUNCTION_r11 },
+            { 2, 2, _CHECK_FUNCTION_r22 },
+            { 3, 3, _CHECK_FUNCTION_r33 },
+        },
+    },
+    [_START_EXECUTOR] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _START_EXECUTOR_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_MAKE_WARM] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _MAKE_WARM_r00 },
+            { 1, 1, _MAKE_WARM_r11 },
+            { 2, 2, _MAKE_WARM_r22 },
+            { 3, 3, _MAKE_WARM_r33 },
+        },
+    },
+    [_FATAL_ERROR] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _FATAL_ERROR_r00 },
+            { 1, 1, _FATAL_ERROR_r11 },
+            { 2, 2, _FATAL_ERROR_r22 },
+            { 3, 3, _FATAL_ERROR_r33 },
+        },
+    },
+    [_DEOPT] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _DEOPT_r00 },
+            { 0, 1, _DEOPT_r10 },
+            { 0, 2, _DEOPT_r20 },
+            { 0, 3, _DEOPT_r30 },
+        },
+    },
+    [_HANDLE_PENDING_AND_DEOPT] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _HANDLE_PENDING_AND_DEOPT_r00 },
+            { 0, 1, _HANDLE_PENDING_AND_DEOPT_r10 },
+            { 0, 2, _HANDLE_PENDING_AND_DEOPT_r20 },
+            { 0, 3, _HANDLE_PENDING_AND_DEOPT_r30 },
+        },
+    },
+    [_ERROR_POP_N] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _ERROR_POP_N_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
+    [_TIER2_RESUME_CHECK] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 0, 0, _TIER2_RESUME_CHECK_r00 },
+            { 1, 1, _TIER2_RESUME_CHECK_r11 },
+            { 2, 2, _TIER2_RESUME_CHECK_r22 },
+            { 3, 3, _TIER2_RESUME_CHECK_r33 },
+        },
+    },
+    [_COLD_EXIT] = {
+        .best = { 0, 0, 0, 0 },
+        .entries = {
+            { 0, 0, _COLD_EXIT_r00 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+            { -1, -1, -1 },
+        },
+    },
 };
 
 const uint16_t _PyUop_Uncached[MAX_UOP_REGS_ID+1] = {

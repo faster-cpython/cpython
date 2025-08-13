@@ -1018,24 +1018,16 @@ count_exits(_PyUOpInstruction *buffer, int length)
 static int
 get_cached_entries_for_side_exit(_PyUOpInstruction *inst)
 {
-    // TO DO -- Add another generated table for this?
+    // Maybe add another generated table for this?
     int base_opcode = _PyUop_Uncached[inst->opcode];
     assert(base_opcode != 0);
-    int input = -1;
-    /* Find number of cached entries at input. */
     for (int i = 0; i <= MAX_CACHED_REGISTER; i++) {
-        if (_PyUop_Caching[base_opcode].opcodes[i] == inst->opcode) {
-            input = i;
-            break;
+        const _PyUopTOSentry *entry = &_PyUop_Caching[base_opcode].entries[i];
+        if (entry->opcode == inst->opcode) {
+            return entry->exit;
         }
     }
-    if (input == -1) {
-        return -1;
-    }
-    if (_PyUop_Caching[base_opcode].exit_depth_is_output) {
-        return input + _PyUop_Caching[base_opcode].delta;
-    }
-    return input;
+    Py_UNREACHABLE();
 }
 
 static void make_exit(_PyUOpInstruction *inst, int opcode, int target)
@@ -1090,7 +1082,7 @@ prepare_for_execution(_PyUOpInstruction *buffer, int length)
                 base_exit_op = _HANDLE_PENDING_AND_DEOPT;
             }
             int exit_depth = get_cached_entries_for_side_exit(inst);
-            uint16_t exit_op = _PyUop_Caching[base_exit_op].opcodes[exit_depth];
+            uint16_t exit_op = _PyUop_Caching[base_exit_op].entries[exit_depth].opcode;
             int32_t jump_target = target;
             if (is_for_iter_test[base_opcode]) {
                 /* Target the POP_TOP immediately after the END_FOR,
@@ -1328,26 +1320,19 @@ stack_allocate(_PyUOpInstruction *buffer, int length)
             spill_or_reload->opcode = _NOP;
             continue;
         }
-        if (_PyUop_Caching[uop].opcodes[depth] > 0) {
+        int new_depth = _PyUop_Caching[uop].best[depth];
+        if (new_depth == depth) {
             spill_or_reload->opcode = _NOP;
         }
         else {
-            int min_depth = _PyUop_Caching[uop].min_input;
-            int max_depth = _PyUop_Caching[uop].max_input;
-            if (depth < min_depth) {
-                spill_or_reload->opcode = _PyUop_SpillsAndReloads[depth][min_depth];
-                depth = min_depth;
-            }
-            else {
-                assert(depth != max_depth);
-                spill_or_reload->opcode = _PyUop_SpillsAndReloads[depth][max_depth];
-                depth = max_depth;
-            }
+            spill_or_reload->opcode = _PyUop_SpillsAndReloads[depth][new_depth];
+            depth = new_depth;
         }
-        assert(_PyUop_Caching[uop].opcodes[depth] != 0);
+        uint16_t new_opcode = _PyUop_Caching[uop].entries[depth].opcode;
+        assert(new_opcode != 0);
         assert(spill_or_reload->opcode != 0);
-        buffer[i*2+1].opcode = _PyUop_Caching[uop].opcodes[depth];
-        depth += _PyUop_Caching[uop].delta;
+        buffer[i*2+1].opcode = new_opcode;
+        depth = _PyUop_Caching[uop].entries[depth].output;
     }
     return length*2;
 }
