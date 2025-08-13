@@ -7823,28 +7823,51 @@
                 self_or_null = &stack_pointer[0];
                 PyObject *name = GETITEM(FRAME_CO_NAMES, oparg >> 1);
                 if (oparg & 1) {
-                    _PyStackRef method = PyStackRef_NULL;
+                    _PyCStackRef method;
                     _PyFrame_SetStackPointer(frame, stack_pointer);
-                    int is_meth = _PyObject_GetMethodStackRef(tstate, PyStackRef_AsPyObjectBorrow(owner), name, &method);
+                    _PyThreadState_PushCStackRef(tstate, &method);
+                    int is_meth = _PyObject_GetMethodStackRef(tstate, PyStackRef_AsPyObjectBorrow(owner), name, &method.ref);
                     stack_pointer = _PyFrame_GetStackPointer(frame);
                     if (is_meth) {
-                        assert(!PyStackRef_IsNull(method));
+                        assert(!PyStackRef_IsNull(method.ref));
                         self_or_null[0] = owner;
-                        attr = method;
-                    }
-                    else {
-                        attr = method;
-                        self_or_null[0] = PyStackRef_NULL;
+                        attr = method.ref;
+                        #ifdef Py_GIL_DISABLED
+                        method_ref.ref = PyStackRef_NULL;
                         stack_pointer[-1] = attr;
                         stack_pointer += (oparg&1);
                         assert(WITHIN_STACK_BOUNDS());
                         _PyFrame_SetStackPointer(frame, stack_pointer);
+                        _PyThreadState_PopCStackRef(tstate, &method_ref);
+                        stack_pointer = _PyFrame_GetStackPointer(frame);
+                        stack_pointer += -(oparg&1);
+                        #endif
+                    }
+                    else {
+                        stack_pointer += -1;
+                        assert(WITHIN_STACK_BOUNDS());
+                        _PyFrame_SetStackPointer(frame, stack_pointer);
                         PyStackRef_CLOSE(owner);
                         stack_pointer = _PyFrame_GetStackPointer(frame);
-                        if (PyStackRef_IsNull(method)) {
+                        self_or_null[0] = PyStackRef_NULL;
+                        attr = method.ref;
+                        #ifdef Py_GIL_DISABLED
+                        method_ref.ref = PyStackRef_NULL;
+                        stack_pointer[0] = attr;
+                        stack_pointer += 1 + (oparg&1);
+                        assert(WITHIN_STACK_BOUNDS());
+                        _PyFrame_SetStackPointer(frame, stack_pointer);
+                        _PyThreadState_PopCStackRef(tstate, &method_ref);
+                        stack_pointer = _PyFrame_GetStackPointer(frame);
+                        stack_pointer += -1 - (oparg&1);
+                        #endif
+                        if (PyStackRef_IsNull(attr)) {
+                            stack_pointer[0] = attr;
+                            stack_pointer += 1 + (oparg&1);
+                            assert(WITHIN_STACK_BOUNDS());
                             JUMP_TO_LABEL(error);
                         }
-                        stack_pointer += -(oparg&1);
+                        stack_pointer += 1;
                     }
                 }
                 else {
