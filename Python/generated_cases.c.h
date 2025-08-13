@@ -7797,7 +7797,7 @@
             _Py_CODEUNIT* const this_instr = next_instr - 10;
             (void)this_instr;
             _PyStackRef owner;
-            _PyStackRef *attr;
+            _PyStackRef attr;
             _PyStackRef *self_or_null;
             // _SPECIALIZE_LOAD_ATTR
             {
@@ -7820,29 +7820,31 @@
             /* Skip 8 cache entries */
             // _LOAD_ATTR
             {
-                attr = &stack_pointer[-1];
                 self_or_null = &stack_pointer[0];
                 PyObject *name = GETITEM(FRAME_CO_NAMES, oparg >> 1);
                 if (oparg & 1) {
-                    *attr = PyStackRef_NULL;
+                    _PyStackRef method = PyStackRef_NULL;
                     _PyFrame_SetStackPointer(frame, stack_pointer);
-                    int is_meth = _PyObject_GetMethodStackRef(tstate, PyStackRef_AsPyObjectBorrow(owner), name, attr);
+                    int is_meth = _PyObject_GetMethodStackRef(tstate, PyStackRef_AsPyObjectBorrow(owner), name, &method);
                     stack_pointer = _PyFrame_GetStackPointer(frame);
                     if (is_meth) {
-                        assert(!PyStackRef_IsNull(*attr));
+                        assert(!PyStackRef_IsNull(method));
                         self_or_null[0] = owner;
+                        attr = method;
                     }
                     else {
-                        stack_pointer += -1;
+                        attr = method;
+                        self_or_null[0] = PyStackRef_NULL;
+                        stack_pointer[-1] = attr;
+                        stack_pointer += (oparg&1);
                         assert(WITHIN_STACK_BOUNDS());
                         _PyFrame_SetStackPointer(frame, stack_pointer);
                         PyStackRef_CLOSE(owner);
                         stack_pointer = _PyFrame_GetStackPointer(frame);
-                        if (PyStackRef_IsNull(*attr)) {
+                        if (PyStackRef_IsNull(method)) {
                             JUMP_TO_LABEL(error);
                         }
-                        self_or_null[0] = PyStackRef_NULL;
-                        stack_pointer += 1;
+                        stack_pointer += -(oparg&1);
                     }
                 }
                 else {
@@ -7857,10 +7859,11 @@
                     if (attr_o == NULL) {
                         JUMP_TO_LABEL(error);
                     }
-                    *attr = PyStackRef_FromPyObjectSteal(attr_o);
+                    attr = PyStackRef_FromPyObjectSteal(attr_o);
                     stack_pointer += 1;
                 }
             }
+            stack_pointer[-1] = attr;
             stack_pointer += (oparg&1);
             assert(WITHIN_STACK_BOUNDS());
             DISPATCH();

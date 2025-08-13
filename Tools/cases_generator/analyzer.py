@@ -1333,7 +1333,7 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int, int]]:
     if ideal_outputs > MAX_CACHED_REGISTER:
         ideal_outputs = MAX_CACHED_REGISTER
     if non_decref_escape:
-        yield 0, ideal_outputs, 0
+        yield ideal_inputs, ideal_outputs, 0
         return
     at_end = uop.properties.sync_sp or uop.properties.side_exit_at_end
     exit_depth = ideal_outputs if at_end else ideal_inputs
