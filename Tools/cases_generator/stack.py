@@ -482,7 +482,7 @@ class Storage:
     def _push_defined_outputs(self) -> None:
         defined_output = ""
         for output in self.outputs:
-            if output.in_local and not output.memory_offset:
+            if output.in_local and not output.memory_offset and not output.item.peek:
                 defined_output = output.name
         if not defined_output:
             return

@@ -1311,22 +1311,17 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int, int]]:
         if "DECREF" in call.call.text or "CLOSE" in call.call.text:
             continue
         non_decref_escape = True
-    has_exit = uop.properties.deopts or uop.properties.side_exit or uop.properties.side_exit_at_end
     ideal_inputs = 0
     has_array = False
     for item in reversed(uop.stack.inputs):
         if item.size:
             has_array = True
             break
-        if item.peek and uop.properties.escapes:
-            break
         ideal_inputs += 1
     ideal_outputs = 0
     for item in reversed(uop.stack.outputs):
         if item.size:
             has_array = True
-            break
-        if item.peek and uop.properties.escapes:
             break
         ideal_outputs += 1
     if ideal_inputs > MAX_CACHED_REGISTER:
