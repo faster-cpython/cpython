@@ -5491,7 +5491,9 @@
                 }
                 DISPATCH_GOTO();
             }
-            assert(executor != tstate->interp->cold_executor);
+            #if defined(_Py_TIER2) & defined(Py_DEBUG)
+            current_cached_values = 0;
+            #endif
             tstate->jit_exit = NULL;
             TIER1_TO_TIER2(executor);
             #else
@@ -7652,7 +7654,7 @@
                     }
                     _PyExecutorObject *executor;
                     _PyFrame_SetStackPointer(frame, stack_pointer);
-                    int optimized = _PyOptimizer_Optimize(frame, start, &executor, 0);
+                    int optimized = _PyOptimizer_Optimize(frame, start, &executor, 0, 0);
                     stack_pointer = _PyFrame_GetStackPointer(frame);
                     if (optimized <= 0) {
                         this_instr[1].counter = restart_backoff_counter(counter);
@@ -7665,8 +7667,10 @@
                         this_instr[1].counter = initial_jump_backoff_counter();
                         stack_pointer = _PyFrame_GetStackPointer(frame);
                         assert(tstate->current_executor == NULL);
-                        assert(executor != tstate->interp->cold_executor);
                         tstate->jit_exit = NULL;
+                        #if defined(_Py_TIER2) & defined(Py_DEBUG)
+                        current_cached_values = 0;
+                        #endif
                         TIER1_TO_TIER2(executor);
                     }
                 }

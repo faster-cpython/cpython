@@ -1970,10 +1970,10 @@
             PyStackRef_CLOSE(receiver);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             _tos_cache0 = val;
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -2467,10 +2467,10 @@
             PyStackRef_CLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             _tos_cache0 = res;
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -3652,9 +3652,9 @@
             }
             _tos_cache1 = right;
             _tos_cache0 = left;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             stack_pointer += -2;
             assert(WITHIN_STACK_BOUNDS());
-            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(2);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -3876,10 +3876,10 @@
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
             _tos_cache0 = res;
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -4170,10 +4170,10 @@
             PyStackRef_CLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             _tos_cache0 = res;
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -4494,11 +4494,11 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(0);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -4877,9 +4877,9 @@
             awaitable = PyStackRef_FromPyObjectSteal(awaitable_o);
             _tos_cache1 = awaitable;
             _tos_cache0 = aiter;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
-            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(2);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -5017,11 +5017,11 @@
                        PyStackRef_IsNone(exc_value)
                        ? NULL : PyStackRef_AsPyObjectSteal(exc_value));
             stack_pointer = _PyFrame_GetStackPointer(frame);
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(0);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -5213,11 +5213,11 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
-            stack_pointer += oparg;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += oparg;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(0);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -5252,9 +5252,9 @@
             stack_pointer = _PyFrame_GetStackPointer(frame);
             _tos_cache1 = val0;
             _tos_cache0 = val1;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             stack_pointer += -2;
             assert(WITHIN_STACK_BOUNDS());
-            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(2);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -5355,11 +5355,11 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
-            stack_pointer += 1 + (oparg & 0xFF) + (oparg >> 8);
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += 1 + (oparg & 0xFF) + (oparg >> 8);
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(0);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -5554,11 +5554,11 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
-            stack_pointer += 1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += 1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(0);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -5936,11 +5936,11 @@
             _PyFrame_SetStackPointer(frame, stack_pointer);
             PyCell_SetTakeRef(cell, PyStackRef_AsPyObjectSteal(v));
             stack_pointer = _PyFrame_GetStackPointer(frame);
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(0);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -6151,10 +6151,10 @@
             }
             list = PyStackRef_FromPyObjectStealMortal(list_o);
             _tos_cache0 = list;
-            stack_pointer += -oparg;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -oparg;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -6296,10 +6296,10 @@
             }
             set = PyStackRef_FromPyObjectStealMortal(set_o);
             _tos_cache0 = set;
-            stack_pointer += -oparg;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -oparg;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -6532,11 +6532,11 @@
                 SET_CURRENT_CACHED_VALUES(0);
                 JUMP_TO_ERROR();
             }
-            stack_pointer += -2;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -2;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(0);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -6746,12 +6746,12 @@
                 attr = PyStackRef_FromPyObjectSteal(attr_o);
                 stack_pointer += 1;
             }
-            stack_pointer[-1] = attr;
-            stack_pointer += (oparg&1);
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer[-1] = attr;
+            stack_pointer += (oparg&1);
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(0);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -7081,10 +7081,10 @@
             PyStackRef_CLOSE(owner);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             _tos_cache0 = attr;
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -7142,10 +7142,10 @@
             PyStackRef_CLOSE(owner);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             _tos_cache0 = attr;
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -7229,10 +7229,10 @@
             PyStackRef_CLOSE(owner);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             _tos_cache0 = attr;
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -7275,10 +7275,10 @@
             PyStackRef_CLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             _tos_cache0 = attr;
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -7409,10 +7409,10 @@
             PyStackRef_CLOSE(tmp);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             _tos_cache0 = attr;
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -8208,9 +8208,9 @@
             b = res ? PyStackRef_True : PyStackRef_False;
             _tos_cache1 = b;
             _tos_cache0 = left;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
-            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(2);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -8282,9 +8282,9 @@
             res = PyStackRef_FromPyObjectSteal(res_o);
             _tos_cache1 = res;
             _tos_cache0 = from;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
-            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(2);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -8350,9 +8350,9 @@
             len = PyStackRef_FromPyObjectSteal(len_o);
             _tos_cache1 = len;
             _tos_cache0 = obj;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
-            _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(2);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -10142,11 +10142,11 @@
                 PyStackRef_CLOSE(temp);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
             }
-            stack_pointer[-2 - oparg] = callable;
-            stack_pointer[-1 - oparg] = self_or_null;
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer[-2 - oparg] = callable;
+            stack_pointer[-1 - oparg] = self_or_null;
             SET_CURRENT_CACHED_VALUES(0);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -10711,10 +10711,10 @@
             }
             new_frame = PyStackRef_Wrap(pushed_frame);
             _tos_cache0 = new_frame;
-            stack_pointer += -2 - oparg;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -2 - oparg;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -10742,10 +10742,10 @@
             }
             new_frame = PyStackRef_Wrap(pushed_frame);
             _tos_cache0 = new_frame;
-            stack_pointer += -2 - oparg;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -2 - oparg;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -10773,10 +10773,10 @@
             }
             new_frame = PyStackRef_Wrap(pushed_frame);
             _tos_cache0 = new_frame;
-            stack_pointer += -2 - oparg;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -2 - oparg;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -10804,10 +10804,10 @@
             }
             new_frame = PyStackRef_Wrap(pushed_frame);
             _tos_cache0 = new_frame;
-            stack_pointer += -2 - oparg;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -2 - oparg;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -10835,10 +10835,10 @@
             }
             new_frame = PyStackRef_Wrap(pushed_frame);
             _tos_cache0 = new_frame;
-            stack_pointer += -2 - oparg;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -2 - oparg;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -10865,10 +10865,10 @@
             }
             new_frame = PyStackRef_Wrap(pushed_frame);
             _tos_cache0 = new_frame;
-            stack_pointer += -2 - oparg;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -2 - oparg;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -11116,10 +11116,10 @@
             PyStackRef_CLOSE(arg);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             _tos_cache0 = res;
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -12362,10 +12362,10 @@
                 stack_pointer += -1;
             }
             _tos_cache0 = _stack_item_0;
-            stack_pointer[-2 - oparg] = callable;
-            stack_pointer[-1 - oparg] = self_or_null;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer[-2 - oparg] = callable;
+            stack_pointer[-1 - oparg] = self_or_null;
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -12517,10 +12517,10 @@
             PyStackRef_CLOSE(callable_s);
             stack_pointer = _PyFrame_GetStackPointer(frame);
             _tos_cache0 = _stack_item_0;
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -13080,10 +13080,10 @@
             stack_pointer += -1;
             assert(WITHIN_STACK_BOUNDS());
             _tos_cache0 = res;
-            stack_pointer += -1;
-            assert(WITHIN_STACK_BOUNDS());
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
+            stack_pointer += -1;
+            assert(WITHIN_STACK_BOUNDS());
             SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
@@ -13447,6 +13447,45 @@
             break;
         }
 
+        case _JUMP_TO_TOP_r11: {
+            CHECK_CURRENT_CACHED_VALUES(1);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            JUMP_TO_JUMP_TARGET();
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(1);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            break;
+        }
+
+        case _JUMP_TO_TOP_r22: {
+            CHECK_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            JUMP_TO_JUMP_TARGET();
+            _tos_cache1 = _stack_item_1;
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            break;
+        }
+
+        case _JUMP_TO_TOP_r33: {
+            CHECK_CURRENT_CACHED_VALUES(3);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            _PyStackRef _stack_item_2 = _tos_cache2;
+            JUMP_TO_JUMP_TARGET();
+            _tos_cache2 = _stack_item_2;
+            _tos_cache1 = _stack_item_1;
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(3);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            break;
+        }
+
         case _SET_IP_r00: {
             CHECK_CURRENT_CACHED_VALUES(0);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
@@ -13692,7 +13731,7 @@
             break;
         }
 
-        case _EXIT_TRACE_r10: {
+        case _EXIT_TRACE_r11: {
             CHECK_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             _PyStackRef _stack_item_0 = _tos_cache0;
@@ -13718,18 +13757,15 @@
             #endif
             tstate->jit_exit = exit;
             TIER2_TO_TIER2(exit->executor);
-            stack_pointer[0] = _stack_item_0;
-            stack_pointer += 1;
-            assert(WITHIN_STACK_BOUNDS());
-            _tos_cache0 = PyStackRef_ZERO_BITS;
+            _tos_cache0 = _stack_item_0;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
-            SET_CURRENT_CACHED_VALUES(0);
+            SET_CURRENT_CACHED_VALUES(1);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
         }
 
-        case _EXIT_TRACE_r20: {
+        case _EXIT_TRACE_r22: {
             CHECK_CURRENT_CACHED_VALUES(2);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             _PyStackRef _stack_item_0 = _tos_cache0;
@@ -13757,19 +13793,15 @@
             #endif
             tstate->jit_exit = exit;
             TIER2_TO_TIER2(exit->executor);
-            stack_pointer[0] = _stack_item_0;
-            stack_pointer[1] = _stack_item_1;
-            stack_pointer += 2;
-            assert(WITHIN_STACK_BOUNDS());
-            _tos_cache0 = PyStackRef_ZERO_BITS;
-            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache1 = _stack_item_1;
+            _tos_cache0 = _stack_item_0;
             _tos_cache2 = PyStackRef_ZERO_BITS;
-            SET_CURRENT_CACHED_VALUES(0);
+            SET_CURRENT_CACHED_VALUES(2);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
         }
 
-        case _EXIT_TRACE_r30: {
+        case _EXIT_TRACE_r33: {
             CHECK_CURRENT_CACHED_VALUES(3);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             _PyStackRef _stack_item_0 = _tos_cache0;
@@ -13799,15 +13831,10 @@
             #endif
             tstate->jit_exit = exit;
             TIER2_TO_TIER2(exit->executor);
-            stack_pointer[0] = _stack_item_0;
-            stack_pointer[1] = _stack_item_1;
-            stack_pointer[2] = _stack_item_2;
-            stack_pointer += 3;
-            assert(WITHIN_STACK_BOUNDS());
-            _tos_cache0 = PyStackRef_ZERO_BITS;
-            _tos_cache1 = PyStackRef_ZERO_BITS;
-            _tos_cache2 = PyStackRef_ZERO_BITS;
-            SET_CURRENT_CACHED_VALUES(0);
+            _tos_cache2 = _stack_item_2;
+            _tos_cache1 = _stack_item_1;
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(3);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
         }
@@ -14447,6 +14474,123 @@
             break;
         }
 
+        case _START_EXECUTOR_r11: {
+            CHECK_CURRENT_CACHED_VALUES(1);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            oparg = CURRENT_OPARG();
+            PyObject *executor = (PyObject *)CURRENT_OPERAND0();
+            #ifndef _Py_JIT
+            assert(current_executor == (_PyExecutorObject*)executor);
+            #ifdef Py_DEBUG
+            assert(STACK_LEVEL() + current_cached_values == oparg);
+            #endif
+            #endif
+            assert(tstate->jit_exit == NULL || tstate->jit_exit->executor == current_executor);
+            tstate->current_executor = (PyObject *)executor;
+            if (!current_executor->vm_data.valid) {
+                assert(tstate->jit_exit->executor == current_executor);
+                assert(tstate->current_executor == executor);
+                stack_pointer[0] = _stack_item_0;
+                stack_pointer += 1;
+                assert(WITHIN_STACK_BOUNDS());
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                _PyExecutor_ClearExit(tstate->jit_exit);
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                if (true) {
+                    UOP_STAT_INC(uopcode, miss);
+                    SET_CURRENT_CACHED_VALUES(0);
+                    JUMP_TO_JUMP_TARGET();
+                }
+            }
+            _tos_cache0 = _stack_item_0;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
+            SET_CURRENT_CACHED_VALUES(1);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            break;
+        }
+
+        case _START_EXECUTOR_r22: {
+            CHECK_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            oparg = CURRENT_OPARG();
+            PyObject *executor = (PyObject *)CURRENT_OPERAND0();
+            #ifndef _Py_JIT
+            assert(current_executor == (_PyExecutorObject*)executor);
+            #ifdef Py_DEBUG
+            assert(STACK_LEVEL() + current_cached_values == oparg);
+            #endif
+            #endif
+            assert(tstate->jit_exit == NULL || tstate->jit_exit->executor == current_executor);
+            tstate->current_executor = (PyObject *)executor;
+            if (!current_executor->vm_data.valid) {
+                assert(tstate->jit_exit->executor == current_executor);
+                assert(tstate->current_executor == executor);
+                stack_pointer[0] = _stack_item_0;
+                stack_pointer[1] = _stack_item_1;
+                stack_pointer += 2;
+                assert(WITHIN_STACK_BOUNDS());
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                _PyExecutor_ClearExit(tstate->jit_exit);
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                if (true) {
+                    UOP_STAT_INC(uopcode, miss);
+                    SET_CURRENT_CACHED_VALUES(0);
+                    JUMP_TO_JUMP_TARGET();
+                }
+            }
+            _tos_cache1 = _stack_item_1;
+            _tos_cache0 = _stack_item_0;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
+            SET_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            break;
+        }
+
+        case _START_EXECUTOR_r33: {
+            CHECK_CURRENT_CACHED_VALUES(3);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            _PyStackRef _stack_item_2 = _tos_cache2;
+            oparg = CURRENT_OPARG();
+            PyObject *executor = (PyObject *)CURRENT_OPERAND0();
+            #ifndef _Py_JIT
+            assert(current_executor == (_PyExecutorObject*)executor);
+            #ifdef Py_DEBUG
+            assert(STACK_LEVEL() + current_cached_values == oparg);
+            #endif
+            #endif
+            assert(tstate->jit_exit == NULL || tstate->jit_exit->executor == current_executor);
+            tstate->current_executor = (PyObject *)executor;
+            if (!current_executor->vm_data.valid) {
+                assert(tstate->jit_exit->executor == current_executor);
+                assert(tstate->current_executor == executor);
+                stack_pointer[0] = _stack_item_0;
+                stack_pointer[1] = _stack_item_1;
+                stack_pointer[2] = _stack_item_2;
+                stack_pointer += 3;
+                assert(WITHIN_STACK_BOUNDS());
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                _PyExecutor_ClearExit(tstate->jit_exit);
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                if (true) {
+                    UOP_STAT_INC(uopcode, miss);
+                    SET_CURRENT_CACHED_VALUES(0);
+                    JUMP_TO_JUMP_TARGET();
+                }
+            }
+            _tos_cache2 = _stack_item_2;
+            _tos_cache1 = _stack_item_1;
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(3);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            break;
+        }
+
         case _MAKE_WARM_r00: {
             CHECK_CURRENT_CACHED_VALUES(0);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
@@ -14984,6 +15128,7 @@
             if (!backoff_counter_triggers(temperature)) {
                 exit->temperature = advance_backoff_counter(temperature);
                 GOTO_TIER_ONE(target);
+                Py_UNREACHABLE();
             }
             _PyExecutorObject *executor;
             if (target->op.code == ENTER_EXECUTOR) {
@@ -14998,11 +15143,12 @@
                 assert(tstate->current_executor == (PyObject *)previous_executor);
                 int chain_depth = previous_executor->vm_data.chain_depth + 1;
                 _PyFrame_SetStackPointer(frame, stack_pointer);
-                int optimized = _PyOptimizer_Optimize(frame, target, &executor, chain_depth);
+                int optimized = _PyOptimizer_Optimize(frame, target, &executor, chain_depth, exit->tos_cache);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
                 if (optimized <= 0) {
                     exit->temperature = restart_backoff_counter(temperature);
                     GOTO_TIER_ONE(optimized < 0 ? NULL : target);
+                    Py_UNREACHABLE();
                 }
                 exit->temperature = initial_temperature_backoff_counter();
             }
@@ -15013,6 +15159,174 @@
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
             SET_CURRENT_CACHED_VALUES(0);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            break;
+        }
+
+        case _COLD_EXIT_r11: {
+            CHECK_CURRENT_CACHED_VALUES(1);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyExitData *exit = tstate->jit_exit;
+            assert(exit != NULL);
+            _Py_CODEUNIT *target = _PyFrame_GetBytecode(frame) + exit->target;
+            _Py_BackoffCounter temperature = exit->temperature;
+            if (!backoff_counter_triggers(temperature)) {
+                exit->temperature = advance_backoff_counter(temperature);
+                stack_pointer[0] = _stack_item_0;
+                stack_pointer += 1;
+                assert(WITHIN_STACK_BOUNDS());
+                GOTO_TIER_ONE(target);
+                Py_UNREACHABLE();
+            }
+            _PyExecutorObject *executor;
+            if (target->op.code == ENTER_EXECUTOR) {
+                PyCodeObject *code = _PyFrame_GetCode(frame);
+                executor = code->co_executors->executors[target->op.arg];
+                Py_INCREF(executor);
+            }
+            else {
+                stack_pointer[0] = _stack_item_0;
+                stack_pointer += 1;
+                assert(WITHIN_STACK_BOUNDS());
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                _PyExecutorObject *previous_executor = _PyExecutor_FromExit(exit);
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                assert(tstate->current_executor == (PyObject *)previous_executor);
+                int chain_depth = previous_executor->vm_data.chain_depth + 1;
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                int optimized = _PyOptimizer_Optimize(frame, target, &executor, chain_depth, exit->tos_cache);
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                if (optimized <= 0) {
+                    exit->temperature = restart_backoff_counter(temperature);
+                    GOTO_TIER_ONE(optimized < 0 ? NULL : target);
+                    Py_UNREACHABLE();
+                }
+                exit->temperature = initial_temperature_backoff_counter();
+                stack_pointer += -1;
+            }
+            assert(tstate->jit_exit == exit);
+            exit->executor = executor;
+            TIER2_TO_TIER2(exit->executor);
+            _tos_cache0 = _stack_item_0;
+            _tos_cache1 = PyStackRef_ZERO_BITS;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
+            SET_CURRENT_CACHED_VALUES(1);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            break;
+        }
+
+        case _COLD_EXIT_r22: {
+            CHECK_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            _PyExitData *exit = tstate->jit_exit;
+            assert(exit != NULL);
+            _Py_CODEUNIT *target = _PyFrame_GetBytecode(frame) + exit->target;
+            _Py_BackoffCounter temperature = exit->temperature;
+            if (!backoff_counter_triggers(temperature)) {
+                exit->temperature = advance_backoff_counter(temperature);
+                stack_pointer[0] = _stack_item_0;
+                stack_pointer[1] = _stack_item_1;
+                stack_pointer += 2;
+                assert(WITHIN_STACK_BOUNDS());
+                GOTO_TIER_ONE(target);
+                Py_UNREACHABLE();
+            }
+            _PyExecutorObject *executor;
+            if (target->op.code == ENTER_EXECUTOR) {
+                PyCodeObject *code = _PyFrame_GetCode(frame);
+                executor = code->co_executors->executors[target->op.arg];
+                Py_INCREF(executor);
+            }
+            else {
+                stack_pointer[0] = _stack_item_0;
+                stack_pointer[1] = _stack_item_1;
+                stack_pointer += 2;
+                assert(WITHIN_STACK_BOUNDS());
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                _PyExecutorObject *previous_executor = _PyExecutor_FromExit(exit);
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                assert(tstate->current_executor == (PyObject *)previous_executor);
+                int chain_depth = previous_executor->vm_data.chain_depth + 1;
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                int optimized = _PyOptimizer_Optimize(frame, target, &executor, chain_depth, exit->tos_cache);
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                if (optimized <= 0) {
+                    exit->temperature = restart_backoff_counter(temperature);
+                    GOTO_TIER_ONE(optimized < 0 ? NULL : target);
+                    Py_UNREACHABLE();
+                }
+                exit->temperature = initial_temperature_backoff_counter();
+                stack_pointer += -2;
+            }
+            assert(tstate->jit_exit == exit);
+            exit->executor = executor;
+            TIER2_TO_TIER2(exit->executor);
+            _tos_cache1 = _stack_item_1;
+            _tos_cache0 = _stack_item_0;
+            _tos_cache2 = PyStackRef_ZERO_BITS;
+            SET_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            break;
+        }
+
+        case _COLD_EXIT_r33: {
+            CHECK_CURRENT_CACHED_VALUES(3);
+            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            _PyStackRef _stack_item_2 = _tos_cache2;
+            _PyExitData *exit = tstate->jit_exit;
+            assert(exit != NULL);
+            _Py_CODEUNIT *target = _PyFrame_GetBytecode(frame) + exit->target;
+            _Py_BackoffCounter temperature = exit->temperature;
+            if (!backoff_counter_triggers(temperature)) {
+                exit->temperature = advance_backoff_counter(temperature);
+                stack_pointer[0] = _stack_item_0;
+                stack_pointer[1] = _stack_item_1;
+                stack_pointer[2] = _stack_item_2;
+                stack_pointer += 3;
+                assert(WITHIN_STACK_BOUNDS());
+                GOTO_TIER_ONE(target);
+                Py_UNREACHABLE();
+            }
+            _PyExecutorObject *executor;
+            if (target->op.code == ENTER_EXECUTOR) {
+                PyCodeObject *code = _PyFrame_GetCode(frame);
+                executor = code->co_executors->executors[target->op.arg];
+                Py_INCREF(executor);
+            }
+            else {
+                stack_pointer[0] = _stack_item_0;
+                stack_pointer[1] = _stack_item_1;
+                stack_pointer[2] = _stack_item_2;
+                stack_pointer += 3;
+                assert(WITHIN_STACK_BOUNDS());
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                _PyExecutorObject *previous_executor = _PyExecutor_FromExit(exit);
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                assert(tstate->current_executor == (PyObject *)previous_executor);
+                int chain_depth = previous_executor->vm_data.chain_depth + 1;
+                _PyFrame_SetStackPointer(frame, stack_pointer);
+                int optimized = _PyOptimizer_Optimize(frame, target, &executor, chain_depth, exit->tos_cache);
+                stack_pointer = _PyFrame_GetStackPointer(frame);
+                if (optimized <= 0) {
+                    exit->temperature = restart_backoff_counter(temperature);
+                    GOTO_TIER_ONE(optimized < 0 ? NULL : target);
+                    Py_UNREACHABLE();
+                }
+                exit->temperature = initial_temperature_backoff_counter();
+                stack_pointer += -3;
+            }
+            assert(tstate->jit_exit == exit);
+            exit->executor = executor;
+            TIER2_TO_TIER2(exit->executor);
+            _tos_cache2 = _stack_item_2;
+            _tos_cache1 = _stack_item_1;
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(3);
             assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
             break;
         }

@@ -2964,7 +2964,7 @@ dummy_func(
                     start--;
                 }
                 _PyExecutorObject *executor;
-                int optimized = _PyOptimizer_Optimize(frame, start, &executor, 0);
+                int optimized = _PyOptimizer_Optimize(frame, start, &executor, 0, 0);
                 if (optimized <= 0) {
                     this_instr[1].counter = restart_backoff_counter(counter);
                     ERROR_IF(optimized < 0);
@@ -2972,8 +2972,10 @@ dummy_func(
                 else {
                     this_instr[1].counter = initial_jump_backoff_counter();
                     assert(tstate->current_executor == NULL);
-                    assert(executor != tstate->interp->cold_executor);
                     tstate->jit_exit = NULL;
+#if defined(_Py_TIER2) & defined(Py_DEBUG)
+                    current_cached_values = 0;
+#endif
                     TIER1_TO_TIER2(executor);
                 }
             }
@@ -3038,7 +3040,9 @@ dummy_func(
                 }
                 DISPATCH_GOTO();
             }
-            assert(executor != tstate->interp->cold_executor);
+#if defined(_Py_TIER2) & defined(Py_DEBUG)
+            current_cached_values = 0;
+#endif
             tstate->jit_exit = NULL;
             TIER1_TO_TIER2(executor);
             #else
@@ -5390,6 +5394,7 @@ dummy_func(
         }
 
         tier2 op(_HANDLE_PENDING_AND_DEOPT, (--)) {
+            SYNC_SP();
             int err = _Py_HandlePending(tstate);
             GOTO_TIER_ONE(err ? NULL : _PyFrame_GetBytecode(frame) + CURRENT_TARGET());
         }
@@ -5423,7 +5428,9 @@ dummy_func(
             _Py_BackoffCounter temperature = exit->temperature;
             if (!backoff_counter_triggers(temperature)) {
                 exit->temperature = advance_backoff_counter(temperature);
+                SYNC_SP();
                 GOTO_TIER_ONE(target);
+                Py_UNREACHABLE();
             }
             _PyExecutorObject *executor;
             if (target->op.code == ENTER_EXECUTOR) {
@@ -5435,10 +5442,12 @@ dummy_func(
                 _PyExecutorObject *previous_executor = _PyExecutor_FromExit(exit);
                 assert(tstate->current_executor == (PyObject *)previous_executor);
                 int chain_depth = previous_executor->vm_data.chain_depth + 1;
-                int optimized = _PyOptimizer_Optimize(frame, target, &executor, chain_depth);
+                int optimized = _PyOptimizer_Optimize(frame, target, &executor, chain_depth, exit->tos_cache);
                 if (optimized <= 0) {
                     exit->temperature = restart_backoff_counter(temperature);
+                    SYNC_SP();
                     GOTO_TIER_ONE(optimized < 0 ? NULL : target);
+                    Py_UNREACHABLE();
                 }
                 exit->temperature = initial_temperature_backoff_counter();
             }

@@ -15,7 +15,6 @@ extern "C" {
 #include "pycore_tstate.h"        // _PyThreadStateImpl
 #include "pycore_typedefs.h"      // _PyRuntimeState
 
-
 #define CODE_MAX_WATCHERS 8
 #define CONTEXT_MAX_WATCHERS 8
 #define FUNC_MAX_WATCHERS 8
@@ -951,7 +950,7 @@ struct _is {
     bool jit;
     struct _PyExecutorObject *executor_list_head;
     struct _PyExecutorObject *executor_deletion_list_head;
-    struct _PyExecutorObject *cold_executor;
+    struct _PyExecutorObject **cold_executors;
     int executor_deletion_list_remaining_capacity;
     size_t trace_run_counter;
     _rare_events rare_events;

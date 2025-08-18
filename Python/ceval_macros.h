@@ -376,6 +376,9 @@ do {                                                   \
     OPT_STAT_INC(traces_executed);                     \
     current_executor = (EXECUTOR);                     \
     goto tier2_start;                                  \
+    assert(next_uop->opcode == _START_EXECUTOR_r00 + current_cached_values || \
+    next_uop->opcode == _COLD_EXIT_r00 + current_cached_values); \
+    goto tier2_start; \
 } while (0)
 
 #define GOTO_TIER_ONE(TARGET)                                         \

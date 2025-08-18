@@ -1132,6 +1132,10 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
 #endif
     }
 
+#if defined(_Py_TIER2) & defined(Py_DEBUG)
+    int current_cached_values = -1;
+#endif
+
 #if Py_TAIL_CALL_INTERP
 #   if Py_STATS
         return _TAIL_CALL_start_frame(frame, NULL, tstate, NULL, 0, lastopcode);
@@ -1171,7 +1175,8 @@ _PyJitEntryFuncPtr _Py_jit_entry = _PyTier2Interpreter;
 _Py_CODEUNIT *
 _PyTier2Interpreter(
     _PyExecutorObject *current_executor, _PyInterpreterFrame *frame,
-    _PyStackRef *stack_pointer, PyThreadState *tstate
+    _PyStackRef *stack_pointer, PyThreadState *tstate,
+    _PyStackRef _tos_cache0, _PyStackRef _tos_cache1, _PyStackRef _tos_cache2
 ) {
     const _PyUOpInstruction *next_uop;
     int oparg;
@@ -1203,13 +1208,10 @@ tier2_start:
 #endif
 
 #ifdef Py_DEBUG
-    int current_cached_values = 0;
+    assert(next_uop->opcode == _START_EXECUTOR_r00 + current_cached_values ||
+           next_uop->opcode == _COLD_EXIT_r00 + current_cached_values);
 #endif
-    _PyStackRef _tos_cache0 = PyStackRef_NULL;
-    _PyStackRef _tos_cache1 = PyStackRef_NULL;
-    _PyStackRef _tos_cache2 = PyStackRef_NULL;
 
-    assert(next_uop->opcode == _START_EXECUTOR_r00 || next_uop->opcode == _COLD_EXIT_r00);
 tier2_dispatch:
     for (;;) {
         uopcode = next_uop->opcode;

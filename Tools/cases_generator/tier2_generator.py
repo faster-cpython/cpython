@@ -122,8 +122,42 @@ class Tier2Emitter(Emitter):
         return True
 
 
-def write_uop(uop: Uop, emitter: Emitter, stack: Stack, cached_items: int = 0) -> Stack:
+    def goto_tier2(
+        self,
+        tkn: Token,
+        tkn_iter: TokenIterator,
+        uop: CodeSection,
+        storage: Storage,
+        inst: Instruction | None,
+    ) -> bool:
+        cache_items(self, storage.stack, self.exit_cache_depth, False)
+        self.out.emit(tkn)
+        lparen = next(tkn_iter)
+        assert lparen.kind == "LPAREN"
+        self.emit(lparen)
+        emit_to(self.out, tkn_iter, "RPAREN")
+        self.out.emit(")")
+        return False
+
+def cache_items(emitter: Emitter, stack: Stack, cached_items: int, zero_regs: bool):
+    emitter.out.start_line()
+    i = cached_items
+    while i > 0:
+        emitter.out.start_line()
+        item = StackItem(f"_tos_cache{i-1}", "", False, True)
+        stack.pop(item, emitter.out)
+        i -= 1
+    if zero_regs:
+        # TO DO -- For compilers that support it,
+        # replace this with a "clobber" to tell
+        # the compiler that these values are unused
+        # without having to emit any code.
+        for i in range(cached_items, MAX_CACHED_REGISTER):
+            emitter.out.emit(f"_tos_cache{i} = PyStackRef_ZERO_BITS;\n")
+
+def write_uop(uop: Uop, emitter: Emitter, stack: Stack, cached_items: int = 0) -> tuple[bool, Stack]:
     locals: dict[str, Local] = {}
+    zero_regs = is_large(uop) or uop.properties.escapes
     try:
         emitter.out.start_line()
         if uop.properties.oparg:
@@ -143,17 +177,14 @@ def write_uop(uop: Uop, emitter: Emitter, stack: Stack, cached_items: int = 0) -
                     cast = f"uint{cache.size*16}_t"
                 emitter.emit(f"{type}{cache.name} = ({cast})CURRENT_OPERAND{idx}();\n")
                 idx += 1
-        _, storage = emitter.emit_tokens(uop, storage, None, False)
-        storage.stack._print(emitter.out)
-        while cached_items > 0:
-            emitter.out.start_line()
-            item = StackItem(f"_tos_cache{cached_items-1}", "", False, True)
-            storage.stack.pop(item, emitter.out)
-            cached_items -= 1
-        storage.flush(emitter.out)
+        reachable, storage = emitter.emit_tokens(uop, storage, None, False)
+        if reachable:
+            storage.stack._print(emitter.out)
+            cache_items(emitter, storage.stack, cached_items, zero_regs)
+            storage.flush(emitter.out)
+        return reachable, storage.stack
     except StackError as ex:
         raise analysis_error(ex.args[0], uop.body.open) from None
-    return storage.stack
 
 SKIPS = ("_EXTENDED_ARG",)
 
@@ -189,7 +220,6 @@ def generate_tier2(
                 f"/* {uop.name} is not a viable micro-op for tier 2 because it {why_not_viable} */\n\n"
             )
             continue
-        zero_regs = is_large(uop) or uop.properties.escapes
         for inputs, outputs, exit_depth in get_uop_cache_depths(uop):
             emitter = Tier2Emitter(out, analysis.labels, exit_depth)
             out.emit(f"case {uop.name}_r{inputs}{outputs}: {{\n")
@@ -199,19 +229,13 @@ def generate_tier2(
             stack = Stack()
             stack.push_cache([f"_tos_cache{i}" for i in range(inputs)], out)
             stack._print(out)
-            stack = write_uop(uop, emitter, stack, outputs)
+            reachable, stack = write_uop(uop, emitter, stack, outputs)
             out.start_line()
-            if zero_regs:
-                # TO DO -- For compilers that support it,
-                # replace this with a "clobber" to tell
-                # the compiler that these values are unused
-                # without having to emit any code.
-                for i in range(outputs, MAX_CACHED_REGISTER):
-                    out.emit(f"_tos_cache{i} = PyStackRef_ZERO_BITS;\n")
-            out.emit(f"SET_CURRENT_CACHED_VALUES({outputs});\n")
-            out.emit("assert(WITHIN_STACK_BOUNDS_WITH_CACHE());\n")
-            if not uop.properties.always_exits:
-                out.emit("break;\n")
+            if reachable:
+                out.emit(f"SET_CURRENT_CACHED_VALUES({outputs});\n")
+                out.emit("assert(WITHIN_STACK_BOUNDS_WITH_CACHE());\n")
+                if not uop.properties.always_exits:
+                    out.emit("break;\n")
             out.start_line()
             out.emit("}")
             out.emit("\n\n")

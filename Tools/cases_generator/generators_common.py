@@ -128,6 +128,7 @@ class Emitter:
             "INSTRUCTION_SIZE": self.instruction_size,
             "stack_pointer": self.stack_pointer,
             "Py_UNREACHABLE": self.unreachable,
+            "GOTO_TIER_TWO": self.goto_tier2
         }
         self.out = out
         self.labels = labels
@@ -157,7 +158,7 @@ class Emitter:
     ) -> bool:
         self.emit(tkn)
         emit_to(self.out, tkn_iter, "SEMI")
-        self.emit(";")
+        self.emit(";\n")
         return False
 
     def deopt_if(
@@ -249,6 +250,22 @@ class Emitter:
         if not unconditional:
             self.out.emit("}\n")
         return not unconditional
+
+    def goto_tier2(
+        self,
+        tkn: Token,
+        tkn_iter: TokenIterator,
+        uop: CodeSection,
+        storage: Storage,
+        inst: Instruction | None,
+    ) -> bool:
+        self.out.emit(tkn)
+        lparen = next(tkn_iter)
+        assert lparen.kind == "LPAREN"
+        self.emit(lparen)
+        emit_to(self.out, tkn_iter, "RPAREN")
+        self.out.emit(")")
+        return False
 
     def error_no_pop(
         self,
