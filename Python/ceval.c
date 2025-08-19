@@ -1132,10 +1132,6 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int 
 #endif
     }
 
-#if defined(_Py_TIER2) & defined(Py_DEBUG)
-    int current_cached_values = -1;
-#endif
-
 #if Py_TAIL_CALL_INTERP
 #   if Py_STATS
         return _TAIL_CALL_start_frame(frame, NULL, tstate, NULL, 0, lastopcode);
@@ -1175,15 +1171,24 @@ _PyJitEntryFuncPtr _Py_jit_entry = _PyTier2Interpreter;
 _Py_CODEUNIT *
 _PyTier2Interpreter(
     _PyExecutorObject *current_executor, _PyInterpreterFrame *frame,
-    _PyStackRef *stack_pointer, PyThreadState *tstate,
-    _PyStackRef _tos_cache0, _PyStackRef _tos_cache1, _PyStackRef _tos_cache2
+    _PyStackRef *stack_pointer, PyThreadState *tstate
 ) {
     const _PyUOpInstruction *next_uop;
     int oparg;
-tier2_start:
 
+    /* Set up "jit" state after entry from tier 1.
+     * This mimics what the jit trampoline function does. */
+    int current_cached_values = current_executor->vm_data.tos_cache;
+    _PyStackRef _tos_cache0 = current_cached_values ? stack_pointer[-current_cached_values] : PyStackRef_ZERO_BITS;
+    _PyStackRef _tos_cache1 = stack_pointer[-1-(current_cached_values&1)]; /* Correct value for 2 or 3, harmless junk for 0 or 1 */
+    _PyStackRef _tos_cache2 = stack_pointer[-1]; /* Correct value for 3, harmless junk otherwise */
+    stack_pointer -= current_cached_values;
+    tstate->jit_exit = NULL;
+
+tier2_start:
     next_uop = current_executor->trace;
-    assert(next_uop->opcode == _START_EXECUTOR || next_uop->opcode == _COLD_EXIT);
+    assert(next_uop->opcode == _START_EXECUTOR_r00 + current_cached_values ||
+           next_uop->opcode == _COLD_EXIT_r00 + current_cached_values);
 
 #undef LOAD_IP
 #define LOAD_IP(UNUSED) (void)0

@@ -128,7 +128,8 @@ class Emitter:
             "INSTRUCTION_SIZE": self.instruction_size,
             "stack_pointer": self.stack_pointer,
             "Py_UNREACHABLE": self.unreachable,
-            "GOTO_TIER_TWO": self.goto_tier2
+            "TIER1_TO_TIER2": self.tier1_to_tier2,
+            "TIER2_TO_TIER2": self.tier2_to_tier2,
         }
         self.out = out
         self.labels = labels
@@ -251,7 +252,7 @@ class Emitter:
             self.out.emit("}\n")
         return not unconditional
 
-    def goto_tier2(
+    def tier1_to_tier2(
         self,
         tkn: Token,
         tkn_iter: TokenIterator,
@@ -266,6 +267,8 @@ class Emitter:
         emit_to(self.out, tkn_iter, "RPAREN")
         self.out.emit(")")
         return False
+
+    tier2_to_tier2 = tier1_to_tier2
 
     def error_no_pop(
         self,

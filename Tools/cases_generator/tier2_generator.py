@@ -122,7 +122,7 @@ class Tier2Emitter(Emitter):
         return True
 
 
-    def goto_tier2(
+    def tier2_to_tier2(
         self,
         tkn: Token,
         tkn_iter: TokenIterator,

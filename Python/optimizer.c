@@ -99,9 +99,6 @@ insert_executor(PyCodeObject *code, _Py_CODEUNIT *instr, int index, _PyExecutorO
     instr->op.arg = index;
 }
 
-static _PyExecutorObject *
-make_executor_from_uops(_PyUOpInstruction *buffer, int length, const _PyBloomFilter *dependencies);
-
 static int
 uop_optimize(_PyInterpreterFrame *frame, _Py_CODEUNIT *instr,
              _PyExecutorObject **exec_ptr, int curr_stackentries,
@@ -1218,7 +1215,7 @@ sanity_check(_PyExecutorObject *executor)
  * and not a NOP.
  */
 static _PyExecutorObject *
-make_executor_from_uops(_PyUOpInstruction *buffer, int length, const _PyBloomFilter *dependencies)
+make_executor_from_uops(_PyUOpInstruction *buffer, int length, const _PyBloomFilter *dependencies, int tos_cache)
 {
     int exit_count = count_exits(buffer, length);
     _PyExecutorObject *executor = allocate_executor(exit_count, length);
@@ -1257,7 +1254,7 @@ make_executor_from_uops(_PyUOpInstruction *buffer, int length, const _PyBloomFil
     assert(next_exit == -1);
     assert(dest == executor->trace);
     assert(_PyUop_Uncached[dest->opcode] == _START_EXECUTOR);
-    _Py_ExecutorInit(executor, dependencies);
+    _Py_ExecutorInit(executor, dependencies, tos_cache);
 #ifdef Py_DEBUG
     char *python_lltrace = Py_GETENV("PYTHON_LLTRACE");
     int lltrace = 0;
@@ -1399,7 +1396,7 @@ uop_optimize(
     length = stack_allocate(buffer, length, tos_cache);
     length = prepare_for_execution(buffer, length);
     assert(length <= UOP_MAX_TRACE_LENGTH);
-    _PyExecutorObject *executor = make_executor_from_uops(buffer, length,  &dependencies);
+    _PyExecutorObject *executor = make_executor_from_uops(buffer, length,  &dependencies, tos_cache);
     if (executor == NULL) {
         return -1;
     }
@@ -1548,12 +1545,13 @@ unlink_executor(_PyExecutorObject *executor)
 
 /* This must be called by optimizers before using the executor */
 void
-_Py_ExecutorInit(_PyExecutorObject *executor, const _PyBloomFilter *dependency_set)
+_Py_ExecutorInit(_PyExecutorObject *executor, const _PyBloomFilter *dependency_set, int tos_cache)
 {
     executor->vm_data.valid = true;
     for (int i = 0; i < _Py_BLOOM_FILTER_WORDS; i++) {
         executor->vm_data.bloom.bits[i] = dependency_set->bits[i];
     }
+    executor->vm_data.tos_cache = tos_cache;
     link_executor(executor);
 }
 
@@ -1577,6 +1575,7 @@ _PyExecutor_GetColdExecutors(void)
         }
         cold_array[tos_cache] = cold;
         ((_PyUOpInstruction *)cold->trace)->opcode = _COLD_EXIT_r00 + tos_cache;
+        cold->vm_data.tos_cache = tos_cache;
     #ifdef _Py_JIT
         cold->jit_code = NULL;
         cold->jit_size = 0;

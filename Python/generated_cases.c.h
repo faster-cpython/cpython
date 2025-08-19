@@ -5491,15 +5491,10 @@
                 }
                 DISPATCH_GOTO();
             }
-            #if defined(_Py_TIER2) & defined(Py_DEBUG)
-            current_cached_values = 0;
-            #endif
-            tstate->jit_exit = NULL;
             TIER1_TO_TIER2(executor);
             #else
             Py_FatalError("ENTER_EXECUTOR is not supported in this build");
             #endif /* _Py_TIER2 */
-            DISPATCH();
         }
 
         TARGET(EXIT_INIT_CHECK) {
@@ -7667,10 +7662,7 @@
                         this_instr[1].counter = initial_jump_backoff_counter();
                         stack_pointer = _PyFrame_GetStackPointer(frame);
                         assert(tstate->current_executor == NULL);
-                        tstate->jit_exit = NULL;
-                        #if defined(_Py_TIER2) & defined(Py_DEBUG)
-                        current_cached_values = 0;
-                        #endif
+                        assert(executor->vm_data.tos_cache == 0);
                         TIER1_TO_TIER2(executor);
                     }
                 }

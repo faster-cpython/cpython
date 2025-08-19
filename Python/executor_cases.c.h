@@ -13723,12 +13723,6 @@
             #endif
             tstate->jit_exit = exit;
             TIER2_TO_TIER2(exit->executor);
-            _tos_cache0 = PyStackRef_ZERO_BITS;
-            _tos_cache1 = PyStackRef_ZERO_BITS;
-            _tos_cache2 = PyStackRef_ZERO_BITS;
-            SET_CURRENT_CACHED_VALUES(0);
-            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
-            break;
         }
 
         case _EXIT_TRACE_r11: {
@@ -13756,13 +13750,8 @@
             }
             #endif
             tstate->jit_exit = exit;
-            TIER2_TO_TIER2(exit->executor);
             _tos_cache0 = _stack_item_0;
-            _tos_cache1 = PyStackRef_ZERO_BITS;
-            _tos_cache2 = PyStackRef_ZERO_BITS;
-            SET_CURRENT_CACHED_VALUES(1);
-            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
-            break;
+            TIER2_TO_TIER2(exit->executor);
         }
 
         case _EXIT_TRACE_r22: {
@@ -13792,13 +13781,9 @@
             }
             #endif
             tstate->jit_exit = exit;
-            TIER2_TO_TIER2(exit->executor);
             _tos_cache1 = _stack_item_1;
             _tos_cache0 = _stack_item_0;
-            _tos_cache2 = PyStackRef_ZERO_BITS;
-            SET_CURRENT_CACHED_VALUES(2);
-            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
-            break;
+            TIER2_TO_TIER2(exit->executor);
         }
 
         case _EXIT_TRACE_r33: {
@@ -13830,13 +13815,10 @@
             }
             #endif
             tstate->jit_exit = exit;
-            TIER2_TO_TIER2(exit->executor);
             _tos_cache2 = _stack_item_2;
             _tos_cache1 = _stack_item_1;
             _tos_cache0 = _stack_item_0;
-            SET_CURRENT_CACHED_VALUES(3);
-            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
-            break;
+            TIER2_TO_TIER2(exit->executor);
         }
 
         case _CHECK_VALIDITY_r00: {
@@ -15130,13 +15112,19 @@
                 GOTO_TIER_ONE(target);
                 Py_UNREACHABLE();
             }
-            _PyExecutorObject *executor;
+            _PyExecutorObject *executor = NULL;
             if (target->op.code == ENTER_EXECUTOR) {
                 PyCodeObject *code = _PyFrame_GetCode(frame);
                 executor = code->co_executors->executors[target->op.arg];
-                Py_INCREF(executor);
+                int tos_cache = uopcode - _COLD_EXIT_r00;
+                if (tos_cache == executor->vm_data.tos_cache) {
+                    Py_INCREF(executor);
+                }
+                else {
+                    executor = NULL;
+                }
             }
-            else {
+            if (executor == NULL) {
                 _PyFrame_SetStackPointer(frame, stack_pointer);
                 _PyExecutorObject *previous_executor = _PyExecutor_FromExit(exit);
                 stack_pointer = _PyFrame_GetStackPointer(frame);
@@ -15155,12 +15143,6 @@
             assert(tstate->jit_exit == exit);
             exit->executor = executor;
             TIER2_TO_TIER2(exit->executor);
-            _tos_cache0 = PyStackRef_ZERO_BITS;
-            _tos_cache1 = PyStackRef_ZERO_BITS;
-            _tos_cache2 = PyStackRef_ZERO_BITS;
-            SET_CURRENT_CACHED_VALUES(0);
-            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
-            break;
         }
 
         case _COLD_EXIT_r11: {
@@ -15179,13 +15161,19 @@
                 GOTO_TIER_ONE(target);
                 Py_UNREACHABLE();
             }
-            _PyExecutorObject *executor;
+            _PyExecutorObject *executor = NULL;
             if (target->op.code == ENTER_EXECUTOR) {
                 PyCodeObject *code = _PyFrame_GetCode(frame);
                 executor = code->co_executors->executors[target->op.arg];
-                Py_INCREF(executor);
+                int tos_cache = uopcode - _COLD_EXIT_r00;
+                if (tos_cache == executor->vm_data.tos_cache) {
+                    Py_INCREF(executor);
+                }
+                else {
+                    executor = NULL;
+                }
             }
-            else {
+            if (executor == NULL) {
                 stack_pointer[0] = _stack_item_0;
                 stack_pointer += 1;
                 assert(WITHIN_STACK_BOUNDS());
@@ -15208,12 +15196,6 @@
             assert(tstate->jit_exit == exit);
             exit->executor = executor;
             TIER2_TO_TIER2(exit->executor);
-            _tos_cache0 = _stack_item_0;
-            _tos_cache1 = PyStackRef_ZERO_BITS;
-            _tos_cache2 = PyStackRef_ZERO_BITS;
-            SET_CURRENT_CACHED_VALUES(1);
-            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
-            break;
         }
 
         case _COLD_EXIT_r22: {
@@ -15234,13 +15216,19 @@
                 GOTO_TIER_ONE(target);
                 Py_UNREACHABLE();
             }
-            _PyExecutorObject *executor;
+            _PyExecutorObject *executor = NULL;
             if (target->op.code == ENTER_EXECUTOR) {
                 PyCodeObject *code = _PyFrame_GetCode(frame);
                 executor = code->co_executors->executors[target->op.arg];
-                Py_INCREF(executor);
+                int tos_cache = uopcode - _COLD_EXIT_r00;
+                if (tos_cache == executor->vm_data.tos_cache) {
+                    Py_INCREF(executor);
+                }
+                else {
+                    executor = NULL;
+                }
             }
-            else {
+            if (executor == NULL) {
                 stack_pointer[0] = _stack_item_0;
                 stack_pointer[1] = _stack_item_1;
                 stack_pointer += 2;
@@ -15264,12 +15252,6 @@
             assert(tstate->jit_exit == exit);
             exit->executor = executor;
             TIER2_TO_TIER2(exit->executor);
-            _tos_cache1 = _stack_item_1;
-            _tos_cache0 = _stack_item_0;
-            _tos_cache2 = PyStackRef_ZERO_BITS;
-            SET_CURRENT_CACHED_VALUES(2);
-            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
-            break;
         }
 
         case _COLD_EXIT_r33: {
@@ -15292,13 +15274,19 @@
                 GOTO_TIER_ONE(target);
                 Py_UNREACHABLE();
             }
-            _PyExecutorObject *executor;
+            _PyExecutorObject *executor = NULL;
             if (target->op.code == ENTER_EXECUTOR) {
                 PyCodeObject *code = _PyFrame_GetCode(frame);
                 executor = code->co_executors->executors[target->op.arg];
-                Py_INCREF(executor);
+                int tos_cache = uopcode - _COLD_EXIT_r00;
+                if (tos_cache == executor->vm_data.tos_cache) {
+                    Py_INCREF(executor);
+                }
+                else {
+                    executor = NULL;
+                }
             }
-            else {
+            if (executor == NULL) {
                 stack_pointer[0] = _stack_item_0;
                 stack_pointer[1] = _stack_item_1;
                 stack_pointer[2] = _stack_item_2;
@@ -15323,12 +15311,6 @@
             assert(tstate->jit_exit == exit);
             exit->executor = executor;
             TIER2_TO_TIER2(exit->executor);
-            _tos_cache2 = _stack_item_2;
-            _tos_cache1 = _stack_item_1;
-            _tos_cache0 = _stack_item_0;
-            SET_CURRENT_CACHED_VALUES(3);
-            assert(WITHIN_STACK_BOUNDS_WITH_CACHE());
-            break;
         }
 
 #undef TIER_TWO

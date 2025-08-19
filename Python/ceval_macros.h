@@ -358,6 +358,8 @@ _PyFrame_SetStackPointer(frame, stack_pointer)
 
 /* Tier-switching macros. */
 
+/* It is always safe to read stack_pointer[-1] and stack_pointer[-2]
+ * due to stack layout, even if the value is meaningless */
 #define TIER1_TO_TIER2(EXECUTOR)                        \
 do {                                                   \
     OPT_STAT_INC(traces_executed);                     \
@@ -375,9 +377,6 @@ do {                                                   \
 do {                                                   \
     OPT_STAT_INC(traces_executed);                     \
     current_executor = (EXECUTOR);                     \
-    goto tier2_start;                                  \
-    assert(next_uop->opcode == _START_EXECUTOR_r00 + current_cached_values || \
-    next_uop->opcode == _COLD_EXIT_r00 + current_cached_values); \
     goto tier2_start; \
 } while (0)
 

@@ -2972,10 +2972,7 @@ dummy_func(
                 else {
                     this_instr[1].counter = initial_jump_backoff_counter();
                     assert(tstate->current_executor == NULL);
-                    tstate->jit_exit = NULL;
-#if defined(_Py_TIER2) & defined(Py_DEBUG)
-                    current_cached_values = 0;
-#endif
+                    assert(executor->vm_data.tos_cache == 0);
                     TIER1_TO_TIER2(executor);
                 }
             }
@@ -3040,10 +3037,6 @@ dummy_func(
                 }
                 DISPATCH_GOTO();
             }
-#if defined(_Py_TIER2) & defined(Py_DEBUG)
-            current_cached_values = 0;
-#endif
-            tstate->jit_exit = NULL;
             TIER1_TO_TIER2(executor);
             #else
             Py_FatalError("ENTER_EXECUTOR is not supported in this build");
@@ -5432,13 +5425,19 @@ dummy_func(
                 GOTO_TIER_ONE(target);
                 Py_UNREACHABLE();
             }
-            _PyExecutorObject *executor;
+            _PyExecutorObject *executor = NULL;
             if (target->op.code == ENTER_EXECUTOR) {
                 PyCodeObject *code = _PyFrame_GetCode(frame);
                 executor = code->co_executors->executors[target->op.arg];
-                Py_INCREF(executor);
+                int tos_cache = uopcode - _COLD_EXIT_r00;
+                if (tos_cache == executor->vm_data.tos_cache) {
+                    Py_INCREF(executor);
+                }
+                else {
+                    executor = NULL;
+                }
             }
-            else {
+            if (executor == NULL) {
                 _PyExecutorObject *previous_executor = _PyExecutor_FromExit(exit);
                 assert(tstate->current_executor == (PyObject *)previous_executor);
                 int chain_depth = previous_executor->vm_data.chain_depth + 1;
