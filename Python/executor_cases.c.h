@@ -13683,7 +13683,7 @@
             }
             #endif
             tstate->jit_exit = exit;
-            GOTO_TIER_TWO(exit->executor);
+            TIER2_TO_TIER2(exit->executor);
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
@@ -13717,10 +13717,10 @@
             }
             #endif
             tstate->jit_exit = exit;
+            TIER2_TO_TIER2(exit->executor);
             stack_pointer[0] = _stack_item_0;
             stack_pointer += 1;
             assert(WITHIN_STACK_BOUNDS());
-            GOTO_TIER_TWO(exit->executor);
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
@@ -13756,11 +13756,11 @@
             }
             #endif
             tstate->jit_exit = exit;
+            TIER2_TO_TIER2(exit->executor);
             stack_pointer[0] = _stack_item_0;
             stack_pointer[1] = _stack_item_1;
             stack_pointer += 2;
             assert(WITHIN_STACK_BOUNDS());
-            GOTO_TIER_TWO(exit->executor);
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
@@ -13798,12 +13798,12 @@
             }
             #endif
             tstate->jit_exit = exit;
+            TIER2_TO_TIER2(exit->executor);
             stack_pointer[0] = _stack_item_0;
             stack_pointer[1] = _stack_item_1;
             stack_pointer[2] = _stack_item_2;
             stack_pointer += 3;
             assert(WITHIN_STACK_BOUNDS());
-            GOTO_TIER_TWO(exit->executor);
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
@@ -14420,7 +14420,7 @@
             oparg = CURRENT_OPARG();
             PyObject *executor = (PyObject *)CURRENT_OPERAND0();
             #ifndef _Py_JIT
-            current_executor = (_PyExecutorObject*)executor;
+            assert(current_executor == (_PyExecutorObject*)executor);
             #ifdef Py_DEBUG
             assert(STACK_LEVEL() + current_cached_values == oparg);
             #endif
@@ -15008,7 +15008,7 @@
             }
             assert(tstate->jit_exit == exit);
             exit->executor = executor;
-            GOTO_TIER_TWO(exit->executor);
+            TIER2_TO_TIER2(exit->executor);
             _tos_cache0 = PyStackRef_ZERO_BITS;
             _tos_cache1 = PyStackRef_ZERO_BITS;
             _tos_cache2 = PyStackRef_ZERO_BITS;
