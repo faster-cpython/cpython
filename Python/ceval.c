@@ -1178,12 +1178,11 @@ _PyTier2Interpreter(
 
     /* Set up "jit" state after entry from tier 1.
      * This mimics what the jit trampoline function does. */
-    int current_cached_values = current_executor->vm_data.tos_cache;
-    _PyStackRef _tos_cache0 = current_cached_values ? stack_pointer[-current_cached_values] : PyStackRef_ZERO_BITS;
-    _PyStackRef _tos_cache1 = stack_pointer[-1-(current_cached_values&1)]; /* Correct value for 2 or 3, harmless junk for 0 or 1 */
-    _PyStackRef _tos_cache2 = stack_pointer[-1]; /* Correct value for 3, harmless junk otherwise */
-    stack_pointer -= current_cached_values;
     tstate->jit_exit = NULL;
+    _PyStackRef _tos_cache0 = PyStackRef_ZERO_BITS;
+    _PyStackRef _tos_cache1 = PyStackRef_ZERO_BITS;
+    _PyStackRef _tos_cache2 = PyStackRef_ZERO_BITS;
+    int current_cached_values = 0;
 
 tier2_start:
     next_uop = current_executor->trace;

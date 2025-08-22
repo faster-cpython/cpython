@@ -130,6 +130,7 @@ class Emitter:
             "Py_UNREACHABLE": self.unreachable,
             "TIER1_TO_TIER2": self.tier1_to_tier2,
             "TIER2_TO_TIER2": self.tier2_to_tier2,
+            "GOTO_TIER_ONE": self.goto_tier_one
         }
         self.out = out
         self.labels = labels
@@ -198,6 +199,16 @@ class Emitter:
         inst: Instruction | None,
     ) -> bool:
         raise NotImplementedError("HANDLE_PENDING_AND_DEOPT_IF not support in tier 1")
+
+    def goto_tier_one(
+        self,
+        tkn: Token,
+        tkn_iter: TokenIterator,
+        uop: CodeSection,
+        storage: Storage,
+        inst: Instruction | None,
+    ) -> bool:
+        raise NotImplementedError("GOTO_TIER_ONE not supported in tier 1")
 
     def exit_if_after(
         self,

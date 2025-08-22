@@ -2964,7 +2964,7 @@ dummy_func(
                     start--;
                 }
                 _PyExecutorObject *executor;
-                int optimized = _PyOptimizer_Optimize(frame, start, &executor, 0, 0);
+                int optimized = _PyOptimizer_Optimize(frame, start, &executor, 0);
                 if (optimized <= 0) {
                     this_instr[1].counter = restart_backoff_counter(counter);
                     ERROR_IF(optimized < 0);
@@ -2972,7 +2972,6 @@ dummy_func(
                 else {
                     this_instr[1].counter = initial_jump_backoff_counter();
                     assert(tstate->current_executor == NULL);
-                    assert(executor->vm_data.tos_cache == 0);
                     TIER1_TO_TIER2(executor);
                 }
             }
@@ -5384,12 +5383,14 @@ dummy_func(
         tier2 op(_DEOPT, (--)) {
             SYNC_SP();
             GOTO_TIER_ONE(_PyFrame_GetBytecode(frame) + CURRENT_TARGET());
+            Py_UNREACHABLE();
         }
 
         tier2 op(_HANDLE_PENDING_AND_DEOPT, (--)) {
             SYNC_SP();
             int err = _Py_HandlePending(tstate);
             GOTO_TIER_ONE(err ? NULL : _PyFrame_GetBytecode(frame) + CURRENT_TARGET());
+            Py_UNREACHABLE();
         }
 
         tier2 op(_ERROR_POP_N, (target/2 --)) {
@@ -5429,19 +5430,13 @@ dummy_func(
             if (target->op.code == ENTER_EXECUTOR) {
                 PyCodeObject *code = _PyFrame_GetCode(frame);
                 executor = code->co_executors->executors[target->op.arg];
-                int tos_cache = uopcode - _COLD_EXIT_r00;
-                if (tos_cache == executor->vm_data.tos_cache) {
-                    Py_INCREF(executor);
-                }
-                else {
-                    executor = NULL;
-                }
+                Py_INCREF(executor);
             }
-            if (executor == NULL) {
+            else {
                 _PyExecutorObject *previous_executor = _PyExecutor_FromExit(exit);
                 assert(tstate->current_executor == (PyObject *)previous_executor);
                 int chain_depth = previous_executor->vm_data.chain_depth + 1;
-                int optimized = _PyOptimizer_Optimize(frame, target, &executor, chain_depth, exit->tos_cache);
+                int optimized = _PyOptimizer_Optimize(frame, target, &executor, chain_depth);
                 if (optimized <= 0) {
                     exit->temperature = restart_backoff_counter(temperature);
                     SYNC_SP();

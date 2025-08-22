@@ -815,10 +815,10 @@ interpreter_clear(PyInterpreterState *interp, PyThreadState *tstate)
     /* Last garbage collection on this interpreter */
     _PyGC_CollectNoFail(tstate);
     _PyGC_Fini(interp);
-    struct _PyExecutorObject **cold = interp->cold_executors;
+    struct _PyExecutorObject *cold = interp->cold_executor;
     if (cold != NULL) {
-        interp->cold_executors = NULL;
-        _PyExecutor_FreeColdExecutors(cold);
+        interp->cold_executor = NULL;
+        _PyExecutor_FreeColdExecutor(cold);
     }
     /* We don't clear sysdict and builtins until the end of this function.
        Because clearing other attributes can execute arbitrary Python code

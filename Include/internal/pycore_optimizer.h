@@ -35,7 +35,6 @@ typedef struct {
     uint8_t linked:1;
     uint8_t chain_depth:6;  // Must be big enough for MAX_CHAIN_DEPTH - 1.
     bool warm;
-    uint8_t tos_cache;
     int16_t index;           // Index of ENTER_EXECUTOR (if code isn't NULL, below).
     _PyBloomFilter bloom;
     _PyExecutorLinkListNode links;
@@ -70,8 +69,7 @@ typedef struct {
 
 typedef struct _PyExitData {
     uint32_t target;
-    uint16_t index:12;
-    uint16_t tos_cache:4;
+    uint16_t index;
     _Py_BackoffCounter temperature;
     struct _PyExecutorObject *executor;
 } _PyExitData;
@@ -95,7 +93,7 @@ typedef struct _PyExecutorObject {
 // Export for '_opcode' shared extension (JIT compiler).
 PyAPI_FUNC(_PyExecutorObject*) _Py_GetExecutor(PyCodeObject *code, int offset);
 
-void _Py_ExecutorInit(_PyExecutorObject *, const _PyBloomFilter *, int tos_cache);
+void _Py_ExecutorInit(_PyExecutorObject *, const _PyBloomFilter *);
 void _Py_ExecutorDetach(_PyExecutorObject *);
 void _Py_BloomFilter_Init(_PyBloomFilter *);
 void _Py_BloomFilter_Add(_PyBloomFilter *bloom, void *obj);
@@ -354,7 +352,7 @@ extern int _Py_uop_frame_pop(JitOptContext *ctx);
 
 PyAPI_FUNC(PyObject *) _Py_uop_symbols_test(PyObject *self, PyObject *ignored);
 
-PyAPI_FUNC(int) _PyOptimizer_Optimize(_PyInterpreterFrame *frame, _Py_CODEUNIT *start, _PyExecutorObject **exec_ptr, int chain_depth, int tos_cache);
+PyAPI_FUNC(int) _PyOptimizer_Optimize(_PyInterpreterFrame *frame, _Py_CODEUNIT *start, _PyExecutorObject **exec_ptr, int chain_depth);
 
 static inline _PyExecutorObject *_PyExecutor_FromExit(_PyExitData *exit)
 {
@@ -362,7 +360,7 @@ static inline _PyExecutorObject *_PyExecutor_FromExit(_PyExitData *exit)
     return (_PyExecutorObject *)(((char *)exit0) - offsetof(_PyExecutorObject, exits));
 }
 
-extern _PyExecutorObject **_PyExecutor_GetColdExecutors(void);
+extern _PyExecutorObject *_PyExecutor_GetColdExecutor(void);
 
 PyAPI_FUNC(void) _PyExecutor_ClearExit(_PyExitData *exit);
 
@@ -375,7 +373,7 @@ static inline int is_terminator(const _PyUOpInstruction *uop)
     );
 }
 
-extern void _PyExecutor_FreeColdExecutors(_PyExecutorObject **cold);
+extern void _PyExecutor_FreeColdExecutor(_PyExecutorObject *cold);
 
 PyAPI_FUNC(int) _PyDumpExecutors(FILE *out);
 #ifdef _Py_TIER2

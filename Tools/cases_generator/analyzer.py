@@ -1299,17 +1299,12 @@ def get_uop_cache_depths(uop: Uop) -> Iterator[tuple[int, int, int]]:
                 if inputs != outputs:
                     yield inputs, outputs, inputs
         return
-    if uop.name in ("_DEOPT", "_HANDLE_PENDING_AND_DEOPT"):
+    if uop.name in ("_DEOPT", "_HANDLE_PENDING_AND_DEOPT", "_EXIT_TRACE"):
         for i in range(MAX_CACHED_REGISTER+1):
-            yield i, 0, i
+            yield i, 0, 0
         return
     if uop.name in ("_START_EXECUTOR", "_JUMP_TO_TOP", "_COLD_EXIT"):
-        for i in range(MAX_CACHED_REGISTER+1):
-            yield i, i, 0
-        return
-    if uop.name == "_EXIT_TRACE":
-        for i in range(MAX_CACHED_REGISTER+1):
-            yield i, i, i
+        yield 0, 0, 0
         return
     if uop.name == "_ERROR_POP_N":
         yield 0, 0, 0

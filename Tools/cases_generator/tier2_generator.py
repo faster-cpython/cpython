@@ -130,7 +130,9 @@ class Tier2Emitter(Emitter):
         storage: Storage,
         inst: Instruction | None,
     ) -> bool:
+        assert self.exit_cache_depth == 0, uop.name
         cache_items(self, storage.stack, self.exit_cache_depth, False)
+        storage.flush(self.out)
         self.out.emit(tkn)
         lparen = next(tkn_iter)
         assert lparen.kind == "LPAREN"
@@ -138,6 +140,8 @@ class Tier2Emitter(Emitter):
         emit_to(self.out, tkn_iter, "RPAREN")
         self.out.emit(")")
         return False
+
+    goto_tier_one = tier2_to_tier2
 
 def cache_items(emitter: Emitter, stack: Stack, cached_items: int, zero_regs: bool) -> None:
     emitter.out.start_line()
@@ -154,6 +158,7 @@ def cache_items(emitter: Emitter, stack: Stack, cached_items: int, zero_regs: bo
         # without having to emit any code.
         for i in range(cached_items, MAX_CACHED_REGISTER):
             emitter.out.emit(f"_tos_cache{i} = PyStackRef_ZERO_BITS;\n")
+    emitter.emit(f"SET_CURRENT_CACHED_VALUES({cached_items});\n")
 
 def write_uop(uop: Uop, emitter: Emitter, stack: Stack, cached_items: int = 0) -> tuple[bool, Stack]:
     locals: dict[str, Local] = {}
@@ -232,7 +237,6 @@ def generate_tier2(
             reachable, stack = write_uop(uop, emitter, stack, outputs)
             out.start_line()
             if reachable:
-                out.emit(f"SET_CURRENT_CACHED_VALUES({outputs});\n")
                 out.emit("assert(WITHIN_STACK_BOUNDS_WITH_CACHE());\n")
                 if not uop.properties.always_exits:
                     out.emit("break;\n")
