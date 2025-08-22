@@ -1,0 +1,2 @@
+Move cleanup of cold pieces of jitted code from the eval breaker to the jit
+compiler. This reduces the overhead of maintaining the "warm" bit.

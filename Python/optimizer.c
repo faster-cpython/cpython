@@ -152,6 +152,13 @@ _PyOptimizer_Optimize(
     }
     (*executor_ptr)->vm_data.chain_depth = chain_depth;
     assert((*executor_ptr)->vm_data.valid);
+    assert((*executor_ptr)->vm_data.warm);
+    PyInterpreterState *interp = PyInterpreterState_Get();
+    interp->jited_ops_until_cleanup -= (*executor_ptr)->code_size;
+    if (interp->jited_ops_until_cleanup <= 0) {
+        _Py_Executors_InvalidateCold(interp);
+        interp->jited_ops_until_cleanup = JIT_CLEANUP_THRESHOLD;
+    }
     return 1;
 }
 

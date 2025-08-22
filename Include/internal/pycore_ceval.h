@@ -332,7 +332,6 @@ _PyEval_SpecialMethodCanSuggest(PyObject *self, int oparg);
 #define _PY_GC_SCHEDULED_BIT (1U << 4)
 #define _PY_EVAL_PLEASE_STOP_BIT (1U << 5)
 #define _PY_EVAL_EXPLICIT_MERGE_BIT (1U << 6)
-#define _PY_EVAL_JIT_INVALIDATE_COLD_BIT (1U << 7)
 
 /* Reserve a few bits for future use */
 #define _PY_EVAL_EVENTS_BITS 8
