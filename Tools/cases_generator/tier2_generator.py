@@ -139,7 +139,7 @@ class Tier2Emitter(Emitter):
         self.out.emit(")")
         return False
 
-def cache_items(emitter: Emitter, stack: Stack, cached_items: int, zero_regs: bool):
+def cache_items(emitter: Emitter, stack: Stack, cached_items: int, zero_regs: bool) -> None:
     emitter.out.start_line()
     i = cached_items
     while i > 0:
