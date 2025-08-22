@@ -2117,10 +2117,6 @@
             break;
         }
 
-        case _GUARD_DORV_VALUES_INST_ATTR_FROM_DICT: {
-            break;
-        }
-
         case _GUARD_KEYS_VERSION: {
             break;
         }

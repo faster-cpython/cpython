@@ -3557,13 +3557,6 @@ dummy_func(
             DEAD(exc);
         }
 
-        op(_GUARD_DORV_VALUES_INST_ATTR_FROM_DICT, (owner -- owner)) {
-            PyObject *owner_o = PyStackRef_AsPyObjectBorrow(owner);
-            assert(Py_TYPE(owner_o)->tp_flags & Py_TPFLAGS_INLINE_VALUES);
-            PyDictValues *ivs = _PyObject_InlineValues(owner_o);
-            DEOPT_IF(!FT_ATOMIC_LOAD_UINT8(ivs->valid));
-        }
-
         op(_GUARD_KEYS_VERSION, (keys_version/2, owner -- owner)) {
             PyTypeObject *owner_cls = Py_TYPE(PyStackRef_AsPyObjectBorrow(owner));
             PyHeapTypeObject *owner_heap_type = (PyHeapTypeObject *)owner_cls;
@@ -3585,7 +3578,7 @@ dummy_func(
         macro(LOAD_ATTR_METHOD_WITH_VALUES) =
             unused/1 +
             _GUARD_TYPE_VERSION +
-            _GUARD_DORV_VALUES_INST_ATTR_FROM_DICT +
+            _CHECK_MANAGED_OBJECT_HAS_VALUES +
             _GUARD_KEYS_VERSION +
             _LOAD_ATTR_METHOD_WITH_VALUES;
 
@@ -3617,7 +3610,7 @@ dummy_func(
         macro(LOAD_ATTR_NONDESCRIPTOR_WITH_VALUES) =
             unused/1 +
             _GUARD_TYPE_VERSION +
-            _GUARD_DORV_VALUES_INST_ATTR_FROM_DICT +
+            _CHECK_MANAGED_OBJECT_HAS_VALUES +
             _GUARD_KEYS_VERSION +
             _LOAD_ATTR_NONDESCRIPTOR_WITH_VALUES;
 
